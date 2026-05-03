@@ -20,11 +20,12 @@ import HistoryScreen from './src/screens/HistoryScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-function TabIcon({ label, emoji, focused }: { label: string; emoji: string; focused: boolean }) {
+function TabIcon({ emoji, label, focused }: { emoji: string; label: string; focused: boolean }) {
+  const t = useTheme();
   return (
-    <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
-      <Text style={tabStyles.iconEmoji}>{emoji}</Text>
-      <Text style={[tabStyles.iconLabel, { color: focused ? Colors.blue : Colors.textSecondary }]}>
+    <View style={[tabStyles.item, focused && tabStyles.itemActive]}>
+      <Text style={tabStyles.emoji}>{emoji}</Text>
+      <Text style={[tabStyles.label, { color: focused ? Colors.blue : t.textMuted }]}>
         {label}
       </Text>
     </View>
@@ -34,41 +35,36 @@ function TabIcon({ label, emoji, focused }: { label: string; emoji: string; focu
 function MainTabs() {
   const t = useTheme();
   const { bottom } = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: t.surface,
+          borderTopWidth: 1,
           borderTopColor: t.border,
-          borderTopWidth: 0.5,
-          height: 62 + bottom,
-          paddingBottom: bottom || 8,
+          height: 56 + bottom,
+          paddingBottom: bottom || 6,
           paddingTop: 6,
         },
-        tabBarShowLabel: false,
       }}
     >
       <Tab.Screen
         name="Cours"
         component={SubjectScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="Cours" emoji="📚" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📚" label="Cours" focused={focused} /> }}
       />
       <Tab.Screen
         name="Chat"
         component={ChatScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="Chat" emoji="💬" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="💬" label="Chat" focused={focused} /> }}
       />
       <Tab.Screen
         name="Historique"
         component={HistoryScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="Historique" emoji="📋" focused={focused} />,
-        }}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🕐" label="Historique" focused={focused} /> }}
       />
     </Tab.Navigator>
   );
@@ -76,7 +72,6 @@ function MainTabs() {
 
 function AppNavigator() {
   const { onboardingDone, studentName } = useAppStore();
-
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -104,20 +99,24 @@ export default function App() {
 }
 
 const tabStyles = StyleSheet.create({
-  iconWrap: {
+  item: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 20,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 14,
     gap: 2,
   },
-  iconWrapActive: {
+  itemActive: {
     backgroundColor: Colors.blueLight,
   },
-  iconEmoji: { fontSize: 18 },
-  iconLabel: {
+  emoji: {
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  label: {
     fontSize: 10,
-    fontWeight: '500',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

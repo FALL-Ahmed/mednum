@@ -11,7 +11,9 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Modal,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAppStore, Message } from '../store';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme } from '../components';
@@ -98,7 +100,9 @@ export default function ChatScreen({ route }: any) {
     setNiveau,
   } = useAppStore();
   const t = useTheme();
+  const navigation = useNavigation<any>();
   const [input, setInput] = useState(prefill || '');
+  const [showNoCourseModal, setShowNoCourseModal] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -113,7 +117,7 @@ export default function ChatScreen({ route }: any) {
     const q = input.trim();
     if (!q || isLoading) return;
     if (!activeCourse) {
-      Alert.alert('Pas de cours', 'Charge un cours PDF pour poser des questions.');
+      setShowNoCourseModal(true);
       return;
     }
 
@@ -268,6 +272,32 @@ export default function ChatScreen({ route }: any) {
         </View>
         <SafeAreaView style={{ backgroundColor: t.surface }} />
       </KeyboardAvoidingView>
+
+      {/* Modal — aucun cours sélectionné */}
+      <Modal visible={showNoCourseModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: t.surface }]}>
+            <Text style={styles.modalEmoji}>📚</Text>
+            <Text style={[styles.modalTitle, { color: t.text }]}>Choisis une matière</Text>
+            <Text style={[styles.modalSub, { color: t.textMuted }]}>
+              Va dans l'onglet <Text style={{ fontWeight: '700', color: Colors.blue }}>Cours</Text> et sélectionne une matière avant de discuter.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={() => {
+                setShowNoCourseModal(false);
+                navigation.navigate('Cours');
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalBtnText}>Choisir une matière →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowNoCourseModal(false)} style={styles.modalClose}>
+              <Text style={[styles.modalCloseText, { color: t.textMuted }]}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -430,4 +460,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendArrow: { color: '#fff', fontSize: 20, fontWeight: '600', marginLeft: 2 },
+
+  /* Modal no course */
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center', padding: 32,
+  },
+  modalBox: {
+    borderRadius: 24, padding: 28,
+    alignItems: 'center', width: '100%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2, shadowRadius: 24, elevation: 12,
+  },
+  modalEmoji: { fontSize: 52, marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8, letterSpacing: -0.3 },
+  modalSub: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  modalBtn: {
+    backgroundColor: Colors.blue, borderRadius: Radius.lg,
+    paddingVertical: 14, paddingHorizontal: 28, width: '100%', alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  modalClose: { paddingVertical: 8 },
+  modalCloseText: { fontSize: 14 },
 });

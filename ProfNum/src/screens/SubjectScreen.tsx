@@ -12,7 +12,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase, SBCourse } from '../lib/supabase';
 import { useAppStore, Course } from '../store';
@@ -55,7 +54,6 @@ export default function SubjectScreen() {
   } = useAppStore();
   const t = useTheme();
   const { top } = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
   const [sbCourses, setSbCourses] = useState<SBCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -73,7 +71,6 @@ export default function SubjectScreen() {
     const existing = storeCourses.find(c => c.id === course.id);
     if (existing) {
       setActiveCourse(course.id);
-      navigation.navigate('Chat');
       return;
     }
     setDownloading(course.id);
@@ -84,10 +81,9 @@ export default function SubjectScreen() {
         await FileSystem.downloadAsync(publicUrl, localUri);
       const { text, pages } = await extractPDFText(localUri);
       addCourse({ id: course.id, name: course.name, fileName: course.pdf_path.split('/').pop() || course.name, fileUri: localUri, pages, uploadedAt: new Date(), active: true, content: text } as Course);
-      navigation.navigate('Chat');
     } catch (err: any) { Alert.alert('Erreur', err?.message || 'Impossible de charger ce cours.'); }
     setDownloading(null);
-  }, [downloading, storeCourses, addCourse, setActiveCourse, navigation]);
+  }, [downloading, storeCourses, addCourse, setActiveCourse]);
 
   const activeSB = sbCourses.find(c => c.id === activeCourse?.id);
 
@@ -210,7 +206,7 @@ export default function SubjectScreen() {
           )}
         </View>
 
-        <View style={{ height: 20 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
