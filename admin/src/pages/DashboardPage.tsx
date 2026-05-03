@@ -1,7 +1,29 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import * as pdfjsLib from 'pdfjs-dist'
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { supabase } from '../lib/supabase'
 import type { Course, Class, Subject } from '../lib/supabase'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc
+
+async function extractTextFromPDF(file: File): Promise<{ text: string; pages: number }> {
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const numPages = pdf.numPages
+  const pageTexts: string[] = []
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    const pageText = content.items
+      .map((item: any) => item.str)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (pageText) pageTexts.push(pageText)
+  }
+  return { text: pageTexts.join('\n\n'), pages: numPages }
+}
 
 type Tab = 'courses' | 'upload' | 'classes' | 'subjects'
 
@@ -166,6 +188,27 @@ function UploadTab({
     }
     setUploading(true)
     setError('')
+    setProgress('Lecture du PDF en cours…')
+
+    let extractedText = ''
+    let extractedPages = 0
+    try {
+      const result = await extractTextFromPDF(file)
+      extractedText = result.text
+      extractedPages = result.pages
+      if (extractedText.trim().length < 30) {
+        setError('Le PDF semble être scanné ou vide. Le texte n\'a pas pu être extrait. Utilise un PDF avec du texte natif.')
+        setUploading(false)
+        setProgress('')
+        return
+      }
+    } catch (e: any) {
+      setError(`Erreur lors de la lecture du PDF : ${e?.message}`)
+      setUploading(false)
+      setProgress('')
+      return
+    }
+
     setProgress('Upload du PDF en cours…')
 
     const ext = file.name.split('.').pop() || 'pdf'
@@ -188,7 +231,8 @@ function UploadTab({
       subject_id: subjectId,
       name: name.trim(),
       pdf_path: path,
-      pages: 0,
+      pages: extractedPages,
+      content: extractedText,
     })
 
     if (dbErr) {

@@ -10,33 +10,38 @@ import {
   Platform,
   SafeAreaView,
   StatusBar,
-  Alert,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppStore, Message } from '../store';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme } from '../components';
 import { askRAG, NIVEAU_LABELS, NiveauType } from '../utils/rag';
+import { getSubjectStyle } from '../utils/subjectStyles';
 
-const ChatBubble = React.memo(function ChatBubble({ msg, onFeedback, onSuggestion }: { msg: Message; onFeedback: (id: string, f: 'up' | 'down') => void; onSuggestion: (q: string) => void }) {
+// ─── Bubble ──────────────────────────────────────────────────────────────────
+
+const ChatBubble = React.memo(function ChatBubble({
+  msg,
+  accentColor,
+  lightColor,
+  onFeedback,
+  onSuggestion,
+}: {
+  msg: Message;
+  accentColor: string;
+  lightColor: string;
+  onFeedback: (id: string, f: 'up' | 'down') => void;
+  onSuggestion: (q: string) => void;
+}) {
   const t = useTheme();
 
   if (msg.role === 'user') {
     return (
       <View style={styles.rowUser}>
-        <View style={styles.bubbleUser}>
+        <View style={[styles.bubbleUser, { backgroundColor: Colors.blue }]}>
           <Text style={styles.bubbleUserText}>{msg.content}</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (msg.role === 'refusal') {
-    return (
-      <View style={styles.rowAI}>
-        <View style={styles.bubbleRefusal}>
-          <Text style={styles.bubbleRefusalText}>{msg.content}</Text>
         </View>
       </View>
     );
@@ -45,8 +50,24 @@ const ChatBubble = React.memo(function ChatBubble({ msg, onFeedback, onSuggestio
   if (msg.role === 'error') {
     return (
       <View style={styles.rowAI}>
-        <View style={styles.bubbleError}>
-          <Text style={styles.bubbleErrorText}>⚠️ {msg.content}</Text>
+        <View style={styles.aiAvatar}>
+          <Text style={{ fontSize: 14 }}>⚠️</Text>
+        </View>
+        <View style={[styles.bubbleAI, { backgroundColor: Colors.errorLight, borderColor: Colors.error }]}>
+          <Text style={[styles.bubbleAIText, { color: Colors.error }]}>{msg.content}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (msg.role === 'refusal') {
+    return (
+      <View style={styles.rowAI}>
+        <View style={[styles.aiAvatar, { backgroundColor: Colors.blueLight }]}>
+          <Text style={{ fontSize: 14 }}>🤔</Text>
+        </View>
+        <View style={[styles.bubbleAI, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+          <Text style={[styles.bubbleAIText, { color: t.textMuted }]}>{msg.content}</Text>
         </View>
       </View>
     );
@@ -54,28 +75,35 @@ const ChatBubble = React.memo(function ChatBubble({ msg, onFeedback, onSuggestio
 
   return (
     <View style={styles.rowAI}>
+      <View style={[styles.aiAvatar, { backgroundColor: lightColor }]}>
+        <Text style={{ fontSize: 14 }}>🎓</Text>
+      </View>
       <View style={[styles.bubbleAI, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
         <Text style={[styles.bubbleAIText, { color: t.text }]}>{msg.content}</Text>
         {msg.sources && msg.sources.length > 0 && <SourceBadge pages={msg.sources} />}
         {msg.suggestions && msg.suggestions.length > 0 && (
-          <View style={styles.suggRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggRow}>
             {msg.suggestions.map((q, i) => (
-              <TouchableOpacity key={i} style={styles.suggChip} onPress={() => onSuggestion(q)}>
-                <Text style={styles.suggText}>💡 {q}</Text>
+              <TouchableOpacity
+                key={i}
+                style={[styles.suggChip, { backgroundColor: lightColor, borderColor: accentColor }]}
+                onPress={() => onSuggestion(q)}
+              >
+                <Text style={[styles.suggText, { color: accentColor }]}>💡 {q}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         )}
         <View style={styles.feedbackRow}>
           <TouchableOpacity
             onPress={() => onFeedback(msg.id, 'up')}
-            style={[styles.fbBtn, msg.feedback === 'up' && styles.fbBtnActive]}
+            style={[styles.fbBtn, msg.feedback === 'up' && { backgroundColor: lightColor, borderColor: accentColor }]}
           >
             <Text style={styles.fbEmoji}>👍</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onFeedback(msg.id, 'down')}
-            style={[styles.fbBtn, msg.feedback === 'down' && styles.fbBtnActive]}
+            style={[styles.fbBtn, msg.feedback === 'down' && { backgroundColor: '#FEF2F2', borderColor: Colors.error }]}
           >
             <Text style={styles.fbEmoji}>👎</Text>
           </TouchableOpacity>
@@ -85,19 +113,43 @@ const ChatBubble = React.memo(function ChatBubble({ msg, onFeedback, onSuggestio
   );
 });
 
+// ─── Empty State ─────────────────────────────────────────────────────────────
+
+function EmptyState({ emoji, subjectName, courseName, accentColor, lightColor, t }: any) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={[styles.emptyEmojiWrap, { backgroundColor: lightColor }]}>
+        <Text style={styles.emptyEmoji}>{emoji}</Text>
+      </View>
+      {courseName ? (
+        <>
+          <Text style={[styles.emptyTitle, { color: t.text }]}>Prêt à apprendre !</Text>
+          <Text style={[styles.emptyCourse, { color: accentColor }]}>{subjectName}</Text>
+          <Text style={[styles.emptySub, { color: t.textMuted }]} numberOfLines={2}>{courseName}</Text>
+          <Text style={[styles.emptyHint, { color: t.textMuted }]}>
+            Pose n'importe quelle question sur ce cours
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text style={[styles.emptyTitle, { color: t.text }]}>Aucun cours chargé</Text>
+          <Text style={[styles.emptySub, { color: t.textMuted }]}>
+            Va dans l'onglet Cours et sélectionne une matière
+          </Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
 export default function ChatScreen({ route }: any) {
   const prefill = route?.params?.prefill;
   const {
-    currentMessages,
-    activeCourse,
-    isLoading,
-    addMessage,
-    setLoading,
-    clearChat,
-    saveChatSession,
-    setFeedback,
-    niveau,
-    setNiveau,
+    currentMessages, activeCourse, isLoading,
+    addMessage, setLoading, clearChat, saveChatSession, setFeedback,
+    niveau, setNiveau,
   } = useAppStore();
   const t = useTheme();
   const navigation = useNavigation<any>();
@@ -105,107 +157,103 @@ export default function ChatScreen({ route }: any) {
   const [showNoCourseModal, setShowNoCourseModal] = useState(false);
   const listRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    if (prefill) setInput(prefill);
-  }, [prefill]);
+  const subjectStyle = getSubjectStyle(activeCourse?.subjectName || '');
 
-  const scrollToBottom = () => {
+  useEffect(() => { if (prefill) setInput(prefill); }, [prefill]);
+
+  const scrollToBottom = () =>
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  };
 
   const sendMessage = async () => {
     const q = input.trim();
     if (!q || isLoading) return;
-    if (!activeCourse) {
-      setShowNoCourseModal(true);
-      return;
-    }
+    if (!activeCourse) { setShowNoCourseModal(true); return; }
 
     setInput('');
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: q,
-      timestamp: new Date(),
-    };
-    addMessage(userMsg);
+    addMessage({ id: Date.now().toString(), role: 'user', content: q, timestamp: new Date() });
     setLoading(true);
     scrollToBottom();
 
-    // Contenu réel extrait du PDF (pdfjs-dist) stocké dans le store
-    const courseContent = activeCourse?.content ?? '';
-
-    const result = await askRAG(q, courseContent, activeCourse.name, currentMessages, niveau);
-
-    const aiMsg: Message = {
+    const result = await askRAG(q, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau);
+    addMessage({
       id: (Date.now() + 1).toString(),
       role: result.type === 'answer' ? 'assistant' : result.type,
       content: result.content,
       sources: result.sources,
       suggestions: result.suggestions,
       timestamp: new Date(),
-    };
-    addMessage(aiMsg);
+    });
     setLoading(false);
     scrollToBottom();
   };
 
-  const handleNewChat = () => {
-    saveChatSession();
-    clearChat();
-  };
-
-  const handleSuggestion = useCallback((q: string) => {
-    setInput(q);
-  }, []);
-
-  const handleFeedback = useCallback((id: string, f: 'up' | 'down') => {
-    setFeedback(id, f);
-  }, [setFeedback]);
+  const handleNewChat = () => { saveChatSession(); clearChat(); };
+  const handleSuggestion = useCallback((q: string) => setInput(q), []);
+  const handleFeedback = useCallback((id: string, f: 'up' | 'down') => setFeedback(id, f), [setFeedback]);
 
   const renderItem = useCallback(({ item }: { item: Message }) => (
-    <ChatBubble msg={item} onFeedback={handleFeedback} onSuggestion={handleSuggestion} />
-  ), [handleFeedback, handleSuggestion]);
+    <ChatBubble
+      msg={item}
+      accentColor={subjectStyle.accent}
+      lightColor={subjectStyle.light}
+      onFeedback={handleFeedback}
+      onSuggestion={handleSuggestion}
+    />
+  ), [handleFeedback, handleSuggestion, subjectStyle]);
+
+  const hasContent = activeCourse?.content && activeCourse.content.trim().length > 50;
 
   return (
     <View style={[styles.root, { backgroundColor: t.bg }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.blue} />
+      <StatusBar barStyle="light-content" backgroundColor={subjectStyle.bg} />
 
-      {/* Header */}
-      <View style={styles.header}>
+      {/* ── Header ── */}
+      <View style={[styles.header, { backgroundColor: subjectStyle.bg }]}>
         <SafeAreaView>
-          <View style={styles.headerInner}>
-            <View>
-              <Text style={styles.headerTitle}>ProfNum</Text>
-              {activeCourse ? (
-                <View style={styles.headerBadge}>
-                  <View style={styles.headerBadgeDot} />
-                  <Text style={styles.headerBadgeText}>Cours chargé ✓</Text>
-                </View>
-              ) : (
-                <Text style={styles.headerNoCourse}>Aucun cours</Text>
-              )}
-            </View>
-            <View style={styles.headerRight}>
-              {/* Sélecteur de niveau */}
-              <View style={styles.niveauRow}>
-                {(['facile', 'moyen', 'avance'] as NiveauType[]).map((n) => (
-                  <TouchableOpacity
-                    key={n}
-                    style={[styles.niveauChip, niveau === n && styles.niveauChipActive]}
-                    onPress={() => setNiveau(n)}
-                  >
-                    <Text style={[styles.niveauChipText, niveau === n && styles.niveauChipTextActive]}>
-                      {NIVEAU_LABELS[n]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+          <View style={styles.headerTop}>
+            {/* Course info */}
+            <View style={styles.headerLeft}>
+              <View style={[styles.headerEmojiWrap, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                <Text style={styles.headerEmoji}>{subjectStyle.emoji}</Text>
               </View>
-              <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat}>
-                <Text style={styles.newChatText}>Nouveau</Text>
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.headerSubject}>
+                  {activeCourse?.subjectName || 'ProfNum'}
+                </Text>
+                <Text style={styles.headerCourseName} numberOfLines={1}>
+                  {activeCourse
+                    ? hasContent ? activeCourse.name : '⚠️ Cours non lisible'
+                    : 'Sélectionne un cours'}
+                </Text>
+              </View>
             </View>
+            {/* Actions */}
+            <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat}>
+              <Text style={styles.newChatText}>✦ Nouveau</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Niveau selector */}
+          <View style={styles.niveauRow}>
+            {(['facile', 'moyen', 'avance'] as NiveauType[]).map((n) => (
+              <TouchableOpacity
+                key={n}
+                style={[
+                  styles.niveauChip,
+                  niveau === n
+                    ? { backgroundColor: '#fff' }
+                    : { backgroundColor: 'rgba(255,255,255,0.12)' },
+                ]}
+                onPress={() => setNiveau(n)}
+              >
+                <Text style={[
+                  styles.niveauText,
+                  { color: niveau === n ? subjectStyle.bg : 'rgba(255,255,255,0.75)' },
+                ]}>
+                  {NIVEAU_LABELS[n]}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </SafeAreaView>
       </View>
@@ -217,17 +265,14 @@ export default function ChatScreen({ route }: any) {
       >
         {/* Messages */}
         {currentMessages.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyEmoji}>🎓</Text>
-            <Text style={[styles.emptyTitle, { color: t.text }]}>
-              {activeCourse ? 'Pose ta première question !' : 'Charge un cours pour commencer'}
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: t.textMuted }]}>
-              {activeCourse
-                ? `Je répondrai depuis "${activeCourse.name}"`
-                : 'Va dans l\'onglet "Cours" pour ajouter un PDF'}
-            </Text>
-          </View>
+          <EmptyState
+            emoji={subjectStyle.emoji}
+            subjectName={activeCourse?.subjectName}
+            courseName={activeCourse?.name}
+            accentColor={subjectStyle.accent}
+            lightColor={subjectStyle.light}
+            t={t}
+          />
         ) : (
           <FlatList
             ref={listRef}
@@ -237,8 +282,13 @@ export default function ChatScreen({ route }: any) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListFooterComponent={isLoading ? (
-              <View style={{ paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm }}>
-                <TypingIndicator />
+              <View style={styles.typingWrap}>
+                <View style={[styles.aiAvatar, { backgroundColor: subjectStyle.light }]}>
+                  <Text style={{ fontSize: 14 }}>🎓</Text>
+                </View>
+                <View style={[styles.typingBubble, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
+                  <TypingIndicator />
+                </View>
               </View>
             ) : null}
           />
@@ -247,10 +297,7 @@ export default function ChatScreen({ route }: any) {
         {/* Input Bar */}
         <View style={[styles.inputBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
           <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: t.surfaceAlt, color: t.text, borderColor: t.border },
-            ]}
+            style={[styles.input, { backgroundColor: t.bg, color: t.text, borderColor: t.border }]}
             placeholder="Pose ta question…"
             placeholderTextColor={t.textMuted}
             value={input}
@@ -262,38 +309,40 @@ export default function ChatScreen({ route }: any) {
             blurOnSubmit
           />
           <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || isLoading) && { opacity: 0.4 }]}
+            style={[
+              styles.sendBtn,
+              { backgroundColor: subjectStyle.bg },
+              (!input.trim() || isLoading) && { opacity: 0.35 },
+            ]}
             onPress={sendMessage}
             disabled={!input.trim() || isLoading}
             activeOpacity={0.8}
           >
-            <Text style={styles.sendArrow}>→</Text>
+            <Text style={styles.sendArrow}>↑</Text>
           </TouchableOpacity>
         </View>
         <SafeAreaView style={{ backgroundColor: t.surface }} />
       </KeyboardAvoidingView>
 
-      {/* Modal — aucun cours sélectionné */}
+      {/* Modal no course */}
       <Modal visible={showNoCourseModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { backgroundColor: t.surface }]}>
             <Text style={styles.modalEmoji}>📚</Text>
             <Text style={[styles.modalTitle, { color: t.text }]}>Choisis une matière</Text>
             <Text style={[styles.modalSub, { color: t.textMuted }]}>
-              Va dans l'onglet <Text style={{ fontWeight: '700', color: Colors.blue }}>Cours</Text> et sélectionne une matière avant de discuter.
+              Va dans l'onglet{' '}
+              <Text style={{ fontWeight: '700', color: Colors.blue }}>Cours</Text>{' '}
+              et sélectionne une matière pour commencer.
             </Text>
             <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => {
-                setShowNoCourseModal(false);
-                navigation.navigate('Cours');
-              }}
-              activeOpacity={0.85}
+              style={[styles.modalBtn, { backgroundColor: Colors.blue }]}
+              onPress={() => { setShowNoCourseModal(false); navigation.navigate('Cours'); }}
             >
               <Text style={styles.modalBtnText}>Choisir une matière →</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowNoCourseModal(false)} style={styles.modalClose}>
-              <Text style={[styles.modalCloseText, { color: t.textMuted }]}>Fermer</Text>
+            <TouchableOpacity onPress={() => setShowNoCourseModal(false)} style={{ paddingVertical: 8 }}>
+              <Text style={[{ fontSize: 14 }, { color: t.textMuted }]}>Fermer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -302,173 +351,146 @@ export default function ChatScreen({ route }: any) {
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { backgroundColor: Colors.blue },
-  headerInner: {
+
+  /* Header */
+  header: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  headerTitle: { ...Typography.h3, color: '#fff' },
-  headerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  headerEmojiWrap: {
+    width: 44, height: 44, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
   },
-  headerBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#5EE9B8' },
-  headerBadgeText: { ...Typography.caption, color: 'rgba(255,255,255,0.85)' },
-  headerNoCourse: { ...Typography.caption, color: 'rgba(255,255,255,0.55)' },
-  headerRight: {
-    alignItems: 'flex-end',
-    gap: 6,
+  headerEmoji: { fontSize: 22 },
+  headerSubject: {
+    fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.65)',
+    letterSpacing: 1.2, textTransform: 'uppercase',
   },
-  niveauRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  niveauChip: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  niveauChipActive: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-  },
-  niveauChipText: {
-    fontSize: 11,
-    fontWeight: '600' as const,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  niveauChipTextActive: {
-    color: Colors.blue,
+  headerCourseName: {
+    fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 1,
   },
   newChatBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: Radius.xs,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
-  newChatText: { ...Typography.labelSmall, color: '#fff' },
-  listContent: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.md },
-  rowUser: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
-  rowAI: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 10 },
+  newChatText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+
+  /* Niveau */
+  niveauRow: { flexDirection: 'row', gap: 6 },
+  niveauChip: {
+    borderRadius: Radius.full,
+    paddingHorizontal: 14, paddingVertical: 5,
+  },
+  niveauText: { fontSize: 12, fontWeight: '700' },
+
+  /* Messages */
+  listContent: { paddingVertical: Spacing.lg, paddingHorizontal: Spacing.md },
+  rowUser: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 },
+  rowAI: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'flex-end', gap: 8, marginBottom: 12 },
+
+  aiAvatar: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
   bubbleUser: {
-    backgroundColor: Colors.blue,
-    borderRadius: Radius.md,
-    borderBottomRightRadius: 4,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    maxWidth: '80%',
+    borderRadius: 20, borderBottomRightRadius: 4,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    maxWidth: '78%',
   },
-  bubbleUserText: { ...Typography.chat, color: '#fff' },
+  bubbleUserText: { fontSize: 15, color: '#fff', lineHeight: 22 },
   bubbleAI: {
-    borderRadius: Radius.md,
-    borderBottomLeftRadius: 4,
+    borderRadius: 20, borderBottomLeftRadius: 4,
     borderWidth: 0.5,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    maxWidth: '85%',
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    maxWidth: '78%', flex: 1,
   },
-  bubbleAIText: { ...Typography.chat, lineHeight: 22 },
-  bubbleRefusal: {
-    backgroundColor: Colors.orange,
-    borderRadius: Radius.md,
-    borderBottomLeftRadius: 4,
-    borderWidth: 0.5,
-    borderColor: Colors.orangeBorder,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    maxWidth: '85%',
+  bubbleAIText: { fontSize: 15, lineHeight: 22 },
+
+  /* Typing */
+  typingWrap: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+    paddingHorizontal: Spacing.md, paddingBottom: Spacing.md,
   },
-  bubbleRefusalText: { ...Typography.chat, color: Colors.orangeText },
-  bubbleError: {
-    backgroundColor: Colors.errorLight,
-    borderRadius: Radius.md,
-    borderBottomLeftRadius: 4,
-    borderWidth: 0.5,
-    borderColor: Colors.error,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    maxWidth: '85%',
+  typingBubble: {
+    borderRadius: 20, borderBottomLeftRadius: 4,
+    borderWidth: 0.5, padding: Spacing.md,
   },
-  bubbleErrorText: { ...Typography.chat, color: Colors.error },
-  suggRow: { flexDirection: 'column', gap: 6, marginTop: 8 },
+
+  /* Suggestions */
+  suggRow: { marginTop: 8, marginBottom: 2 },
   suggChip: {
-    backgroundColor: Colors.blueLight,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.blue,
+    borderRadius: Radius.full, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 5,
+    marginRight: 6,
   },
-  suggText: { fontSize: 12, color: Colors.blue, fontWeight: '500' },
-  feedbackRow: { flexDirection: 'row', gap: 6, marginTop: 7 },
+  suggText: { fontSize: 12, fontWeight: '600' },
+
+  /* Feedback */
+  feedbackRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
   fbBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 0.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 0.5, borderColor: '#E5E7EB',
+    alignItems: 'center', justifyContent: 'center',
   },
-  fbBtnActive: { backgroundColor: Colors.blueLight, borderColor: Colors.blue },
-  fbEmoji: { fontSize: 13 },
+  fbEmoji: { fontSize: 12 },
+
+  /* Empty state */
   emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: Spacing.md,
+    flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, gap: 8,
   },
-  emptyEmoji: { fontSize: 56, marginBottom: Spacing.sm },
+  emptyEmojiWrap: {
+    width: 80, height: 80, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8,
+  },
+  emptyEmoji: { fontSize: 40 },
   emptyTitle: { ...Typography.h3, textAlign: 'center' },
-  emptySubtitle: { ...Typography.body, textAlign: 'center', lineHeight: 24 },
+  emptyCourse: { fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 20, fontWeight: '600' },
+  emptyHint: { fontSize: 13, textAlign: 'center', lineHeight: 20, marginTop: 4 },
+
+  /* Input */
   inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderTopWidth: 0.5,
-    gap: Spacing.sm,
+    flexDirection: 'row', alignItems: 'flex-end',
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    borderTopWidth: 0.5, gap: 8,
   },
   input: {
-    flex: 1,
-    borderRadius: Radius.md,
-    borderWidth: 0.5,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 100,
-    minHeight: 44,
+    flex: 1, borderRadius: 20, borderWidth: 0.5,
+    paddingHorizontal: 16, paddingVertical: 10,
+    fontSize: 15, maxHeight: 100, minHeight: 44,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.blue,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
   },
-  sendArrow: { color: '#fff', fontSize: 20, fontWeight: '600', marginLeft: 2 },
+  sendArrow: { color: '#fff', fontSize: 20, fontWeight: '700' },
 
-  /* Modal no course */
+  /* Modal */
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center', justifyContent: 'center', padding: 32,
   },
   modalBox: {
-    borderRadius: 24, padding: 28,
-    alignItems: 'center', width: '100%',
+    borderRadius: 24, padding: 28, alignItems: 'center', width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2, shadowRadius: 24, elevation: 12,
   },
@@ -476,11 +498,8 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8, letterSpacing: -0.3 },
   modalSub: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   modalBtn: {
-    backgroundColor: Colors.blue, borderRadius: Radius.lg,
-    paddingVertical: 14, paddingHorizontal: 28, width: '100%', alignItems: 'center',
-    marginBottom: 12,
+    borderRadius: Radius.lg, paddingVertical: 14, paddingHorizontal: 28,
+    width: '100%', alignItems: 'center', marginBottom: 12,
   },
   modalBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  modalClose: { paddingVertical: 8 },
-  modalCloseText: { fontSize: 14 },
 });

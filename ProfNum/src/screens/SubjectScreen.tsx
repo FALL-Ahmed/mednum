@@ -12,10 +12,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system/legacy';
 import { supabase, SBCourse } from '../lib/supabase';
 import { useAppStore, Course } from '../store';
-import { extractPDFText } from '../utils/pdfExtractor';
 import { Colors, Spacing, Radius } from '../theme';
 import { useTheme } from '../components';
 
@@ -69,19 +67,40 @@ export default function SubjectScreen() {
   const handleSelect = useCallback(async (course: SBCourse) => {
     if (downloading) return;
     const existing = storeCourses.find(c => c.id === course.id);
-    if (existing) {
+    if (existing && existing.content && existing.content.trim().length > 50) {
       setActiveCourse(course.id);
       return;
     }
     setDownloading(course.id);
     try {
-      const { data: { publicUrl } } = supabase.storage.from('courses').getPublicUrl(course.pdf_path);
-      const localUri = FileSystem.cacheDirectory + course.id + '.pdf';
-      if (!(await FileSystem.getInfoAsync(localUri)).exists)
-        await FileSystem.downloadAsync(publicUrl, localUri);
-      const { text, pages } = await extractPDFText(localUri);
-      addCourse({ id: course.id, name: course.name, fileName: course.pdf_path.split('/').pop() || course.name, fileUri: localUri, pages, uploadedAt: new Date(), active: true, content: text } as Course);
-    } catch (err: any) { Alert.alert('Erreur', err?.message || 'Impossible de charger ce cours.'); }
+      // Lire le contenu textuel extrait côté admin depuis Supabase
+      const { data, error } = await supabase
+        .from('courses')
+        .select('content')
+        .eq('id', course.id)
+        .single();
+      if (error) throw error;
+      const content = data?.content || '';
+      if (content.trim().length < 50) {
+        throw new Error(
+          'Ce cours n\'a pas encore de contenu textuel.\n\n' +
+          'Re-uploade le PDF depuis l\'application admin pour extraire le texte.'
+        );
+      }
+      addCourse({
+        id: course.id,
+        name: course.name,
+        subjectName: course.subjects?.name || '',
+        fileName: course.pdf_path.split('/').pop() || course.name,
+        fileUri: '',
+        pages: course.pages || 1,
+        uploadedAt: new Date(),
+        active: true,
+        content,
+      } as Course);
+    } catch (err: any) {
+      Alert.alert('Erreur', err?.message || 'Impossible de charger ce cours.');
+    }
     setDownloading(null);
   }, [downloading, storeCourses, addCourse, setActiveCourse]);
 
@@ -158,11 +177,31 @@ export default function SubjectScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.grid}>
-              {sbCourses.map(item => {
+            <>
+              {/* Grouper par matière */}
+              {Object.entries(
+                sbCourses.reduce((acc: Record<string, SBCourse[]>, item) => {
+                  const key = item.subjects?.name || 'Autre';
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(item);
+                  return acc;
+                }, {})
+              ).map(([subjectName, items]) => {
+                const s = getSubjectStyle(subjectName);
+                return (
+                  <View key={subjectName} style={{ marginBottom: Spacing.xl }}>
+                    {/* En-tête matière */}
+                    <View style={styles.subjectHeader}>
+                      <Text style={styles.subjectHeaderEmoji}>{s.emoji}</Text>
+                      <Text style={[styles.subjectHeaderName, { color: t.text }]}>{subjectName}</Text>
+                      <Text style={[styles.subjectHeaderCount, { color: t.textMuted }]}>
+                        {items.length} cours
+                      </Text>
+                    </View>
+                    <View style={styles.grid}>
+                      {items.map(item => {
                 const isActive = activeCourse?.id === item.id;
                 const isDown = downloading === item.id;
-                const s = getSubjectStyle(item.subjects?.name);
                 return (
                   <TouchableOpacity
                     key={item.id}
@@ -202,7 +241,11 @@ export default function SubjectScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </>
           )}
         </View>
 
@@ -274,6 +317,10 @@ const styles = StyleSheet.create({
   /* Grid */
   gridSection: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl },
   sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: Spacing.md },
+  subjectHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.md },
+  subjectHeaderEmoji: { fontSize: 18 },
+  subjectHeaderName: { fontSize: 15, fontWeight: '800', flex: 1 },
+  subjectHeaderCount: { fontSize: 12 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 
   /* Card */

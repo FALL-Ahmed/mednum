@@ -16,6 +16,7 @@ export type Message = {
 export type Course = {
   id: string;
   name: string;
+  subjectName: string;
   fileName: string;
   fileUri: string;
   pages: number;
@@ -95,9 +96,22 @@ export const useAppStore = create<AppStore>()(
         }),
       setActiveCourse: (id) =>
         set((s) => {
+          if (s.activeCourse?.id === id) return {};
           const courses = s.courses.map((c) => ({ ...c, active: c.id === id }));
           const activeCourse = courses.find((c) => c.id === id) || null;
-          return { courses, activeCourse };
+          // Auto-save current session then clear messages
+          let chatHistory = s.chatHistory;
+          if (s.currentMessages.length > 0 && s.activeCourse) {
+            const session: ChatSession = {
+              id: Date.now().toString(),
+              courseId: s.activeCourse.id,
+              courseName: s.activeCourse.name,
+              messages: [...s.currentMessages],
+              createdAt: new Date(),
+            };
+            chatHistory = [session, ...chatHistory].slice(0, 50);
+          }
+          return { courses, activeCourse, currentMessages: [], chatHistory };
         }),
 
       currentMessages: [],
