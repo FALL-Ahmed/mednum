@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env files (secrets)
+.env
+**/.env
+*.env.local
+
+# Expo
+**/.expo/
+**/dist/
+**/web-build/
+
+# Vite build
+**/dist/
+**/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDF files (cours uploadés localement)
+*.pdf
+
+# Logs
+*.log
+npm-debug.log*

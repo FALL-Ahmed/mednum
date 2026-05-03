@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "ProfNum",
+    "slug": "profnum",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1A6FD4"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.profnum.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1A6FD4"
+      },
+      "package": "com.profnum.app"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-document-picker"
+    ],
+    "scheme": "profnum"
+  }
+}
