@@ -50,17 +50,17 @@ function MainTabs() {
       }}
     >
       <Tab.Screen
-        name="Chat"
-        component={ChatScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="Chat" emoji="💬" focused={focused} />,
-        }}
-      />
-      <Tab.Screen
         name="Cours"
         component={SubjectScreen}
         options={{
           tabBarIcon: ({ focused }) => <TabIcon label="Cours" emoji="📚" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon label="Chat" emoji="💬" focused={focused} />,
         }}
       />
       <Tab.Screen

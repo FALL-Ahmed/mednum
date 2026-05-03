@@ -5,19 +5,20 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, SBClass } from '../lib/supabase';
 import { useAppStore } from '../store';
-import { Colors, Typography, Spacing, Radius } from '../theme';
+import { Colors, Spacing, Radius } from '../theme';
 import { useTheme } from '../components';
 
 export default function StudentSetupScreen() {
   const { setStudentInfo } = useAppStore();
   const t = useTheme();
+  const { top, bottom } = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [classes, setClasses] = useState<SBClass[]>([]);
   const [selected, setSelected] = useState<SBClass | null>(null);
@@ -34,117 +35,205 @@ export default function StudentSetupScreen() {
       });
   }, []);
 
-  const handleContinue = () => {
-    if (!name.trim() || !selected) return;
-    setStudentInfo(name.trim(), selected.id, selected.name);
-  };
-
-  const renderClass = ({ item }: { item: SBClass }) => {
-    const active = selected?.id === item.id;
-    return (
-      <TouchableOpacity
-        style={[
-          styles.classChip,
-          {
-            borderColor: active ? Colors.blue : t.border,
-            backgroundColor: active ? Colors.blueLight : t.surface,
-          },
-        ]}
-        onPress={() => setSelected(item)}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.classChipText, { color: active ? Colors.blue : t.text }]}>
-          🏫 {item.name}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+  const ready = name.trim().length > 0 && selected !== null;
 
   return (
-    <View style={[styles.root, { backgroundColor: t.bg }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.blue} />
-      <View style={styles.header}>
-        <SafeAreaView>
-          <Text style={styles.headerTitle}>Bienvenue 👋</Text>
-          <Text style={styles.headerSub}>Dis-nous qui tu es pour commencer</Text>
-        </SafeAreaView>
-      </View>
-
-      <View style={styles.body}>
-        <Text style={[styles.label, { color: t.text }]}>Ton prénom</Text>
-        <TextInput
-          style={[styles.input, { backgroundColor: t.surface, borderColor: t.border, color: t.text }]}
-          placeholder="Entre ton prénom…"
-          placeholderTextColor={t.textMuted}
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
-          autoFocus
-        />
-
-        <Text style={[styles.label, { color: t.text, marginTop: Spacing.lg }]}>Ta classe</Text>
-
-        {loading ? (
-          <ActivityIndicator color={Colors.blue} style={{ marginTop: 24 }} />
-        ) : classes.length === 0 ? (
-          <Text style={[styles.emptyText, { color: t.textMuted }]}>
-            Aucune classe disponible pour l'instant.{'\n'}Demande à ton administrateur d'en créer une.
+    <View style={[styles.root, { backgroundColor: t.bg, paddingTop: top }]}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Text style={styles.heroEmoji}>✨</Text>
+          <Text style={styles.heroTitle}>Bienvenue !</Text>
+          <Text style={styles.heroSub}>
+            Deux informations et tu peux commencer à apprendre
           </Text>
-        ) : (
-          <FlatList
-            data={classes}
-            keyExtractor={c => c.id}
-            numColumns={2}
-            columnWrapperStyle={styles.classRow}
-            renderItem={renderClass}
-            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-            style={{ marginTop: 8, flexGrow: 0 }}
-          />
-        )}
+        </View>
 
-        <TouchableOpacity
-          style={[styles.btn, (!name.trim() || !selected) && { opacity: 0.4 }]}
-          onPress={handleContinue}
-          disabled={!name.trim() || !selected}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.btnText}>Commencer →</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Nom */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>TON PRÉNOM</Text>
+          <TextInput
+            style={[styles.nameInput, { color: t.text, borderBottomColor: name ? Colors.blue : t.border }]}
+            placeholder="ex : Mohamed, Mariem, Cheikh…"
+            placeholderTextColor={t.textMuted}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            autoFocus
+            selectionColor={Colors.blue}
+          />
+        </View>
+
+        {/* Classe */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>TA CLASSE</Text>
+
+          {loading ? (
+            <ActivityIndicator color={Colors.blue} style={{ marginTop: 20 }} />
+          ) : classes.length === 0 ? (
+            <Text style={[styles.emptyText, { color: t.textMuted }]}>
+              Aucune classe disponible.{'\n'}Contacte ton administrateur.
+            </Text>
+          ) : (
+            <View style={styles.chipsWrap}>
+              {classes.map(item => {
+                const active = selected?.id === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.chip,
+                      active
+                        ? styles.chipActive
+                        : { backgroundColor: t.surface, borderColor: t.border },
+                    ]}
+                    onPress={() => setSelected(item)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* Bouton */}
+        <View style={styles.btnWrap}>
+          <TouchableOpacity
+            style={[styles.btn, !ready && styles.btnDisabled]}
+            onPress={() => {
+              if (!ready) return;
+              supabase.from('students').insert({
+                name: name.trim(),
+                class_id: selected!.id,
+                class_name: selected!.name,
+              }).then(() => {});
+              setStudentInfo(name.trim(), selected!.id, selected!.name);
+            }}
+            disabled={!ready}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnText}>C'est parti</Text>
+            <Text style={styles.btnArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { backgroundColor: Colors.blue, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg },
-  headerTitle: { ...Typography.h2, color: '#fff', marginTop: Spacing.md },
-  headerSub: { ...Typography.body, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  body: { flex: 1, padding: Spacing.lg },
-  label: { ...Typography.label, marginBottom: 8 },
-  input: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  classRow: { gap: 10 },
-  classChip: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
+  scroll: { paddingTop: 0, paddingHorizontal: 0 },
+
+  /* Hero */
+  hero: {
+    backgroundColor: Colors.blue,
     alignItems: 'center',
+    paddingTop: Spacing.xxxl,
+    paddingBottom: Spacing.xxxl + 8,
+    paddingHorizontal: Spacing.xxl,
+    marginBottom: Spacing.xxxl,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  classChipText: { ...Typography.label, textAlign: 'center' },
-  emptyText: { ...Typography.body, textAlign: 'center', marginTop: Spacing.lg, lineHeight: 24 },
+  heroEmoji: { fontSize: 52, marginBottom: Spacing.lg },
+  heroTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.5,
+    marginBottom: Spacing.sm,
+  },
+  heroSub: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    maxWidth: 260,
+    color: 'rgba(255,255,255,0.75)',
+  },
+
+  /* Section */
+  section: { marginBottom: Spacing.xxxl, paddingHorizontal: Spacing.xxl },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: Spacing.lg,
+  },
+
+  /* Name input */
+  nameInput: {
+    fontSize: 22,
+    fontWeight: '600',
+    borderBottomWidth: 2,
+    paddingBottom: 10,
+    letterSpacing: -0.3,
+  },
+
+  /* Chips */
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  chip: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+  },
+  chipActive: {
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue,
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+
+  /* Empty */
+  emptyText: {
+    fontSize: 14,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: Spacing.lg,
+  },
+
+  /* Button */
   btn: {
     backgroundColor: Colors.blue,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    paddingVertical: 16,
+    paddingHorizontal: Spacing.xxl,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.xl,
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: Spacing.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.blue,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+      },
+      android: { elevation: 6 },
+    }),
   },
-  btnText: { ...Typography.button, color: '#fff' },
+  btnDisabled: { backgroundColor: Colors.blueMid, elevation: 0, shadowOpacity: 0 },
+  btnText: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
+  btnArrow: { fontSize: 18, color: '#fff', fontWeight: '700' },
+  btnWrap: { paddingHorizontal: Spacing.xxl },
 });
