@@ -10,12 +10,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from './src/store';
 import { Colors } from './src/theme';
 import { useTheme } from './src/components';
+import { scheduleStreakReminder } from './src/utils/notifications';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import StudentSetupScreen from './src/screens/StudentSetupScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import SubjectScreen from './src/screens/SubjectScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import ProgressScreen from './src/screens/ProgressScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -62,6 +64,11 @@ function MainTabs() {
         options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="💬" label="Chat" focused={focused} /> }}
       />
       <Tab.Screen
+        name="Progression"
+        component={ProgressScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="📈" label="Progrès" focused={focused} /> }}
+      />
+      <Tab.Screen
         name="Historique"
         component={HistoryScreen}
         options={{ tabBarIcon: ({ focused }) => <TabIcon emoji="🕐" label="Historique" focused={focused} /> }}
@@ -71,7 +78,13 @@ function MainTabs() {
 }
 
 function AppNavigator() {
-  const { onboardingDone, studentName } = useAppStore();
+  const { onboardingDone, studentName, streakCurrent, xpToday } = useAppStore();
+
+  React.useEffect(() => {
+    if (onboardingDone && studentName) {
+      scheduleStreakReminder(streakCurrent, xpToday);
+    }
+  }, [onboardingDone, studentName]);
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -8,10 +8,15 @@ export type Message = {
   role: 'user' | 'assistant' | 'refusal' | 'error';
   content: string;
   sources?: string[];
+  images?: string[];
+  userImageUri?: string;
   suggestions?: string[];
   timestamp: Date;
   feedback?: 'up' | 'down' | null;
+  hallucination?: boolean;
 };
+
+export type CourseChunk = { title: string; content: string; index: number; images?: string[]; startPage?: number; endPage?: number };
 
 export type Course = {
   id: string;
@@ -23,6 +28,8 @@ export type Course = {
   uploadedAt: Date;
   active: boolean;
   content: string;
+  chunks: CourseChunk[];
+  summary?: string;
 };
 
 export type ChatSession = {
@@ -49,6 +56,8 @@ type AppStore = {
   addCourse: (course: Course) => void;
   removeCourse: (id: string) => void;
   setActiveCourse: (id: string) => void;
+  setCourseSummary: (id: string, summary: string) => void;
+  updateCourseChunks: (id: string, chunks: CourseChunk[]) => void;
 
   currentMessages: Message[];
   chatHistory: ChatSession[];
@@ -62,6 +71,24 @@ type AppStore = {
 
   niveau: NiveauType;
   setNiveau: (n: NiveauType) => void;
+
+  // Suivi des concepts demandés par l'élève (courseId → concept → { count, lastAsked })
+  conceptHistory: Record<string, Record<string, { count: number; lastAsked: string }>>;
+  trackConcept: (courseId: string, concept: string) => void;
+  getWeakConcepts: (courseId: string, n?: number) => string[];
+
+  // Gamification — XP + Streak
+  streakCurrent: number;
+  streakBest: number;
+  streakLastDate: string;
+  xpTotal: number;
+  xpToday: number;
+  xpTodayDate: string;
+  xpThisWeek: number;
+  xpLastWeek: number;
+  xpWeekStartDate: string;
+  dailyGoal: number;
+  addXP: (amount: number) => void;
 
   onboardingDone: boolean;
   completeOnboarding: () => void;
@@ -88,6 +115,16 @@ export const useAppStore = create<AppStore>()(
           const updated = s.courses.map((c) => ({ ...c, active: false }));
           return { courses: [...updated, { ...course, active: true }], activeCourse: course };
         }),
+      setCourseSummary: (id, summary) =>
+        set((s) => ({
+          courses: s.courses.map((c) => c.id === id ? { ...c, summary } : c),
+          activeCourse: s.activeCourse?.id === id ? { ...s.activeCourse, summary } : s.activeCourse,
+        })),
+      updateCourseChunks: (id, chunks) =>
+        set((s) => ({
+          courses: s.courses.map((c) => c.id === id ? { ...c, chunks } : c),
+          activeCourse: s.activeCourse?.id === id ? { ...s.activeCourse, chunks } : s.activeCourse,
+        })),
       removeCourse: (id) =>
         set((s) => {
           const filtered = s.courses.filter((c) => c.id !== id);
@@ -150,6 +187,62 @@ export const useAppStore = create<AppStore>()(
       niveau: 'moyen' as NiveauType,
       setNiveau: (n) => set({ niveau: n }),
 
+      conceptHistory: {},
+      trackConcept: (courseId, concept) => {
+        if (!concept || concept.trim().length < 4) return;
+        set((s) => {
+          const courseMap = { ...(s.conceptHistory[courseId] || {}) };
+          const prev = courseMap[concept] || { count: 0, lastAsked: '' };
+          courseMap[concept] = { count: prev.count + 1, lastAsked: new Date().toISOString() };
+          return { conceptHistory: { ...s.conceptHistory, [courseId]: courseMap } };
+        });
+      },
+      getWeakConcepts: (courseId, n = 3) => {
+        const map = get().conceptHistory[courseId] || {};
+        return Object.entries(map)
+          .sort((a, b) => b[1].count - a[1].count)
+          .slice(0, n)
+          .map(([concept]) => concept);
+      },
+
+      // Gamification
+      streakCurrent: 0, streakBest: 0, streakLastDate: '',
+      xpTotal: 0, xpToday: 0, xpTodayDate: '', xpThisWeek: 0, xpLastWeek: 0, xpWeekStartDate: '', dailyGoal: 50,
+
+      addXP: (amount) => {
+        set((s) => {
+          const today = new Date().toISOString().split('T')[0];
+          const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+          const weekStart = (() => {
+            const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split('T')[0];
+          })();
+
+          // Streak
+          let { streakCurrent, streakBest, streakLastDate } = s;
+          if (streakLastDate !== today) {
+            if (streakLastDate === yesterday) streakCurrent += 1;
+            else streakCurrent = 1;
+            streakLastDate = today;
+            streakBest = Math.max(streakBest, streakCurrent);
+          }
+
+          // XP today (reset si nouveau jour)
+          const xpToday = s.xpTodayDate === today ? s.xpToday + amount : amount;
+
+          // XP weekly (reset si nouvelle semaine)
+          let xpThisWeek = s.xpThisWeek + amount;
+          let xpLastWeek = s.xpLastWeek;
+          let xpWeekStartDate = s.xpWeekStartDate;
+          if (s.xpWeekStartDate !== weekStart) {
+            xpLastWeek = s.xpThisWeek;
+            xpThisWeek = amount;
+            xpWeekStartDate = weekStart;
+          }
+
+          return { streakCurrent, streakBest, streakLastDate, xpTotal: s.xpTotal + amount, xpToday, xpTodayDate: today, xpThisWeek, xpLastWeek, xpWeekStartDate };
+        });
+      },
+
       onboardingDone: false,
       completeOnboarding: () => set({ onboardingDone: true }),
     }),
@@ -166,6 +259,11 @@ export const useAppStore = create<AppStore>()(
         studentName: s.studentName,
         studentClassId: s.studentClassId,
         studentClassName: s.studentClassName,
+        conceptHistory: s.conceptHistory,
+        streakCurrent: s.streakCurrent, streakBest: s.streakBest, streakLastDate: s.streakLastDate,
+        xpTotal: s.xpTotal, xpToday: s.xpToday, xpTodayDate: s.xpTodayDate,
+        xpThisWeek: s.xpThisWeek, xpLastWeek: s.xpLastWeek, xpWeekStartDate: s.xpWeekStartDate,
+        dailyGoal: s.dailyGoal,
       }),
     }
   )
