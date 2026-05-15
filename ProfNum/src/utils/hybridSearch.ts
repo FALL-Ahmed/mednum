@@ -47,13 +47,29 @@ function tfidfRank(chunks: CourseChunk[], queryWords: string[]): CourseChunk[] {
 }
 
 const ROMAN: Record<string, string> = {'1':'i','2':'ii','3':'iii','4':'iv','5':'v','6':'vi','7':'vii','8':'viii','9':'ix'}
+const ROMAN_TO_ARABIC: Record<string, string> = {'i':'1','ii':'2','iii':'3','iv':'4','v':'5','vi':'6','vii':'7','viii':'8','ix':'9'}
+const ROMAN_RE = /^(i{1,3}v?|vi{0,3}|ix|x{1,3})$/
 
 function findDirectChapterMatch(query: string, chunks: CourseChunk[]): CourseChunk[] {
-  const m = query.match(/(?:unit[eé]|chapitre|partie|chpitre)\s*(\d+)/i)
-  if (!m) return []
-  const num = m[1], roman = ROMAN[num] || num
+  const qNorm = query.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  // Arabic digit: "unité 2", "chapitre 3"
+  const mArab = qNorm.match(/(?:unit[e]|chapitre|partie|chpitre)\s*(\d+)/)
+  // Roman numeral: "unité ii", "chapitre IV"
+  const mRoman = qNorm.match(/(?:unit[e]|chapitre|partie|chpitre)\s+(i{1,3}v?|vi{0,3}|ix|x{1,3})\b/)
+
+  if (!mArab && !mRoman) return []
+
+  let num: string, roman: string
+  if (mArab) {
+    num = mArab[1]; roman = ROMAN[num] || num
+  } else {
+    roman = mRoman![1]; num = ROMAN_TO_ARABIC[roman] || roman
+  }
+
   const re = new RegExp(`(?:unit[eé]|chapitre|partie)\\s*(${num}|${roman})\\b`, 'i')
-  return chunks.filter(c => re.test(c.title))
+  return chunks.filter(c =>
+    re.test(c.title.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''))
+  )
 }
 
 export async function hybridSearch(
@@ -105,7 +121,9 @@ export async function hybridSearch(
 
     if (vectorChunks.length > 0) {
       // Post-filter: keep only chunks where at least 1 original query word is in title/content
-      const qWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      // Keep Roman numerals (e.g. "ii") even if length ≤ 3
+      const qWords = query.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/)
+        .filter(w => w.length > 3 || ROMAN_RE.test(w));
       const relevant = qWords.length > 0
         ? vectorChunks.filter(c => {
             const hay = (c.title + ' ' + c.content).toLowerCase();

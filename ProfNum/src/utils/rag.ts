@@ -5,6 +5,10 @@ import { rewriteQuery } from './queryExpansion';
 
 // ─── Config LLM ───────────────────────────────────────────────────────────────
 
+const ANTHROPIC_KEY     = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_MODEL   = 'claude-haiku-4-5-20251001';
+
 const MISTRAL_KEY     = process.env.EXPO_PUBLIC_MISTRAL_API_KEY || '';
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL   = 'open-mistral-nemo';
@@ -92,6 +96,17 @@ const NIVEAUX: Record<NiveauType, string> = {
   avance:  "L'élève est fort : vocabulaire complet du cours, rigueur et précision scientifique.",
 };
 
+// ─── Niveau automatique basé sur XP (pas sur la qualité d'écriture) ─────────
+
+// difficultyScore 0-10 → niveau
+// Algorithme 2-Up/1-Down (IRT) : seul le comportement sur exercices compte
+export function computeNiveau(difficultyScore: number, frustrated = false): NiveauType {
+  if (frustrated) return 'facile';
+  if (difficultyScore >= 7) return 'avance';
+  if (difficultyScore >= 4) return 'moyen';
+  return 'facile';
+}
+
 // ─── Normalisation pour détection (gère fautes de frappe) ───────────────────
 // Supprime accents, collapse doublons (exercicce→exercice), minuscule
 
@@ -109,8 +124,8 @@ export function detecterMode(question: string): ModeType {
   const qn = normalizeQ(question);
   // exercice, exercices, exo, exos, exrc… + fautes de frappe via radical "exerc" / "exer"
   if (
-    /\b(exercice|exos?|quiz|questionnaire|entraîne|entraine|gene.*exerc|donne.*exo|prepare.*exam)\b/.test(q) ||
-    /\bex[eo]?r[cs]/.test(qn)   // exrc, exerc, exerc, exors…
+    /\b(exercices?|exos?|quiz|questionnaire|entraîne|entraine|gene.*exerc|donne.*exo|prepare.*exam)\b/.test(q) ||
+    /\bex[eo]?r[cs]/.test(qn)
   ) return 'exercice';
   if (/\b(corrige|correction|corriger|ma repon|est.ce correct|ai.je raison|c est juste|verifi)\b/.test(qn))
     return 'correction';
@@ -154,7 +169,7 @@ RÈGLES D'OR — Tu es un professeur de SVT expert :
 6. Si la question porte sur un exercice, guide l'élève au lieu de donner la réponse brute.`
     : `Aucun cours chargé. Encourage l'élève à charger un cours PDF depuis l'onglet "Cours".`;
 
-  return `Tu es ProfNum, un assistant pédagogique bienveillant pour les élèves de collège (12-13 ans).
+  return `Tu es Prof Moctar, un assistant pédagogique bienveillant pour les élèves de collège (12-13 ans).
 
 ${courseSection}
 
@@ -285,13 +300,18 @@ function buildMessages(
       /^(unité|chapitre|partie|leçon|thème)\s*[\dIVX]/i.test(l.trim()) ||
       (l.trim() === l.trim().toUpperCase() && l.trim().length > 5 && l.trim().length < 100)
     ).slice(0, 20);
-    const plan = headers.length > 0
-      ? headers.map((h, i) => `${i + 1}. ${h.trim()}`).join('\n')
-      : courseContent.slice(0, 1000);
-    userContent =
-      `[Titres trouvés dans le cours "${courseName}"]\n---\n${plan}\n---\n\n` +
-      `Liste les chapitres/unités trouvés ci-dessus. ` +
-      `Question de l'élève : ${question}`;
+    if (headers.length === 0) {
+      // Aucune structure trouvée → refuser plutôt qu'halluciner
+      userContent =
+        `[HORS_COURS] Le cours "${courseName}" ne contient pas de structure de chapitres lisible. ` +
+        `Dis à l'élève que tu ne peux pas encore lister les chapitres mais qu'il peut charger un PDF mieux structuré.`;
+    } else {
+      const plan = headers.map((h, i) => `${i + 1}. ${h.trim()}`).join('\n');
+      userContent =
+        `[Titres trouvés dans le cours "${courseName}"]\n---\n${plan}\n---\n\n` +
+        `Liste les chapitres/unités trouvés ci-dessus. ` +
+        `Question de l'élève : ${question}`;
+    }
   } else {
     let toUse: Chunk[];
 
@@ -299,9 +319,14 @@ function buildMessages(
       // Re-sort: keyword overlap first (avoid "Lost in the Middle"), then by page order
       const qNorm2 = question.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       const romanMap: Record<string, string> = {'1':'i','2':'ii','3':'iii','4':'iv','5':'v','6':'vi','7':'vii','8':'viii','9':'ix'}
-      // Garde les chiffres (unité 2 → "2" + "ii") et les mots longs
-      const qBase2 = qNorm2.split(/\s+/).filter(w => w.length > 3 || /^\d+$/.test(w))
-      const qWords2 = [...qBase2, ...qBase2.flatMap(w => romanMap[w] ? [romanMap[w]] : [])]
+      const reverseRoman: Record<string, string> = {'i':'1','ii':'2','iii':'3','iv':'4','v':'5','vi':'6','vii':'7','viii':'8','ix':'9'}
+      // Garde les mots longs, les chiffres et les chiffres romains (ex: "ii" de "Unité II")
+      const qBase2 = qNorm2.split(/\s+/).filter(w => w.length > 3 || /^\d+$/.test(w) || reverseRoman[w] !== undefined)
+      const qWords2 = [
+        ...qBase2,
+        ...qBase2.flatMap(w => romanMap[w] ? [romanMap[w]] : []),
+        ...qBase2.flatMap(w => reverseRoman[w] ? [reverseRoman[w]] : []),
+      ]
       const reranked = preSelected
         .map(c => {
           const hay = (c.title + ' ' + c.content).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -410,6 +435,38 @@ function buildMessages(
   };
 }
 
+// ─── Appel Claude Haiku (principal) ──────────────────────────────────────────
+
+async function callClaude(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+): Promise<string> {
+  const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+  const chatMsgs  = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 2048,
+      system: systemMsg,
+      messages: chatMsgs,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Claude ${res.status}: ${err.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
 // ─── Appel Mistral ────────────────────────────────────────────────────────────
 
 async function callMistral(
@@ -511,11 +568,16 @@ async function callGroq(
   throw new Error(`Toutes les IA sont saturées, réessaie dans une minute. (${lastError})`);
 }
 
-// ─── callAI : Mistral priorité, Gemini → Groq en fallback ───────────────────
+// ─── callAI : Claude priorité → Mistral → Gemini → Groq ─────────────────────
 
 async function callAI(
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
 ): Promise<string> {
+  if (ANTHROPIC_KEY) {
+    try { return await callClaude(messages); } catch (e: any) {
+      console.warn('[RAG] Claude failed, fallback Mistral/Gemini/Groq:', e?.message);
+    }
+  }
   if (MISTRAL_KEY) {
     try { return await callMistral(messages); } catch (e: any) {
       console.warn('[RAG] Mistral failed, fallback Gemini/Groq:', e?.message);
@@ -534,7 +596,10 @@ async function callAI(
 function enrichQuery(question: string, history: Message[]): { display: string; search: string } {
   const PRONOUNS = /\b(ça|ca\b|ce\b|cela|ceci|lui\b|l'|y\b|en\b|cette|celui|celle)\b/i;
   const COMMANDS = /^(donne|montre|explique|résume|liste|génère|fais|crée|donne-moi|donnez|fais-moi)\b/i;
-  const words = question.trim().split(/\s+/);
+  // Mots vides devant un verbe : "Ok donne…", "Bon explique…", "Allez liste…"
+  const FILLERS = /^(ok|okay|oui|non|bon|bien|allez|alors|hm|euh|ah)\s+/i;
+  const stripped = question.trim().replace(FILLERS, '');
+  const words = stripped.split(/\s+/);
 
   // Trouve le dernier message user qui est un vrai sujet (pas une commande courte sans topic)
   const isTopiclessCmd = (msg: string) => msg.trim().split(/\s+/).length <= 5 && COMMANDS.test(msg.trim());
@@ -550,7 +615,7 @@ function enrichQuery(question: string, history: Message[]): { display: string; s
   }
 
   // Cas 2 : commande courte sans sujet nominal (≤ 5 mots, commence par un verbe d'action)
-  if (words.length <= 5 && COMMANDS.test(question.trim()) && lastSubstantive) {
+  if (words.length <= 5 && COMMANDS.test(stripped) && lastSubstantive) {
     const topic = lastSubstantive.content.slice(0, 80);
     const enriched = `${question} sur: ${topic}`;
     return { display: enriched, search: enriched };
@@ -642,7 +707,7 @@ export async function askWithImage(
   studentName?: string
 ): Promise<RAGResponse> {
   try {
-    const systemPrompt = `Tu es ProfNum, un assistant pédagogique bienveillant pour les élèves de collège (12-15 ans).
+    const systemPrompt = `Tu es Prof Moctar, un assistant pédagogique bienveillant pour les élèves de collège (12-15 ans).
 L'élève t'envoie une PHOTO d'un exercice de son professeur ou d'un extrait de cours.
 
 TA MISSION SOCRATIQUE :
@@ -691,7 +756,7 @@ export async function generateSummary(courseContent: string, courseName: string)
   const messages = [
     {
       role: 'system' as const,
-      content: `Tu es ProfNum, un professeur passionné qui sait rendre les cours vivants pour des élèves de collège (12-15 ans).
+      content: `Tu es Prof Moctar, un professeur passionné qui sait rendre les cours vivants pour des élèves de collège (12-15 ans).
 Tu crées des résumés percutants, pas des listes plates. Chaque section doit vraiment aider l'élève à comprendre ET à retenir.
 Ton langage : direct, précis, jamais condescendant. Tu utilises des analogies du quotidien quand c'est utile.`,
     },
