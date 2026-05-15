@@ -314,36 +314,43 @@ function buildMessages(
         `Question de l'élève : ${question}`;
     }
   } else {
+    // Détecter si un document élève est joint (composition, devoir)
+    const hasStudentDoc = question.includes('\n\n[Document joint') || question.includes('[Document de l\'élève');
+
     let toUse: Chunk[];
 
     if (preSelected && preSelected.length > 0) {
-      // Re-sort: keyword overlap first (avoid "Lost in the Middle"), then by page order
-      const qNorm2 = question.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-      const romanMap: Record<string, string> = {'1':'i','2':'ii','3':'iii','4':'iv','5':'v','6':'vi','7':'vii','8':'viii','9':'ix'}
-      const reverseRoman: Record<string, string> = {'i':'1','ii':'2','iii':'3','iv':'4','v':'5','vi':'6','vii':'7','viii':'8','ix':'9'}
-      // Garde les mots longs, les chiffres et les chiffres romains (ex: "ii" de "Unité II")
-      const qBase2 = qNorm2.split(/\s+/).filter(w => w.length > 3 || /^\d+$/.test(w) || reverseRoman[w] !== undefined)
-      const qWords2 = [
-        ...qBase2,
-        ...qBase2.flatMap(w => romanMap[w] ? [romanMap[w]] : []),
-        ...qBase2.flatMap(w => reverseRoman[w] ? [reverseRoman[w]] : []),
-      ]
-      const reranked = preSelected
-        .map(c => {
-          const hay = (c.title + ' ' + c.content).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-          // TF-based : compter les occurrences (cap 10) pour distinguer "parle un peu de" vs "explique en détail"
-          const score = qWords2.reduce((n, w) => {
-            const count = (hay.match(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
-            return n + Math.min(count, 10)
-          }, 0)
-          return { c, score }
-        })
-        .sort((a, b) => b.score !== a.score ? b.score - a.score : (a.c.startPage ?? 0) - (b.c.startPage ?? 0))
-        .map(x => x.c)
-      const wantsExercise = detecterMode(question) === 'exercice'
-      toUse = reranked.map(c => {
+      let orderedChunks: CourseChunk[];
+      if (hasStudentDoc) {
+        // Pour un doc joint : trier par page croissante (intro/définitions en premier)
+        // Le texte garblé empêche le keyword-reranking de fonctionner correctement
+        orderedChunks = [...preSelected].sort((a, b) => (a.startPage ?? a.index) - (b.startPage ?? b.index));
+      } else {
+        // Re-sort: keyword overlap first (avoid "Lost in the Middle"), then by page order
+        const qNorm2 = question.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        const romanMap: Record<string, string> = {'1':'i','2':'ii','3':'iii','4':'iv','5':'v','6':'vi','7':'vii','8':'viii','9':'ix'}
+        const reverseRoman: Record<string, string> = {'i':'1','ii':'2','iii':'3','iv':'4','v':'5','vi':'6','vii':'7','viii':'8','ix':'9'}
+        const qBase2 = qNorm2.split(/\s+/).filter(w => w.length > 3 || /^\d+$/.test(w) || reverseRoman[w] !== undefined)
+        const qWords2 = [
+          ...qBase2,
+          ...qBase2.flatMap(w => romanMap[w] ? [romanMap[w]] : []),
+          ...qBase2.flatMap(w => reverseRoman[w] ? [reverseRoman[w]] : []),
+        ]
+        orderedChunks = preSelected
+          .map(c => {
+            const hay = (c.title + ' ' + c.content).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+            const score = qWords2.reduce((n, w) => {
+              const count = (hay.match(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length
+              return n + Math.min(count, 10)
+            }, 0)
+            return { c, score }
+          })
+          .sort((a, b) => b.score !== a.score ? b.score - a.score : (a.c.startPage ?? 0) - (b.c.startPage ?? 0))
+          .map(x => x.c)
+      }
+      const wantsExercise = !hasStudentDoc && detecterMode(question) === 'exercice'
+      toUse = orderedChunks.map(c => {
         const cleaned = cleanChunkText(c.content)
-        // Pour les demandes d'exercices, prendre la fin du chunk (là où sont les exercices)
         const text = c.title + '\n' + (wantsExercise && cleaned.length > 1500
           ? cleaned.slice(-1500)
           : cleaned)
@@ -384,10 +391,10 @@ function buildMessages(
     }
 
     // Compression heuristique : ne garder que les phrases pertinentes de chaque chunk
-    // Désactivé pour les demandes d'exercices (on veut le contenu complet de fin de chapitre)
-    const wantsExerciseCompress = detecterMode(question) === 'exercice';
+    // Désactivé pour : exercices, docs joints (texte garblé → compressChunk inefficace)
+    const skipCompress = hasStudentDoc || detecterMode(question) === 'exercice';
     const qWordsForCompress = question.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/).filter(w => w.length > 3);
-    const compressed = wantsExerciseCompress
+    const compressed = skipCompress
       ? toUse
       : toUse.map(c => ({ ...c, text: compressChunk(c.text, qWordsForCompress) }));
 
@@ -668,13 +675,16 @@ export async function askRAG(
     const modeFromDoc = docPart ? detecterMode(docPart) : null;
     const mode = (modeFromDoc === 'exercice') ? 'correction' : detecterMode(cleanUserPart);
 
-    // Enrichissement de la requête sur la partie utilisateur uniquement
-    const { display: displayQuery, search: searchQuery } = enrichQuery(cleanUserPart, previousMessages);
+    // Si un document est joint : "ça/ca/ce" référence le document, pas l'historique
+    // → skip enrichQuery pour éviter que "Aide moi a resoudre ca" remplace le sujet par "Salut cava"
+    const { display: displayQuery, search: searchQuery } = docPart
+      ? { display: cleanUserPart, search: cleanUserPart }
+      : enrichQuery(cleanUserPart, previousMessages);
     // Réinjecter le document joint dans la question affichée au LLM
     const displayQueryFull = displayQuery + docPart;
 
-    // Si un document est joint, enrichir la recherche avec ses mots-clés
-    // → hybridSearch cherche dans les bons chapitres au lieu de la phrase vague de l'élève
+    // Si un document est joint, chercher uniquement sur les mots-clés du document
+    // (la question utilisateur "aide moi" est trop vague pour hybridSearch)
     let effectiveSearchQuery = searchQuery;
     if (docPart) {
       const docKeywords = docPart
@@ -688,7 +698,9 @@ export async function askRAG(
         .slice(0, 12)
         .join(' ');
       if (docKeywords.trim()) {
-        effectiveSearchQuery = searchQuery + ' ' + docKeywords;
+        // Question vague (≤5 mots) → utiliser uniquement les mots-clés du doc
+        const userIsVague = cleanUserPart.trim().split(/\s+/).length <= 5;
+        effectiveSearchQuery = userIsVague ? docKeywords : cleanUserPart + ' ' + docKeywords;
         console.log('[RAG] ▶ Query enrichie PDF :', effectiveSearchQuery.slice(0, 120));
       }
     }
