@@ -27,6 +27,7 @@ import { useAppStore, Message, CourseChunk, Course } from '../store';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme } from '../components';
 import { askRAG, askWithImage, transcribeAudio, generateSummary, extractPDFWithGemini, NiveauType, detecterMode, computeNiveau } from '../utils/rag';
+import { extractPDFText } from '../utils/pdfExtractor';
 import { getSubjectStyle } from '../utils/subjectStyles';
 import { supabase } from '../lib/supabase';
 
@@ -206,7 +207,7 @@ export default function ChatScreen({ route }: any) {
     currentMessages, activeCourse, isLoading,
     addMessage, setLoading, clearChat, saveChatSession, setFeedback,
     studentName, updateCourseChunks, difficultyScore, updateDifficulty,
-    trackConcept, addXP, addCourse,
+    trackConcept, addXP, addCourse, removeCourse,
   } = useAppStore();
   const t = useTheme();
   const navigation = useNavigation<any>();
@@ -220,6 +221,7 @@ export default function ChatScreen({ route }: any) {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [pendingBase64, setPendingBase64] = useState<string | null>(null);
+  const [attachedPDF, setAttachedPDF] = useState<{ name: string; courseId: string } | null>(null);
   const [isPDFLoading, setIsPDFLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const headerAnim = useRef(new Animated.Value(1)).current;
@@ -359,28 +361,48 @@ export default function ChatScreen({ route }: any) {
       if (result.canceled) return;
       const file = result.assets[0];
       setIsPDFLoading(true);
+      let text = '', pages = 1, ok = false;
+      // 1. Gemini (gère scans + fonts complexes)
       try {
-        const { text, pages } = await extractPDFWithGemini(file.uri);
-        const course: Course = {
-          id: Date.now().toString(),
-          name: file.name.replace(/\.pdf$/i, ''),
-          subjectName: activeCourse?.subjectName || '',
-          fileName: file.name,
-          fileUri: file.uri,
-          pages,
-          uploadedAt: new Date(),
-          active: true,
-          content: text,
-          chunks: [],
-        };
-        addCourse(course);
-        Alert.alert('PDF chargé !', `"${course.name}"\n${pages} pages extraites — pose ta question !`, [{ text: 'Super !' }]);
-      } catch {
-        Alert.alert('PDF illisible', 'Impossible d\'extraire le texte.\nCe PDF est peut-être un scan ou protégé.', [{ text: 'OK' }]);
-      } finally {
-        setIsPDFLoading(false);
+        const g = await extractPDFWithGemini(file.uri);
+        text = g.text; pages = g.pages; ok = true;
+      } catch (e: any) {
+        console.warn('[PDF] Gemini failed:', e?.message);
       }
+      // 2. Fallback parseur JS local
+      if (!ok) {
+        try {
+          const r = await extractPDFText(file.uri);
+          text = r.text; pages = r.pages; ok = true;
+        } catch (e: any) {
+          console.warn('[PDF] JS parser failed:', e?.message);
+        }
+      }
+      setIsPDFLoading(false);
+      if (!ok || text.trim().length < 20) {
+        Alert.alert(
+          'PDF illisible',
+          'Impossible d\'extraire le texte.\nVa dans l\'onglet Cours → "Coller le texte manuellement".',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      const course: Course = {
+        id: Date.now().toString(),
+        name: file.name.replace(/\.pdf$/i, ''),
+        subjectName: activeCourse?.subjectName || '',
+        fileName: file.name,
+        fileUri: file.uri,
+        pages,
+        uploadedAt: new Date(),
+        active: true,
+        content: text,
+        chunks: [],
+      };
+      addCourse(course);
+      setAttachedPDF({ name: course.name, courseId: course.id });
     } catch {
+      setIsPDFLoading(false);
       Alert.alert('Erreur', 'Impossible d\'ouvrir le fichier.');
     }
   };
@@ -615,17 +637,42 @@ export default function ChatScreen({ route }: any) {
           />
         )}
 
-        {/* Image preview bar */}
-        {imageUri && (
-          <View style={[styles.imagePreviewBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-            <Image source={{ uri: imageUri }} style={styles.imagePreviewThumb as any} />
-            <Text style={[styles.imagePreviewHint, { color: t.textMuted }]}>
-              Photo prête — ajoute un message ou envoie
-            </Text>
-            <TouchableOpacity onPress={() => { setImageUri(null); setImageBase64(null); }} style={styles.imageClearBtn}>
-              <Text style={{ fontSize: 18, color: t.textMuted }}>✕</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Chips pièces jointes (photo + PDF) */}
+        {(imageUri || attachedPDF) && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.attachBar, { backgroundColor: t.surface, borderTopColor: t.border }]}
+            contentContainerStyle={styles.attachBarContent}
+          >
+            {imageUri && (
+              <View style={styles.attachChip}>
+                <Image source={{ uri: imageUri }} style={styles.attachThumb as any} resizeMode="cover" />
+                <TouchableOpacity
+                  style={styles.attachClose}
+                  onPress={() => { setImageUri(null); setImageBase64(null); }}
+                >
+                  <Text style={styles.attachCloseText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {attachedPDF && (
+              <View style={[styles.attachChip, styles.attachChipFile, { borderColor: t.border }]}>
+                <View style={[styles.attachFileIconWrap, { backgroundColor: Colors.blueLight }]}>
+                  <Text style={{ fontSize: 18 }}>📄</Text>
+                </View>
+                <Text style={[styles.attachFileName, { color: t.text }]} numberOfLines={1}>
+                  {attachedPDF.name}
+                </Text>
+                <TouchableOpacity
+                  style={styles.attachClose}
+                  onPress={() => { removeCourse(attachedPDF.courseId); setAttachedPDF(null); }}
+                >
+                  <Text style={styles.attachCloseText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
         )}
 
         {/* Input Bar */}
@@ -975,7 +1022,7 @@ const styles = StyleSheet.create({
   },
   sendArrow: { color: '#fff', fontSize: 20, fontWeight: '700' },
 
-  /* Image attachment */
+  /* Bouton + */
   attachBtn: {
     width: 36, height: 36, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -990,16 +1037,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2', borderWidth: 1.5, borderColor: Colors.error,
   },
   micIcon: { fontSize: 22 },
-  imagePreviewBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: Spacing.md, paddingVertical: 8,
-    borderTopWidth: 0.5,
+
+  /* Chips pièces jointes */
+  attachBar: { borderTopWidth: 0.5, maxHeight: 90 },
+  attachBarContent: { paddingHorizontal: Spacing.md, paddingVertical: 10, flexDirection: 'row', gap: 10, alignItems: 'center' },
+  attachChip: { position: 'relative' },
+  attachThumb: { width: 64, height: 64, borderRadius: 12 },
+  attachChipFile: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 12, borderWidth: 1,
+    paddingLeft: 6, paddingRight: 32, paddingVertical: 8,
+    maxWidth: 220,
   },
-  imagePreviewThumb: {
-    width: 52, height: 52, borderRadius: 10, backgroundColor: '#F1F5F9',
+  attachFileIconWrap: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  attachFileName: { fontSize: 13, fontWeight: '600', flex: 1 },
+  attachClose: {
+    position: 'absolute', top: -6, right: -6,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#1F2937',
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 10,
   },
-  imagePreviewHint: { flex: 1, fontSize: 13, lineHeight: 18 },
-  imageClearBtn: { padding: 6 },
+  attachCloseText: { color: '#fff', fontSize: 14, fontWeight: '800', lineHeight: 18 },
 
   /* Photo preview modal */
   previewOverlay: {
