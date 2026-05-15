@@ -23,7 +23,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
-import { useAppStore, Message, CourseChunk, Course } from '../store';
+import { useAppStore, Message, CourseChunk } from '../store';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme } from '../components';
 import { askRAG, askWithImage, transcribeAudio, generateSummary, extractPDFWithGemini, NiveauType, detecterMode, computeNiveau } from '../utils/rag';
@@ -207,7 +207,7 @@ export default function ChatScreen({ route }: any) {
     currentMessages, activeCourse, isLoading,
     addMessage, setLoading, clearChat, saveChatSession, setFeedback,
     studentName, updateCourseChunks, difficultyScore, updateDifficulty,
-    trackConcept, addXP, addCourse, removeCourse,
+    trackConcept, addXP,
   } = useAppStore();
   const t = useTheme();
   const navigation = useNavigation<any>();
@@ -221,7 +221,8 @@ export default function ChatScreen({ route }: any) {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [pendingBase64, setPendingBase64] = useState<string | null>(null);
-  const [attachedPDF, setAttachedPDF] = useState<{ name: string; courseId: string } | null>(null);
+  // PDF temporaire : contexte additionnel pour 1 message, n'écrase PAS le cours actif
+  const [attachedPDF, setAttachedPDF] = useState<{ name: string; text: string } | null>(null);
   const [isPDFLoading, setIsPDFLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const headerAnim = useRef(new Animated.Value(1)).current;
@@ -361,46 +362,32 @@ export default function ChatScreen({ route }: any) {
       if (result.canceled) return;
       const file = result.assets[0];
       setIsPDFLoading(true);
-      let text = '', pages = 1, ok = false;
-      // 1. Gemini (gère scans + fonts complexes)
+      let text = '', ok = false;
+
+      // 1. Gemini d'abord
       try {
         const g = await extractPDFWithGemini(file.uri);
-        text = g.text; pages = g.pages; ok = true;
+        text = g.text; ok = true;
       } catch (e: any) {
         console.warn('[PDF] Gemini failed:', e?.message);
       }
-      // 2. Fallback parseur JS local
+      // 2. Fallback parseur JS
       if (!ok) {
         try {
           const r = await extractPDFText(file.uri);
-          text = r.text; pages = r.pages; ok = true;
+          text = r.text; ok = true;
         } catch (e: any) {
           console.warn('[PDF] JS parser failed:', e?.message);
         }
       }
       setIsPDFLoading(false);
       if (!ok || text.trim().length < 20) {
-        Alert.alert(
-          'PDF illisible',
-          'Impossible d\'extraire le texte.\nVa dans l\'onglet Cours → "Coller le texte manuellement".',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('PDF illisible', 'Impossible d\'extraire le texte.\nEssaie de copier-coller le texte dans l\'onglet Cours.', [{ text: 'OK' }]);
         return;
       }
-      const course: Course = {
-        id: Date.now().toString(),
-        name: file.name.replace(/\.pdf$/i, ''),
-        subjectName: activeCourse?.subjectName || '',
-        fileName: file.name,
-        fileUri: file.uri,
-        pages,
-        uploadedAt: new Date(),
-        active: true,
-        content: text,
-        chunks: [],
-      };
-      addCourse(course);
-      setAttachedPDF({ name: course.name, courseId: course.id });
+      // Le cours actif (manuel) N'EST PAS remplacé — le PDF est juste un contexte additionnel
+      const name = file.name.replace(/\.pdf$/i, '');
+      setAttachedPDF({ name, text });
     } catch {
       setIsPDFLoading(false);
       Alert.alert('Erreur', 'Impossible d\'ouvrir le fichier.');
@@ -456,6 +443,11 @@ export default function ChatScreen({ route }: any) {
     if (!q || isLoading) return;
     if (!activeCourse) { setShowNoCourseModal(true); return; }
 
+    // PDF temporaire : on l'injecte dans la question comme contexte supplémentaire
+    // Le cours actif (manuel) reste la source principale dans askRAG
+    const capturedPDF = attachedPDF;
+    if (capturedPDF) setAttachedPDF(null);
+
     // Détection frustration
     const FRUSTRATED_RE = /\b(comprends?\s*pas|rien\s*compris?|trop\s*dur|sais?\s*pas|toujours\s*pas|encore\s*pas|j[e']\s*comprends?\s*pas|j[e']\s*sais?\s*pas|c['']est\s*(dur|compliqué|difficile)|je\s*bloque|j[e']\s*arrive\s*pas)\b/i;
     const frustrated = FRUSTRATED_RE.test(q);
@@ -470,7 +462,14 @@ export default function ChatScreen({ route }: any) {
     scrollToBottom();
 
     const niveau = computeNiveau(difficultyScore, frustrated);
-    const result = await askRAG(q, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated);
+
+    // Si un PDF a été joint, l'ajouter comme contexte supplémentaire à la question
+    // Le cours actif (manuel) reste la source principale du RAG
+    const questionWithPDF = capturedPDF
+      ? `${q}\n\n[Document joint par l'élève : "${capturedPDF.name}"]\n---\n${capturedPDF.text.slice(0, 3000)}\n---`
+      : q;
+
+    const result = await askRAG(questionWithPDF, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated);
     addMessage({
       id: (Date.now() + 1).toString(),
       role: result.type === 'answer' ? 'assistant' : result.type,
@@ -666,7 +665,7 @@ export default function ChatScreen({ route }: any) {
                 </Text>
                 <TouchableOpacity
                   style={styles.attachClose}
-                  onPress={() => { removeCourse(attachedPDF.courseId); setAttachedPDF(null); }}
+                  onPress={() => setAttachedPDF(null)}
                 >
                   <Text style={styles.attachCloseText}>×</Text>
                 </TouchableOpacity>
