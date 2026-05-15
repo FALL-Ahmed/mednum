@@ -811,6 +811,46 @@ export async function transcribeAudio(audioUri: string): Promise<string> {
   return (await res.text()).trim();
 }
 
+// ─── Extraction PDF via Gemini (OCR + texte natif) ───────────────────────────
+
+export async function extractPDFWithGemini(
+  fileUri: string
+): Promise<{ text: string; pages: number }> {
+  if (!GEMINI_KEY) throw new Error('Clé Gemini manquante');
+  const FileSystem = require('expo-file-system/legacy');
+  const base64: string = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
+
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType: 'application/pdf', data: base64 } },
+        {
+          text:
+            'Extrais intégralement le texte de ce cours scolaire : ' +
+            'chapitres, sous-titres, définitions, exercices, tableaux. ' +
+            'Conserve la structure. Retourne UNIQUEMENT le texte, sans commentaire.',
+        },
+      ],
+    }],
+    generationConfig: { maxOutputTokens: 8192, temperature: 0 },
+  };
+
+  const res = await fetch(`${GEMINI_CHAT_URL}?key=${GEMINI_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini PDF ${res.status}: ${err.slice(0, 150)}`);
+  }
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+  if (text.length < 30) throw new Error('PDF illisible par Gemini');
+  return { text, pages: Math.max(1, Math.ceil(text.split(/\s+/).length / 300)) };
+}
+
 // ─── Re-export pour rétrocompatibilité ───────────────────────────────────────
 export async function extractPDFText(_uri: string): Promise<string> {
   return '';

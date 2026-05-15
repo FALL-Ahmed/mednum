@@ -17,6 +17,7 @@ import { useAppStore, Course } from '../store';
 import { Colors, Typography, Spacing, Radius, Shadows } from '../theme';
 import { SectionHeader, useTheme } from '../components';
 import { extractPDFText } from '../utils/pdfExtractor';
+import { extractPDFWithGemini } from '../utils/rag';
 
 export default function CourseScreen() {
   const { courses, activeCourse, addCourse, removeCourse, setActiveCourse } = useAppStore();
@@ -48,16 +49,23 @@ export default function CourseScreen() {
         content = await FileSystem.readAsStringAsync(file.uri, { encoding: 'utf8' });
         pages = (content.match(/\[Page \d+\]/g) || []).length || Math.ceil(content.split(/\s+/).length / 300);
       } else {
-        // PDF → extraction JS
+        // PDF → Gemini en premier (gère scans + fonts custom), puis fallback JS
+        let ok = false;
         try {
-          const extracted = await extractPDFText(file.uri);
-          content = extracted.text;
-          pages = extracted.pages;
-        } catch (e: any) {
+          const g = await extractPDFWithGemini(file.uri);
+          content = g.text; pages = g.pages; ok = true;
+        } catch { /* fallback */ }
+        if (!ok) {
+          try {
+            const extracted = await extractPDFText(file.uri);
+            content = extracted.text; pages = extracted.pages; ok = true;
+          } catch {}
+        }
+        if (!ok) {
           setUploading(false);
           Alert.alert(
-            'Extraction PDF échouée',
-            `Ce PDF a un encodage non standard.\n\nSolution rapide :\n1. Dans "prof ia", lance :\n   python export_text.py\n2. Transfère le fichier .txt sur ton téléphone\n3. Importe le .txt ici à la place du PDF`,
+            'PDF illisible',
+            'Ce PDF est peut-être un scan ou protégé.\n\nUtilise "Coller le texte manuellement" ci-dessous.',
             [{ text: 'OK' }]
           );
           return;
@@ -73,12 +81,14 @@ export default function CourseScreen() {
       const course: Course = {
         id: Date.now().toString(),
         name: file.name.replace(/\.(pdf|txt)$/i, ''),
+        subjectName: '',
         fileName: file.name,
         fileUri: file.uri,
         pages,
         uploadedAt: new Date(),
         active: true,
         content,
+        chunks: [],
       };
 
       addCourse(course);
@@ -100,12 +110,14 @@ export default function CourseScreen() {
     const course: Course = {
       id: Date.now().toString(),
       name: pasteName.trim(),
+      subjectName: '',
       fileName: pasteName.trim() + '.txt',
       fileUri: '',
       pages: Math.ceil(pasteText.trim().split(/\s+/).length / 300),
       uploadedAt: new Date(),
       active: true,
       content: pasteText.trim(),
+      chunks: [],
     };
     addCourse(course);
     setPasteModal(false);

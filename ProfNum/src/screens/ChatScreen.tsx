@@ -18,13 +18,15 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
-import { useAppStore, Message, CourseChunk } from '../store';
+import { useAppStore, Message, CourseChunk, Course } from '../store';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme } from '../components';
-import { askRAG, askWithImage, transcribeAudio, generateSummary, NIVEAU_LABELS, NiveauType, detecterMode } from '../utils/rag';
+import { askRAG, askWithImage, transcribeAudio, generateSummary, extractPDFWithGemini, NiveauType, detecterMode, computeNiveau } from '../utils/rag';
 import { getSubjectStyle } from '../utils/subjectStyles';
 import { supabase } from '../lib/supabase';
 
@@ -203,8 +205,8 @@ export default function ChatScreen({ route }: any) {
   const {
     currentMessages, activeCourse, isLoading,
     addMessage, setLoading, clearChat, saveChatSession, setFeedback,
-    niveau, setNiveau, studentName, updateCourseChunks,
-    trackConcept, addXP,
+    studentName, updateCourseChunks, difficultyScore, updateDifficulty,
+    trackConcept, addXP, addCourse,
   } = useAppStore();
   const t = useTheme();
   const navigation = useNavigation<any>();
@@ -218,7 +220,9 @@ export default function ChatScreen({ route }: any) {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [pendingBase64, setPendingBase64] = useState<string | null>(null);
+  const [isPDFLoading, setIsPDFLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const headerAnim = useRef(new Animated.Value(1)).current;
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -346,15 +350,58 @@ export default function ChatScreen({ route }: any) {
     setPendingBase64(null);
   };
 
-  const handleImageButton = () => {
-    Alert.alert('Ajouter une photo', 'D\'où vient ta photo ?', [
+  const pickPDF = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const file = result.assets[0];
+      setIsPDFLoading(true);
+      try {
+        const { text, pages } = await extractPDFWithGemini(file.uri);
+        const course: Course = {
+          id: Date.now().toString(),
+          name: file.name.replace(/\.pdf$/i, ''),
+          subjectName: activeCourse?.subjectName || '',
+          fileName: file.name,
+          fileUri: file.uri,
+          pages,
+          uploadedAt: new Date(),
+          active: true,
+          content: text,
+          chunks: [],
+        };
+        addCourse(course);
+        Alert.alert('PDF chargé !', `"${course.name}"\n${pages} pages extraites — pose ta question !`, [{ text: 'Super !' }]);
+      } catch {
+        Alert.alert('PDF illisible', 'Impossible d\'extraire le texte.\nCe PDF est peut-être un scan ou protégé.', [{ text: 'OK' }]);
+      } finally {
+        setIsPDFLoading(false);
+      }
+    } catch {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir le fichier.');
+    }
+  };
+
+  const handleAttach = () => {
+    Alert.alert('Ajouter', '', [
       { text: '📷 Prendre une photo', onPress: takePhoto },
       { text: '🖼️ Galerie', onPress: pickFromGallery },
+      { text: '📄 Fichier PDF', onPress: pickPDF },
       { text: 'Annuler', style: 'cancel' },
     ]);
   };
 
+  const collapseHeader = () =>
+    Animated.timing(headerAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+
+  const expandHeader = () =>
+    Animated.timing(headerAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+
   const sendMessage = async () => {
+    expandHeader();
     const q = input.trim();
     if ((!q && !imageUri) || isLoading) return;
 
@@ -369,7 +416,7 @@ export default function ChatScreen({ route }: any) {
       addMessage({ id: Date.now().toString(), role: 'user', content: displayContent, userImageUri: capturedUri!, timestamp: new Date() });
       setLoading(true);
       scrollToBottom();
-      const result = await askWithImage(q, capturedBase64, niveau, studentName || undefined);
+      const result = await askWithImage(q, capturedBase64, computeNiveau(difficultyScore), studentName || undefined);
       addMessage({
         id: (Date.now() + 1).toString(),
         role: result.type === 'answer' ? 'assistant' : result.type,
@@ -400,6 +447,7 @@ export default function ChatScreen({ route }: any) {
     setLoading(true);
     scrollToBottom();
 
+    const niveau = computeNiveau(difficultyScore, frustrated);
     const result = await askRAG(q, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated);
     addMessage({
       id: (Date.now() + 1).toString(),
@@ -414,6 +462,10 @@ export default function ChatScreen({ route }: any) {
     if (result.type === 'answer' && activeCourse.id) {
       trackConcept(activeCourse.id, q);
       addXP(result.mode === 'exercice' ? 20 : result.mode === 'correction' ? 15 : 10);
+      // Mise à jour du niveau adaptatif (IRT 2-Up/1-Down)
+      if (frustrated) updateDifficulty('frustration');
+      else if (hintLevel >= 3) updateDifficulty('struggle');
+      else if (hintLevel === 0 && (result.mode === 'exercice' || result.mode === 'correction')) updateDifficulty('success');
     }
     setLoading(false);
     scrollToBottom();
@@ -469,8 +521,13 @@ export default function ChatScreen({ route }: any) {
     <View style={[styles.root, { backgroundColor: t.bg }]}>
       <StatusBar barStyle="light-content" backgroundColor={subjectStyle.bg} />
 
-      {/* ── Header ── */}
-      <View style={[styles.header, { backgroundColor: subjectStyle.bg }]}>
+      {/* ── Header (se replie quand l'input est focus) ── */}
+      <Animated.View style={[
+        styles.header,
+        { backgroundColor: subjectStyle.bg, overflow: 'hidden' },
+        { maxHeight: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 200] }) },
+        { opacity: headerAnim },
+      ]}>
         <SafeAreaView>
           <View style={styles.headerTop}>
             {/* Course info */}
@@ -505,30 +562,22 @@ export default function ChatScreen({ route }: any) {
             </View>
           </View>
 
-          {/* Niveau selector */}
+          {/* Niveau automatique affiché en lecture seule */}
           <View style={styles.niveauRow}>
-            {(['facile', 'moyen', 'avance'] as NiveauType[]).map((n) => (
-              <TouchableOpacity
-                key={n}
-                style={[
-                  styles.niveauChip,
-                  niveau === n
-                    ? { backgroundColor: '#fff' }
-                    : { backgroundColor: 'rgba(255,255,255,0.12)' },
-                ]}
-                onPress={() => setNiveau(n)}
-              >
-                <Text style={[
-                  styles.niveauText,
-                  { color: niveau === n ? subjectStyle.bg : 'rgba(255,255,255,0.75)' },
-                ]}>
-                  {NIVEAU_LABELS[n]}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {(() => {
+              const niv = computeNiveau(difficultyScore);
+              const labels: Record<NiveauType, string> = { facile: '🌱 Débutant', moyen: '📘 Intermédiaire', avance: '🚀 Avancé' };
+              return (
+                <View style={[styles.niveauChip, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                  <Text style={[styles.niveauText, { color: 'rgba(255,255,255,0.9)' }]}>
+                    {labels[niv]}
+                  </Text>
+                </View>
+              );
+            })()}
           </View>
         </SafeAreaView>
-      </View>
+      </Animated.View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -581,8 +630,16 @@ export default function ChatScreen({ route }: any) {
 
         {/* Input Bar */}
         <View style={[styles.inputBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-          <TouchableOpacity style={styles.attachBtn} onPress={handleImageButton} activeOpacity={0.7}>
-            <Text style={styles.attachIcon}>📷</Text>
+          <TouchableOpacity
+            style={[styles.attachBtn, { backgroundColor: isPDFLoading ? Colors.blueLight : 'transparent' }]}
+            onPress={handleAttach}
+            activeOpacity={0.7}
+            disabled={isPDFLoading}
+          >
+            {isPDFLoading
+              ? <ActivityIndicator size="small" color={Colors.blue} />
+              : <Text style={styles.attachIcon}>+</Text>
+            }
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.micBtn, isRecording && styles.micBtnActive]}
@@ -601,6 +658,8 @@ export default function ChatScreen({ route }: any) {
             placeholderTextColor={t.textMuted}
             value={input}
             onChangeText={setInput}
+            onFocus={collapseHeader}
+            onBlur={expandHeader}
             multiline
             maxLength={500}
             returnKeyType="send"
@@ -918,10 +977,11 @@ const styles = StyleSheet.create({
 
   /* Image attachment */
   attachBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 36, height: 36, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    backgroundColor: Colors.blueLight,
   },
-  attachIcon: { fontSize: 22 },
+  attachIcon: { fontSize: 24, fontWeight: '700', color: Colors.blue, lineHeight: 28 },
   micBtn: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
