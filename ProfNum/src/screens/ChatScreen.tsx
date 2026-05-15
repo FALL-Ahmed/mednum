@@ -449,8 +449,7 @@ export default function ChatScreen({ route }: any) {
     if (!q || isLoading) return;
     if (!activeCourse) { setShowNoCourseModal(true); return; }
 
-    // PDF temporaire : on l'injecte dans la question comme contexte supplémentaire
-    // Le cours actif (manuel) reste la source principale dans askRAG
+    // PDF : capturé et vidé du chip — le contenu reste dans l'historique API via apiContent
     const capturedPDF = attachedPDF;
     if (capturedPDF) setAttachedPDF(null);
 
@@ -462,18 +461,23 @@ export default function ChatScreen({ route }: any) {
     const recentUserMsgs = currentMessages.filter(m => m.role === 'user').slice(-6);
     const hintLevel = recentUserMsgs.filter(m => detecterMode(m.content) === 'correction').length;
 
+    const questionWithPDF = capturedPDF
+      ? `${q}\n\n[Document joint par l'élève : "${capturedPDF.name}"]\n---\n${capturedPDF.text.slice(0, 3000)}\n---`
+      : q;
+
     setInput('');
-    addMessage({ id: Date.now().toString(), role: 'user', content: q, timestamp: new Date(), pdfName: capturedPDF?.name });
+    addMessage({
+      id: Date.now().toString(),
+      role: 'user',
+      content: q,
+      timestamp: new Date(),
+      pdfName: capturedPDF?.name,
+      apiContent: capturedPDF ? questionWithPDF : undefined,
+    });
     setLoading(true);
     scrollToBottom();
 
     const niveau = computeNiveau(difficultyScore, frustrated);
-
-    // Si un PDF a été joint, l'ajouter comme contexte supplémentaire à la question
-    // Le cours actif (manuel) reste la source principale du RAG
-    const questionWithPDF = capturedPDF
-      ? `${q}\n\n[Document joint par l'élève : "${capturedPDF.name}"]\n---\n${capturedPDF.text.slice(0, 3000)}\n---`
-      : q;
 
     const result = await askRAG(questionWithPDF, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated);
     addMessage({

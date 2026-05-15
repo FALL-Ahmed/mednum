@@ -15,6 +15,8 @@ export type Course = {
   pdf_path: string
   pages: number
   created_at: string
-  classes: { name: string }
-  subjects: { name: string }
+  content?: string
+  chunks?: string
+  classes?: { name: string }
+  subjects?: { name: string }
 }

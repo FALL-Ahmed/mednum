@@ -15,6 +15,7 @@ export type Message = {
   feedback?: 'up' | 'down' | null;
   hallucination?: boolean;
   pdfName?: string;
+  apiContent?: string;
 };
 
 export type CourseChunk = { title: string; content: string; index: number; images?: string[]; startPage?: number; endPage?: number };

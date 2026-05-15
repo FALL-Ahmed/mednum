@@ -162,11 +162,12 @@ function buildSystemPrompt(courseName: string, niveau: NiveauType, mode: ModeTyp
 
 RÈGLES D'OR — Tu es un professeur de SVT expert :
 1. Des extraits du cours sont fournis dans le message entre [Extraits du cours "..."] et ---. Lis-les TOUS avant de répondre.
-2. Si l'information est présente dans AU MOINS UN extrait, utilise-la pour répondre. Ne dis jamais "ce n'est pas dans les extraits" si ça y est bien.
+2. Si l'information est présente dans AU MOINS UN extrait, utilise-la pour répondre. Ne dis JAMAIS "ce n'est pas dans les extraits" si ça y est bien.
 3. Si le message commence par [HORS_COURS] → dis clairement "Ce sujet n'est pas dans ton manuel." et ARRÊTE-TOI. Sinon, réponds toujours avec ce que les extraits contiennent.
 4. Utilise toujours les définitions exactes du manuel (souvent dans "Je retiens").
-5. Ne cite jamais les extraits ("L'extrait 1 dit..."), parle naturellement.
-6. Si la question porte sur un exercice, guide l'élève au lieu de donner la réponse brute.`
+5. IMPORTANT — Si le message contient un [Document joint par l'élève] (composition, devoir, fiche d'exercices) : c'est le TRAVAIL DE L'ÉLÈVE, pas du cours. Les questions de ce document ne doivent PAS figurer dans le manuel — c'est tout à fait normal. Ton rôle : utiliser les extraits du cours pour construire les RÉPONSES à ces questions. Tu guides l'élève pour qu'il réponde à sa composition grâce au cours.
+6. Ne cite jamais les extraits ("L'extrait 1 dit..."), parle naturellement.
+7. Si la question porte sur un exercice, guide l'élève au lieu de donner la réponse brute.`
     : `Aucun cours chargé. Encourage l'élève à charger un cours PDF depuis l'onglet "Cours".`;
 
   return `Tu es Prof Moctar, un assistant pédagogique bienveillant pour les élèves de collège (12-13 ans).
@@ -414,15 +415,28 @@ function buildMessages(
       sources = [...new Set(toUse.map(c => `p.${c.page}`))];
     }
 
-    userContent =
-      `[Extraits du cours "${courseName}" — lis-les attentivement]\n---\n${context}\n---\n\n` +
-      `Question de l'élève : ${question}`;
+    // Si un document de l'élève est joint, séparer la demande du document pour un meilleur cadrage
+    const DOC_MARKER_BM = '\n\n[Document joint';
+    const dmIdx = question.indexOf(DOC_MARKER_BM);
+    const userDemande = dmIdx >= 0 ? question.slice(0, dmIdx).trim() : question;
+    const userDoc = dmIdx >= 0 ? question.slice(dmIdx).trim() : '';
+
+    if (userDoc) {
+      userContent =
+        `[Extraits du cours "${courseName}" — utilise ces extraits pour répondre aux questions du document ci-dessous]\n---\n${context}\n---\n\n` +
+        `Demande de l'élève : ${userDemande}\n\n` +
+        `[Document de l'élève — composition/devoir à traiter avec le cours]\n${userDoc.replace(/^\[Document joint[^\]]*\]/, '').trim()}`;
+    } else {
+      userContent =
+        `[Extraits du cours "${courseName}" — lis-les attentivement]\n---\n${context}\n---\n\n` +
+        `Question de l'élève : ${question}`;
+    }
   }
 
   const history = previousMessages
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0)
     .slice(-MAX_HISTORY)
-    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.apiContent ?? m.content }));
 
   return {
     messages: [
@@ -650,16 +664,38 @@ export async function askRAG(
     const cleanUserPart = estConversationnel(userPart) ? userPart : await rewriteQuery(userPart);
     if (cleanUserPart !== userPart) console.log('[RAG] ✏️ Query corrigée :', cleanUserPart);
 
-    const mode = detecterMode(cleanUserPart);
+    // Si le document joint contient des exercices/composition → mode correction (guide Socratique)
+    const modeFromDoc = docPart ? detecterMode(docPart) : null;
+    const mode = (modeFromDoc === 'exercice') ? 'correction' : detecterMode(cleanUserPart);
 
     // Enrichissement de la requête sur la partie utilisateur uniquement
     const { display: displayQuery, search: searchQuery } = enrichQuery(cleanUserPart, previousMessages);
     // Réinjecter le document joint dans la question affichée au LLM
     const displayQueryFull = displayQuery + docPart;
 
+    // Si un document est joint, enrichir la recherche avec ses mots-clés
+    // → hybridSearch cherche dans les bons chapitres au lieu de la phrase vague de l'élève
+    let effectiveSearchQuery = searchQuery;
+    if (docPart) {
+      const docKeywords = docPart
+        .replace(/\[Document joint[^\]]*\]/g, '')
+        .replace(/---+/g, '')
+        .replace(/EXERCICE|Réponse\s*:|_+|\d+\.\s*/g, ' ')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 4 && !/^(dans|avec|pour|plus|comme|mais|sont|cette|dont|leur|tout|bien|peut|quand|elle|nous|vous|tres|aussi|alors|meme|voici|repondre|toutes|questions)$/.test(w))
+        .slice(0, 12)
+        .join(' ');
+      if (docKeywords.trim()) {
+        effectiveSearchQuery = searchQuery + ' ' + docKeywords;
+        console.log('[RAG] ▶ Query enrichie PDF :', effectiveSearchQuery.slice(0, 120));
+      }
+    }
+
     let preSelected: CourseChunk[] | undefined;
     if (courseId && courseChunks && courseChunks.length > 0 && !estConversationnel(cleanUserPart) && !estQuestionStructure(cleanUserPart)) {
-      preSelected = await hybridSearch(searchQuery, courseId, courseChunks, 5);
+      preSelected = await hybridSearch(effectiveSearchQuery, courseId, courseChunks, 5);
     }
 
     const { messages, sources, images: availableImages } = buildMessages(
