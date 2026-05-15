@@ -70,8 +70,14 @@ const ChatBubble = React.memo(function ChatBubble({
               resizeMode="cover"
             />
           )}
+          {msg.pdfName && (
+            <View style={styles.bubblePDFBadge}>
+              <Text style={styles.bubblePDFIcon}>📄</Text>
+              <Text style={styles.bubblePDFName} numberOfLines={1}>{msg.pdfName}</Text>
+            </View>
+          )}
           {msg.content ? (
-            <Text style={[styles.bubbleUserText, msg.userImageUri && { marginTop: 6 }]}>
+            <Text style={[styles.bubbleUserText, (msg.userImageUri || msg.pdfName) && { marginTop: 6 }]}>
               {msg.content}
             </Text>
           ) : null}
@@ -457,7 +463,7 @@ export default function ChatScreen({ route }: any) {
     const hintLevel = recentUserMsgs.filter(m => detecterMode(m.content) === 'correction').length;
 
     setInput('');
-    addMessage({ id: Date.now().toString(), role: 'user', content: q, timestamp: new Date() });
+    addMessage({ id: Date.now().toString(), role: 'user', content: q, timestamp: new Date(), pdfName: capturedPDF?.name });
     setLoading(true);
     scrollToBottom();
 
@@ -932,6 +938,14 @@ const styles = StyleSheet.create({
     maxWidth: '78%',
   },
   bubbleUserText: { fontSize: 15, color: '#fff', lineHeight: 22 },
+  bubblePDFBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 5,
+    maxWidth: 200,
+  },
+  bubblePDFIcon: { fontSize: 14 },
+  bubblePDFName: { fontSize: 12, color: '#fff', fontWeight: '600', flex: 1 },
   bubbleUserImage: {
     width: 220, height: 160, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',

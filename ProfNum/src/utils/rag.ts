@@ -639,23 +639,31 @@ export async function askRAG(
   frustrated?: boolean
 ): Promise<RAGResponse> {
   try {
-    // Correction fautes/abréviations/SMS avant toute détection et recherche
-    const cleanQuestion = estConversationnel(question) ? question : await rewriteQuery(question);
-    if (cleanQuestion !== question) console.log('[RAG] ✏️ Query corrigée :', cleanQuestion);
+    // Séparer la partie utilisateur du [Document joint] éventuel
+    // pour ne pas passer le texte du PDF à rewriteQuery / detecterMode / hybridSearch
+    const DOC_MARKER = '\n\n[Document joint';
+    const docIdx = question.indexOf(DOC_MARKER);
+    const userPart = docIdx >= 0 ? question.slice(0, docIdx) : question;
+    const docPart  = docIdx >= 0 ? question.slice(docIdx) : '';
 
-    const mode = detecterMode(cleanQuestion);
+    // Correction fautes/abréviations/SMS sur la partie utilisateur uniquement
+    const cleanUserPart = estConversationnel(userPart) ? userPart : await rewriteQuery(userPart);
+    if (cleanUserPart !== userPart) console.log('[RAG] ✏️ Query corrigée :', cleanUserPart);
 
-    // Si la question contient des pronoms vagues ("ça", "ce", "cela"…),
-    // on enrichit la requête de recherche avec le sujet de la question précédente
-    const { display: displayQuery, search: searchQuery } = enrichQuery(cleanQuestion, previousMessages);
+    const mode = detecterMode(cleanUserPart);
+
+    // Enrichissement de la requête sur la partie utilisateur uniquement
+    const { display: displayQuery, search: searchQuery } = enrichQuery(cleanUserPart, previousMessages);
+    // Réinjecter le document joint dans la question affichée au LLM
+    const displayQueryFull = displayQuery + docPart;
 
     let preSelected: CourseChunk[] | undefined;
-    if (courseId && courseChunks && courseChunks.length > 0 && !estConversationnel(cleanQuestion) && !estQuestionStructure(cleanQuestion)) {
+    if (courseId && courseChunks && courseChunks.length > 0 && !estConversationnel(cleanUserPart) && !estQuestionStructure(cleanUserPart)) {
       preSelected = await hybridSearch(searchQuery, courseId, courseChunks, 5);
     }
 
     const { messages, sources, images: availableImages } = buildMessages(
-      displayQuery,
+      displayQueryFull,
       courseContent,
       courseName,
       mode,
@@ -668,12 +676,13 @@ export async function askRAG(
       frustrated
     );
 
-    console.log('[RAG] ▶ Question :', question);
-    if (searchQuery !== cleanQuestion) console.log('[RAG] ▶ Query enrichie (search) :', searchQuery);
+    console.log('[RAG] ▶ Question :', userPart);
+    if (docPart) console.log('[RAG] ▶ Document joint :', docPart.slice(0, 80) + '…');
+    if (searchQuery !== cleanUserPart) console.log('[RAG] ▶ Query enrichie (search) :', searchQuery);
     console.log('[RAG] Chunks sources :', sources);
 
     const text = await callAI(messages);
-    console.log('[RAG] ◀ Réponse IA :', text?.slice(0, 600));
+    console.log('[RAG] ◀ Réponse IA :', text);
 
     if (text.trim() === 'HORS_COURS' || text.includes('HORS_COURS')) {
       return { type: 'refusal', content: "Cette question ne semble pas faire partie de ton cours. Pose-moi une question sur le contenu de ton manuel !", sources: [], mode };

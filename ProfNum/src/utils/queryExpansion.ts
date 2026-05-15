@@ -10,10 +10,10 @@ const ABBREVS: Record<string, string> = {
   'stp': 's\'il te plaît', 'qd': 'quand', 'ds': 'dans', 'vs': 'vous',
   'c': 'c\'est', 'ck': 'c\'est quoi', 'koi': 'quoi', 'ke': 'que',
   'jss': 'je suis', 'jsuis': 'je suis', 'jsp': 'je ne sais pas',
-  'pb': 'problème', 'pb': 'problème', 'def': 'définition', 'dif': 'différence',
+  'pb': 'problème', 'def': 'définition', 'dif': 'différence',
   'svt': 'sciences de la vie et de la terre', 'bio': 'biologie',
   'exo': 'exercice', 'exos': 'exercices', 'chap': 'chapitre',
-  'unit': 'unité', 'partie': 'partie', 'def': 'définition',
+  'unit': 'unité', 'partie': 'partie',
 };
 
 function applyAbbrevs(query: string): string {
@@ -26,38 +26,57 @@ function applyAbbrevs(query: string): string {
     .join(' ');
 }
 
+// Mots qui indiquent que le LLM a répondu au lieu de corriger
+const RESPONSE_STARTERS = /^(voici|bien sûr|certainement|d'accord|ok|oui|non|je |la |le |les |un |une |pour |dans |il |elle )/i;
+
 // Réécriture LLM : corrige fautes + abréviations + SMS en français correct
 export async function rewriteQuery(query: string): Promise<string> {
-  // Pas de réécriture pour les questions très courtes (salut, bonjour…)
-  if (query.trim().split(/\s+/).length <= 2) return applyAbbrevs(query);
+  const fallback = applyAbbrevs(query);
 
-  if (!GROQ_KEY) return applyAbbrevs(query);
+  // Pas de réécriture pour les questions très courtes
+  if (query.trim().split(/\s+/).length <= 2) return fallback;
+
+  // Pas d'abréviations détectées → pas besoin du LLM
+  const hasAbbrev = query.split(/\s+/).some(w => ABBREVS[w.toLowerCase().replace(/[?!.,;:]/g, '')]);
+  const hasTypo = /[a-z]{3,}/.test(query) && query !== query.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!hasAbbrev && !hasTypo) return fallback;
+
+  if (!GROQ_KEY) return fallback;
   try {
     const res = await fetch(GROQ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
       body: JSON.stringify({
         model: FAST_MODEL,
-        max_tokens: 80,
+        max_tokens: 60,
         temperature: 0.0,
         messages: [
           {
             role: 'system',
             content:
-              'Tu corriges des questions d\'élèves de collège en français correct. ' +
-              'Corrige UNIQUEMENT les fautes d\'orthographe, les abréviations SMS, et les mots manquants. ' +
-              'Ne change PAS le sens ni le contenu. Retourne UNIQUEMENT la question corrigée, rien d\'autre.',
+              'Corrige uniquement les fautes d\'orthographe et abréviations SMS. ' +
+              'INTERDIT d\'ajouter du contenu ou de répondre. ' +
+              'Exemple : "pk la svt cest quoi" → "pourquoi la SVT c\'est quoi". ' +
+              'Retourne UNIQUEMENT la phrase corrigée, rien d\'autre.',
           },
           { role: 'user', content: query },
         ],
       }),
     });
-    if (!res.ok) return applyAbbrevs(query);
+    if (!res.ok) return fallback;
     const data = await res.json();
-    const corrected: string = data.choices?.[0]?.message?.content?.trim() || query;
-    return corrected.split('\n')[0].trim() || applyAbbrevs(query);
+    const corrected: string = data.choices?.[0]?.message?.content?.trim() || '';
+    const cleaned = corrected.split('\n')[0].trim();
+
+    // Gardes anti-hallucination :
+    // 1. Trop long = le LLM a inventé du contenu
+    // 2. Commence par un mot de réponse = le LLM a répondu au lieu de corriger
+    if (!cleaned || cleaned.length > query.length * 2 || RESPONSE_STARTERS.test(cleaned)) {
+      return fallback;
+    }
+    return cleaned;
   } catch {
-    return applyAbbrevs(query);
+    return fallback;
   }
 }
 

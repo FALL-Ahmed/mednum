@@ -319,12 +319,43 @@ function extractAllText(binary: string, cmap: Map<string, string>): string {
 
 function fixLetterSpacing(text: string): string {
   return text.split('\n').map(line => {
-    const tokens = line.trim().split(/\s+/).filter(Boolean);
+    const raw = line.trim();
+    if (!raw) return line;
+    // Séparer la ponctuation finale pour ne pas bloquer la détection
+    const trailMatch = raw.match(/^(.*?)([.!?:;,]*)$/);
+    const body   = trailMatch ? trailMatch[1] : raw;
+    const trail  = trailMatch ? trailMatch[2] : '';
+
+    const tokens = body.split(/\s+/).filter(Boolean);
     if (tokens.length < 3) return line;
-    // Si la majorité des tokens sont courts (rendu char-par-char), tout fusionner
-    const avgLen = tokens.reduce((s, t) => s + t.length, 0) / tokens.length;
-    const allWord = tokens.every(t => /^[A-Za-zÀ-ÿ0-9]+$/.test(t));
-    if (avgLen < 2.2 && allWord) return tokens.join('');
+
+    // Tokens purement alphanumériques (sans ponctuation) pour le test
+    const wordTokens = tokens.filter(t => /^[A-Za-zÀ-ÿ0-9]+$/.test(t));
+    const avgLen = wordTokens.reduce((s, t) => s + t.length, 0) / (wordTokens.length || 1);
+    const mostlyWords = wordTokens.length / tokens.length >= 0.85;
+
+    if (avgLen < 2.2 && mostlyWords) {
+      // Rendu lettre-par-lettre → fusionner les fragments courts en mots
+      // Flush le buffer quand il dépasse 9 chars (mot complet) ET qu'un nouveau
+      // token court arrive — sinon "caractères" + "d" + "u" → "caractèresdu"
+      const merged: string[] = [];
+      let buf = '';
+      for (const tok of tokens) {
+        // Court = ≤3 chars sans apostrophe, ou ≤4 avec apostrophe (ex: "u'es", "d'un")
+        const isShort = /^[A-Za-zÀ-ÿ0-9']+$/.test(tok) &&
+          (tok.length <= 3 || (tok.includes("'") && tok.length <= 4));
+        if (isShort) {
+          if (buf.length > 9) { merged.push(buf); buf = ''; }
+          buf += tok;
+        } else {
+          if (buf) { merged.push(buf); buf = ''; }
+          merged.push(tok);
+        }
+      }
+      if (buf) merged.push(buf);
+      return merged.join(' ') + trail;
+    }
+
     // Sinon, fusionner seulement les séquences pures lettre-espace-lettre
     return line.replace(
       /(?<![A-Za-zÀ-ÿ\d])([A-Za-zÀ-ÿ] ){3,}[A-Za-zÀ-ÿ](?![A-Za-zÀ-ÿ\d])/g,

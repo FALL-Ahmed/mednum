@@ -23,7 +23,8 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-audio"
     ],
     "scheme": "profnum"
   }

@@ -21,6 +21,7 @@ export type SBCourse = {
   pdf_path: string
   pages: number
   content: string | null
+  chunks: string | null
   created_at: string
   classes: { name: string }
   subjects: { name: string }

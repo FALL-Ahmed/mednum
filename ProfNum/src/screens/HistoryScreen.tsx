@@ -76,7 +76,7 @@ function SessionModal({ session, onClose }: { session: ChatSession; onClose: () 
 }
 
 export default function HistoryScreen() {
-  const { chatHistory, clearChat } = useAppStore();
+  const { chatHistory, clearHistory } = useAppStore();
   const t = useTheme();
   const [selected, setSelected] = useState<ChatSession | null>(null);
 
@@ -90,7 +90,7 @@ export default function HistoryScreen() {
   const confirmClear = () => {
     Alert.alert('Effacer tout ?', 'Tout l\'historique sera supprimé.', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Effacer', style: 'destructive', onPress: clearChat },
+      { text: 'Effacer', style: 'destructive', onPress: clearHistory },
     ]);
   };
 

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, SBCourse } from '../lib/supabase';
-import { useAppStore, Course } from '../store';
+import { useAppStore, Course, CourseChunk } from '../store';
 import { Colors, Spacing, Radius } from '../theme';
 import { useTheme } from '../components';
 
@@ -48,7 +48,7 @@ function greeting() {
 export default function SubjectScreen() {
   const {
     studentClassId, studentName, studentClassName,
-    activeCourse, courses: storeCourses, addCourse, setActiveCourse,
+    activeCourse, courses: storeCourses, addCourse, setActiveCourse, updateCourseChunks,
   } = useAppStore();
   const t = useTheme();
   const { top } = useSafeAreaInsets();
@@ -67,44 +67,48 @@ export default function SubjectScreen() {
   const handleSelect = useCallback(async (course: SBCourse) => {
     if (downloading) return;
     const existing = storeCourses.find(c => c.id === course.id);
-    if (existing && existing.content && existing.content.trim().length > 50) {
-      setActiveCourse(course.id);
-      return;
-    }
+    const hasCachedContent = existing && existing.content?.trim().length > 50;
+
     setDownloading(course.id);
     try {
-      // Lire le contenu textuel extrait côté admin depuis Supabase
-      const { data, error } = await supabase
-        .from('courses')
-        .select('content')
-        .eq('id', course.id)
-        .single();
-      if (error) throw error;
-      const content = data?.content || '';
-      if (content.trim().length < 50) {
-        throw new Error(
-          'Ce cours n\'a pas encore de contenu textuel.\n\n' +
-          'Re-uploade le PDF depuis l\'application admin pour extraire le texte.'
-        );
+      if (hasCachedContent) {
+        // Content already in cache — only re-fetch chunks to pick up admin edits
+        const { data, error } = await supabase
+          .from('courses').select('chunks').eq('id', course.id).single();
+        if (error) throw error;
+        let chunks: CourseChunk[] = [];
+        if (data?.chunks) { try { chunks = JSON.parse(data.chunks); } catch {} }
+        updateCourseChunks(course.id, chunks);
+        setActiveCourse(course.id);
+      } else {
+        // First load — fetch full content + chunks
+        const { data, error } = await supabase
+          .from('courses').select('content, chunks').eq('id', course.id).single();
+        if (error) throw error;
+        const content = data?.content || '';
+        if (content.trim().length < 50) {
+          throw new Error('Ce cours n\'a pas encore de contenu textuel.\n\nRe-uploade le PDF depuis l\'application admin.');
+        }
+        let chunks: CourseChunk[] = [];
+        if (data?.chunks) { try { chunks = JSON.parse(data.chunks); } catch {} }
+        addCourse({
+          id: course.id,
+          name: course.name,
+          subjectName: course.subjects?.name || '',
+          fileName: course.pdf_path.split('/').pop() || course.name,
+          fileUri: '',
+          pages: course.pages || 1,
+          uploadedAt: new Date(),
+          active: true,
+          content,
+          chunks,
+        } as Course);
       }
-      addCourse({
-        id: course.id,
-        name: course.name,
-        subjectName: course.subjects?.name || '',
-        fileName: course.pdf_path.split('/').pop() || course.name,
-        fileUri: '',
-        pages: course.pages || 1,
-        uploadedAt: new Date(),
-        active: true,
-        content,
-      } as Course);
     } catch (err: any) {
       Alert.alert('Erreur', err?.message || 'Impossible de charger ce cours.');
     }
     setDownloading(null);
-  }, [downloading, storeCourses, addCourse, setActiveCourse]);
-
-  const activeSB = sbCourses.find(c => c.id === activeCourse?.id);
+  }, [downloading, storeCourses, addCourse, updateCourseChunks, setActiveCourse]);
 
   return (
     <View style={[styles.root, { backgroundColor: t.bg }]}>
@@ -137,30 +141,6 @@ export default function SubjectScreen() {
           </Text>
         </View>
 
-        {/* ── COURS ACTIF ── */}
-        {activeSB && activeCourse && (
-          <View style={styles.activeSection}>
-            <Text style={[styles.sectionLabel, { color: t.textMuted }]}>CONTINUER</Text>
-            <TouchableOpacity
-              style={[styles.activeBanner, { backgroundColor: getSubjectStyle(activeSB.subjects?.name).bg }]}
-              onPress={() => handleSelect(activeSB)}
-              activeOpacity={0.88}
-            >
-              <View style={styles.activeBannerLeft}>
-                <Text style={styles.activeBannerEmoji}>{getSubjectStyle(activeSB.subjects?.name).emoji}</Text>
-                <View>
-                  <Text style={styles.activeBannerSubject}>{activeSB.subjects?.name}</Text>
-                  <Text style={styles.activeBannerName} numberOfLines={1}>{activeSB.name}</Text>
-                </View>
-              </View>
-              <View style={[styles.activeBannerBtn, { backgroundColor: getSubjectStyle(activeSB.subjects?.name).accent + '33' }]}>
-                <Text style={[styles.activeBannerBtnText, { color: getSubjectStyle(activeSB.subjects?.name).accent }]}>
-                  Reprendre →
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* ── LISTE MATIÈRES ── */}
         <View style={styles.gridSection}>

@@ -14,6 +14,7 @@ export type Message = {
   timestamp: Date;
   feedback?: 'up' | 'down' | null;
   hallucination?: boolean;
+  pdfName?: string;
 };
 
 export type CourseChunk = { title: string; content: string; index: number; images?: string[]; startPage?: number; endPage?: number };
@@ -65,12 +66,17 @@ type AppStore = {
   addMessage: (msg: Message) => void;
   setLoading: (v: boolean) => void;
   clearChat: () => void;
+  clearHistory: () => void;
   saveChatSession: () => void;
   resumeSession: (session: ChatSession) => void;
   setFeedback: (msgId: string, feedback: 'up' | 'down') => void;
 
   niveau: NiveauType;
   setNiveau: (n: NiveauType) => void;
+
+  // Adaptive difficulty (IRT-inspired 2-Up/1-Down)
+  difficultyScore: number;   // 0–10, démarre à 4 (moyen bas)
+  updateDifficulty: (event: 'success' | 'struggle' | 'frustration') => void;
 
   // Suivi des concepts demandés par l'élève (courseId → concept → { count, lastAsked })
   conceptHistory: Record<string, Record<string, { count: number; lastAsked: string }>>;
@@ -157,6 +163,7 @@ export const useAppStore = create<AppStore>()(
       addMessage: (msg) => set((s) => ({ currentMessages: [...s.currentMessages, msg] })),
       setLoading: (v) => set({ isLoading: v }),
       clearChat: () => set({ currentMessages: [] }),
+      clearHistory: () => set({ chatHistory: [], currentMessages: [] }),
       resumeSession: (session) => {
         const { courses } = get();
         const course = courses.find((c) => c.id === session.courseId) || null;
@@ -186,6 +193,15 @@ export const useAppStore = create<AppStore>()(
 
       niveau: 'moyen' as NiveauType,
       setNiveau: (n) => set({ niveau: n }),
+
+      difficultyScore: 4,
+      updateDifficulty: (event) => set(s => {
+        let score = s.difficultyScore;
+        if (event === 'frustration') score = Math.max(0, score - 3);
+        else if (event === 'struggle')  score = Math.max(0, score - 1);
+        else if (event === 'success')   score = Math.min(10, score + 1);
+        return { difficultyScore: score };
+      }),
 
       conceptHistory: {},
       trackConcept: (courseId, concept) => {
@@ -260,6 +276,7 @@ export const useAppStore = create<AppStore>()(
         studentClassId: s.studentClassId,
         studentClassName: s.studentClassName,
         conceptHistory: s.conceptHistory,
+        difficultyScore: s.difficultyScore,
         streakCurrent: s.streakCurrent, streakBest: s.streakBest, streakLastDate: s.streakLastDate,
         xpTotal: s.xpTotal, xpToday: s.xpToday, xpTodayDate: s.xpTodayDate,
         xpThisWeek: s.xpThisWeek, xpLastWeek: s.xpLastWeek, xpWeekStartDate: s.xpWeekStartDate,
