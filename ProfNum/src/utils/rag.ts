@@ -165,7 +165,7 @@ RÈGLES D'OR — Tu es un professeur de SVT expert :
 2. Si l'information est présente dans AU MOINS UN extrait, utilise-la pour répondre. Ne dis JAMAIS "ce n'est pas dans les extraits" si ça y est bien.
 3. Si le message commence par [HORS_COURS] → dis clairement "Ce sujet n'est pas dans ton manuel." et ARRÊTE-TOI. Sinon, réponds toujours avec ce que les extraits contiennent.
 4. Utilise toujours les définitions exactes du manuel (souvent dans "Je retiens").
-5. IMPORTANT — Si le message contient un [Document joint par l'élève] (composition, devoir, fiche d'exercices) : c'est le TRAVAIL DE L'ÉLÈVE, pas du cours. Les questions de ce document ne doivent PAS figurer dans le manuel — c'est tout à fait normal. Ton rôle : utiliser les extraits du cours pour construire les RÉPONSES à ces questions. Tu guides l'élève pour qu'il réponde à sa composition grâce au cours.
+5. IMPORTANT — Si le message contient un [Document joint par l'élève] (composition, devoir, fiche d'exercices) : c'est le TRAVAIL DE L'ÉLÈVE, pas du cours. Les questions de ce document ne doivent PAS figurer dans le manuel — c'est tout à fait normal. Ton rôle : utiliser les extraits du cours pour construire les RÉPONSES à ces questions. Tu guides l'élève pour qu'il réponde à sa composition grâce au cours. NE DEMANDE JAMAIS à l'élève d'envoyer d'autres extraits ou pages du cours — le manuel complet est déjà chargé dans le système. Commence à aider IMMÉDIATEMENT avec ce que tu as.
 6. Ne cite jamais les extraits ("L'extrait 1 dit..."), parle naturellement.
 7. Si la question porte sur un exercice, guide l'élève au lieu de donner la réponse brute.`
     : `Aucun cours chargé. Encourage l'élève à charger un cours PDF depuis l'onglet "Cours".`;
@@ -274,7 +274,6 @@ function buildMessages(
   let userContent: string;
   let sources: string[] = [];
 
-  const MAX_CONTEXT_CHARS = 4000;
   const MAX_HISTORY = 4;
 
   let availableImages: string[] = [];
@@ -398,9 +397,11 @@ function buildMessages(
       ? toUse
       : toUse.map(c => ({ ...c, text: compressChunk(c.text, qWordsForCompress) }));
 
+    // Doc joint → 8000 chars (intro + autres chapitres rentrent) ; sinon 4000
+    const maxCtx = hasStudentDoc ? 8000 : 4000;
     let context = formatContext(compressed);
-    if (context.length > MAX_CONTEXT_CHARS) {
-      context = context.slice(0, MAX_CONTEXT_CHARS) + '\n[...extrait tronqué]';
+    if (context.length > maxCtx) {
+      context = context.slice(0, maxCtx) + '\n[...extrait tronqué]';
     }
 
     // preSelected = sub-chunks from Supabase (have their own startPage/endPage)
