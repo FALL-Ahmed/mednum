@@ -1,13 +1,15 @@
-import { Message, CourseChunk } from '../store';
+import { Message, CourseChunk, useAppStore } from '../store';
 import { splitIntoChunks, searchChunks, formatContext, Chunk } from './pdfExtractor';
 import { hybridSearch } from './hybridSearch';
 import { rewriteQuery } from './queryExpansion';
+import { getProfessorName } from './subjectStyles';
 
 // ─── Config LLM ───────────────────────────────────────────────────────────────
+// La clé Anthropic n'est plus côté client — elle vit dans la Edge Function Supabase.
 
-const ANTHROPIC_KEY     = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || '';
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_MODEL   = 'claude-haiku-4-5-20251001';
+const SUPABASE_URL      = process.env.EXPO_PUBLIC_SUPABASE_URL      || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const EDGE_ASK_URL      = `${SUPABASE_URL}/functions/v1/hyper-worker`;
 
 const MISTRAL_KEY     = process.env.EXPO_PUBLIC_MISTRAL_API_KEY || '';
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
@@ -156,11 +158,12 @@ export function estConversationnel(question: string): boolean {
 
 // ─── Prompt système ───────────────────────────────────────────────────────────
 
-function buildSystemPrompt(courseName: string, niveau: NiveauType, mode: ModeType, hasCourse: boolean, studentName?: string, hintLevel = 0, frustrated = false): string {
+function buildSystemPrompt(courseName: string, niveau: NiveauType, mode: ModeType, hasCourse: boolean, studentName?: string, hintLevel = 0, frustrated = false, activeChapterTitle?: string, subjectName?: string): string {
+  const profName = getProfessorName(subjectName || courseName);
   const courseSection = hasCourse
-    ? `Cours actif : "${courseName}"
+    ? `Cours actif : "${courseName}"${activeChapterTitle ? `\nChapitre étudié en ce moment : "${activeChapterTitle}". Si l'élève pose une question vague ("explique", "résume", "c'est quoi"), réponds en priorité sur ce chapitre.` : ''}
 
-RÈGLES D'OR — Tu es un professeur de SVT expert :
+RÈGLES D'OR — Tu es un professeur de ${subjectName || 'cette matière'} expert :
 1. Des extraits du cours sont fournis dans le message entre [Extraits du cours "..."] et ---. Lis-les TOUS avant de répondre.
 2. Si l'information est présente dans AU MOINS UN extrait, utilise-la pour répondre. Ne dis JAMAIS "ce n'est pas dans les extraits" si ça y est bien.
 3. Si le message commence par [HORS_COURS] → dis clairement "Ce sujet n'est pas dans ton manuel." et ARRÊTE-TOI. Sinon, réponds toujours avec ce que les extraits contiennent.
@@ -170,7 +173,7 @@ RÈGLES D'OR — Tu es un professeur de SVT expert :
 7. Si la question porte sur un exercice, guide l'élève au lieu de donner la réponse brute.`
     : `Aucun cours chargé. Encourage l'élève à charger un cours PDF depuis l'onglet "Cours".`;
 
-  return `Tu es Prof Moctar, un assistant pédagogique bienveillant pour les élèves de collège (12-13 ans).
+  return `Tu es ${profName}, un assistant pédagogique bienveillant pour les élèves de collège (12-13 ans).
 
 ${courseSection}
 
@@ -264,11 +267,13 @@ function buildMessages(
   studentName?: string,
   preSelected?: CourseChunk[],
   hintLevel?: number,
-  frustrated?: boolean
+  frustrated?: boolean,
+  activeChapterTitle?: string,
+  subjectName?: string
 ): { messages: { role: 'system' | 'user' | 'assistant'; content: string }[]; sources: string[]; images: string[] } {
 
   const hasCourse = courseContent.trim().length > 50;
-  const systemPrompt = buildSystemPrompt(courseName, niveau, mode, hasCourse, studentName, hintLevel ?? 0, frustrated ?? false);
+  const systemPrompt = buildSystemPrompt(courseName, niveau, mode, hasCourse, studentName, hintLevel ?? 0, frustrated ?? false, activeChapterTitle, subjectName);
   const conv = estConversationnel(question);
 
   let userContent: string;
@@ -457,36 +462,64 @@ function buildMessages(
   };
 }
 
-// ─── Appel Claude Haiku (principal) ──────────────────────────────────────────
+// ─── Appel Anthropic via Edge Function Supabase ──────────────────────────────
+// La clé Anthropic reste côté serveur (variable d'env Supabase).
+// Le client envoie userId pour le contrôle de quota.
 
-async function callClaude(
-  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+async function callAnthropicViaEdge(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  maxTokens = 2048
 ): Promise<string> {
-  const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+  const deviceId  = useAppStore.getState().deviceId;
+  const systemMsg = messages.find(m => m.role === 'system')?.content;
   const chatMsgs  = messages
     .filter(m => m.role !== 'system')
     .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-  const res = await fetch(ANTHROPIC_API_URL, {
+  const res = await fetch(EDGE_ASK_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey':        SUPABASE_ANON_KEY,
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 2048,
-      system: systemMsg,
-      messages: chatMsgs,
+      userId:    deviceId,
+      system:    systemMsg,
+      messages:  chatMsgs,
+      maxTokens,
     }),
   });
+
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Claude ${res.status}: ${err.slice(0, 200)}`);
+    const err = await res.json().catch(() => ({ error: res.statusText })) as any;
+    if (res.status === 429) throw new Error(err.message || 'Limite journalière atteinte. Réessaie demain !');
+    throw new Error(`Edge Function ${res.status}: ${JSON.stringify(err)}`);
   }
-  const data = await res.json();
-  return data.content?.[0]?.text || '';
+
+  // Lecture du stream SSE — accumule les deltas texte jusqu'au signal done
+  const reader  = res.body?.getReader();
+  if (!reader) throw new Error('Pas de corps de réponse');
+  const decoder = new TextDecoder();
+  let text = '';
+  let buf  = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const data = JSON.parse(line.slice(6));
+        if (data.t)    text += data.t;  // delta texte
+        if (data.done) return text;     // fin du stream
+      } catch { /* ligne SSE mal formée */ }
+    }
+  }
+  return text;
 }
 
 // ─── Appel Mistral ────────────────────────────────────────────────────────────
@@ -590,15 +623,17 @@ async function callGroq(
   throw new Error(`Toutes les IA sont saturées, réessaie dans une minute. (${lastError})`);
 }
 
-// ─── callAI : Claude priorité → Mistral → Gemini → Groq ─────────────────────
+// ─── callAI : Edge Function → Mistral → Gemini → Groq ───────────────────────
+// Anthropic est toujours le primaire via la Edge Function (clé côté serveur).
+// Mistral/Gemini/Groq restent en fallback client-side si la Edge Function échoue.
 
 async function callAI(
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
 ): Promise<string> {
-  if (ANTHROPIC_KEY) {
-    try { return await callClaude(messages); } catch (e: any) {
-      console.warn('[RAG] Claude failed, fallback Mistral/Gemini/Groq:', e?.message);
-    }
+  try {
+    return await callAnthropicViaEdge(messages);
+  } catch (e: any) {
+    console.warn('[RAG] Edge Function failed, fallback Mistral/Gemini/Groq:', e?.message);
   }
   if (MISTRAL_KEY) {
     try { return await callMistral(messages); } catch (e: any) {
@@ -658,7 +693,9 @@ export async function askRAG(
   studentName?: string,
   courseId?: string,
   hintLevel?: number,
-  frustrated?: boolean
+  frustrated?: boolean,
+  activeChapterTitle?: string,
+  subjectName?: string
 ): Promise<RAGResponse> {
   try {
     // Séparer la partie utilisateur du [Document joint] éventuel
@@ -722,7 +759,9 @@ export async function askRAG(
       studentName,
       preSelected,
       hintLevel,
-      frustrated
+      frustrated,
+      activeChapterTitle,
+      subjectName
     );
 
     console.log('[RAG] ▶ Question :', userPart);
@@ -912,4 +951,122 @@ export async function extractPDFWithGemini(
 // ─── Re-export pour rétrocompatibilité ───────────────────────────────────────
 export async function extractPDFText(_uri: string): Promise<string> {
   return '';
+}
+
+// ─── Quiz : génération de questions ──────────────────────────────────────────
+
+export type QuizQuestion = { question: string; hint: string };
+
+export async function generateChapterQuiz(
+  chapterContent: string,
+  chapterTitle: string,
+  niveau: NiveauType = 'moyen'
+): Promise<QuizQuestion[]> {
+  const difficulte = niveau === 'facile'
+    ? 'questions courtes de définition ou citation ("Qu\'est-ce que...", "Citer deux...")'
+    : niveau === 'avance'
+      ? 'questions d\'analyse ou de comparaison ("Quelle est la différence entre...", "Pourquoi...")'
+      : 'questions de composition de niveau collège ("Qu\'est-ce que...", "Quel est le rôle de...", "Citer...")';
+
+  const prompt = `Tu es un professeur de collège. Génère 3 questions de contrôle écrit basées UNIQUEMENT sur le contenu ci-dessous.
+
+RÈGLES :
+- Chaque question porte sur UN FAIT PRÉCIS présent dans le texte (nom, définition, rôle, exemple)
+- Style composition réelle : ${difficulte}
+- Questions courtes et directes — maximum 15 mots par question
+- INTERDIT : paraphraser le titre, demander "le concept principal", "l'importance dans le programme", "un exemple concret du sujet"
+- Varie les angles à chaque génération : définitions, exemples cités, rôles, causes, conséquences, comparaisons, dates/chiffres du texte
+- L'indice = un mot-clé ou une courte phrase du cours (ex: "Pense à la définition de l'écologie")
+
+Chapitre : ${chapterTitle}
+Contenu :
+${chapterContent.slice(0, 4000)}
+
+Réponds UNIQUEMENT avec le JSON, sans balise markdown, sans explication :
+[
+  {"question": "...", "hint": "..."},
+  {"question": "...", "hint": "..."},
+  {"question": "...", "hint": "..."}
+]`;
+
+  try {
+    const text = (await callAnthropicViaEdge(
+      [{ role: 'user', content: prompt }],
+      700
+    )).trim();
+    console.log('[Quiz] generate raw:', text);
+
+    // Extraction robuste : cherche le tableau [...] dans la réponse
+    const arrMatch = text.match(/\[[\s\S]*\]/);
+    const parsed = JSON.parse(arrMatch ? arrMatch[0] : text);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, 3);
+  } catch (e) {
+    console.warn('[Quiz] generateChapterQuiz error:', e);
+  }
+
+  // Fallback uniquement si l'API échoue complètement
+  return [
+    { question: `Qu'est-ce que ${chapterTitle} ?`, hint: 'Relis la première phrase du chapitre.' },
+    { question: 'Cite deux éléments importants vus dans ce chapitre.', hint: 'Cherche les mots en gras ou soulignés.' },
+    { question: 'Quel est le rôle principal décrit dans ce chapitre ?', hint: 'Cherche la partie "Je retiens" ou le résumé.' },
+  ];
+}
+
+// ─── Quiz : correction d'une réponse ─────────────────────────────────────────
+
+export type GradeResult = {
+  score: 'CORRECT' | 'PARTIEL' | 'INCORRECT';
+  feedback: string;
+  points: number; // 10, 5, ou 2
+};
+
+export async function gradeQuizAnswer(
+  question: string,
+  studentAnswer: string,
+  chapterContent: string
+): Promise<GradeResult> {
+  if (!studentAnswer.trim() || studentAnswer.trim().length < 5) {
+    return { score: 'INCORRECT', feedback: 'Réponse vide ou trop courte.', points: 0 };
+  }
+
+  const prompt = `Tu es Prof Moctar. Corrige la réponse de cet élève de collège.
+
+Question posée : ${question}
+Extrait du cours (référence) :
+${chapterContent.slice(0, 3000)}
+Réponse de l'élève : ${studentAnswer}
+
+Critères :
+- CORRECT : réponse juste, même imparfaite ou avec fautes d'orthographe — l'idée est bonne
+- PARTIEL : bonne direction mais manque un élément clé ou formulation imprécise
+- INCORRECT : réponse fausse, hors sujet, ou incompréhensible
+
+Feedback : 1 phrase courte, bienveillante. Si CORRECT → félicite. Si PARTIEL → dis ce qui manque. Si INCORRECT → donne l'idée juste.
+
+Réponds UNIQUEMENT avec ce JSON, sans balise markdown, sans rien d'autre :
+{"score": "CORRECT", "feedback": "..."}`;
+
+  try {
+    const text = (await callAnthropicViaEdge(
+      [{ role: 'user', content: prompt }],
+      220
+    )).trim();
+    console.log('[Quiz] grade raw:', text);
+
+    // Extraction robuste : cherche le premier {...} dans la réponse
+    const jsonMatch = text.match(/\{[\s\S]*?\}/);
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+
+    const s = (['CORRECT', 'PARTIEL', 'INCORRECT'].includes(parsed.score)
+      ? parsed.score
+      : 'PARTIEL') as 'CORRECT' | 'PARTIEL' | 'INCORRECT';
+    return {
+      score: s,
+      feedback: parsed.feedback || '',
+      points: s === 'CORRECT' ? 10 : s === 'PARTIEL' ? 5 : 2,
+    };
+  } catch (e) {
+    console.warn('[Quiz] gradeQuizAnswer error:', e);
+    return { score: 'PARTIEL', feedback: 'Correction indisponible.', points: 5 };
+  }
 }

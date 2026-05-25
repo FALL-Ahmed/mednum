@@ -213,7 +213,7 @@ export default function ChatScreen({ route }: any) {
     currentMessages, activeCourse, isLoading,
     addMessage, setLoading, clearChat, saveChatSession, setFeedback,
     studentName, updateCourseChunks, difficultyScore, updateDifficulty,
-    trackConcept, addXP,
+    trackConcept, addXP, updateChapterMastery, activeChapterIndex,
   } = useAppStore();
   const t = useTheme();
   const navigation = useNavigation<any>();
@@ -479,7 +479,10 @@ export default function ChatScreen({ route }: any) {
 
     const niveau = computeNiveau(difficultyScore, frustrated);
 
-    const result = await askRAG(questionWithPDF, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated);
+    const chapterIdx = activeChapterIndex[activeCourse.id] ?? 0;
+    const activeChapterTitle = activeCourse.chunks?.[chapterIdx]?.title || undefined;
+
+    const result = await askRAG(questionWithPDF, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated, activeChapterTitle, activeCourse.subjectName);
     addMessage({
       id: (Date.now() + 1).toString(),
       role: result.type === 'answer' ? 'assistant' : result.type,
@@ -519,6 +522,11 @@ export default function ChatScreen({ route }: any) {
   const handleSuggestion = useCallback((q: string) => setInput(q), []);
   const handleFeedback = useCallback((id: string, f: 'up' | 'down') => {
     setFeedback(id, f);
+    // Mise à jour maîtrise du chapitre actif sur 👍
+    if (f === 'up' && activeCourse) {
+      const chapterIdx = activeChapterIndex[activeCourse.id] ?? 0;
+      updateChapterMastery(activeCourse.id, chapterIdx, 8);
+    }
     // Log vers Supabase pour améliorer le système
     const msg = currentMessages.find(m => m.id === id);
     const prevUser = currentMessages.slice(0, currentMessages.findIndex(m => m.id === id)).reverse().find(m => m.role === 'user');
@@ -532,7 +540,7 @@ export default function ChatScreen({ route }: any) {
         student_name: studentName || null,
       }).then(({ error }) => { if (error) console.log('[Feedback] Supabase error:', error.message); });
     }
-  }, [setFeedback, currentMessages, activeCourse, studentName]);
+  }, [setFeedback, currentMessages, activeCourse, studentName, updateChapterMastery, activeChapterIndex]);
 
   const renderItem = useCallback(({ item }: { item: Message }) => (
     <ChatBubble
