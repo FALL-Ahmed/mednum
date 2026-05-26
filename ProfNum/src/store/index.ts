@@ -3,6 +3,13 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NiveauType } from '../utils/rag';
 
+function generateDeviceId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 export type Message = {
   id: string;
   role: 'user' | 'assistant' | 'refusal' | 'error';
@@ -38,11 +45,15 @@ export type ChatSession = {
   id: string;
   courseId: string;
   courseName: string;
+  subjectName: string;
   messages: Message[];
   createdAt: Date;
 };
 
 type AppStore = {
+  // UUID stable généré au premier lancement, envoyé à la Edge Function pour le quota
+  deviceId: string;
+
   darkMode: boolean;
   toggleDarkMode: () => void;
 
@@ -84,6 +95,14 @@ type AppStore = {
   trackConcept: (courseId: string, concept: string) => void;
   getWeakConcepts: (courseId: string, n?: number) => string[];
 
+  // Skill Tree — Mastery par chapitre (courseId → chunkIndex → score 0–100)
+  chapterMastery: Record<string, Record<number, number>>;
+  updateChapterMastery: (courseId: string, chapterIndex: number, delta: number) => void;
+
+  // Chapitre actif par cours (courseId → chunkIndex)
+  activeChapterIndex: Record<string, number>;
+  setActiveChapterIndex: (courseId: string, index: number) => void;
+
   // Gamification — XP + Streak
   streakCurrent: number;
   streakBest: number;
@@ -104,6 +123,8 @@ type AppStore = {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
+      deviceId: generateDeviceId(),
+
       darkMode: false,
       toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
 
@@ -180,6 +201,7 @@ export const useAppStore = create<AppStore>()(
           id: Date.now().toString(),
           courseId: activeCourse.id,
           courseName: activeCourse.name,
+          subjectName: activeCourse.subjectName,
           messages: [...currentMessages],
           createdAt: new Date(),
         };
@@ -221,6 +243,20 @@ export const useAppStore = create<AppStore>()(
           .slice(0, n)
           .map(([concept]) => concept);
       },
+
+      // Skill Tree
+      chapterMastery: {},
+      updateChapterMastery: (courseId, chapterIndex, delta) =>
+        set((s) => {
+          const course = { ...(s.chapterMastery[courseId] || {}) };
+          const current = course[chapterIndex] ?? 0;
+          course[chapterIndex] = Math.min(100, Math.max(0, current + delta));
+          return { chapterMastery: { ...s.chapterMastery, [courseId]: course } };
+        }),
+
+      activeChapterIndex: {},
+      setActiveChapterIndex: (courseId, index) =>
+        set((s) => ({ activeChapterIndex: { ...s.activeChapterIndex, [courseId]: index } })),
 
       // Gamification
       streakCurrent: 0, streakBest: 0, streakLastDate: '',
@@ -267,6 +303,7 @@ export const useAppStore = create<AppStore>()(
       name: 'profnum-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
+        deviceId: s.deviceId,
         courses: s.courses,
         activeCourse: s.activeCourse,
         chatHistory: s.chatHistory,
@@ -282,6 +319,8 @@ export const useAppStore = create<AppStore>()(
         xpTotal: s.xpTotal, xpToday: s.xpToday, xpTodayDate: s.xpTodayDate,
         xpThisWeek: s.xpThisWeek, xpLastWeek: s.xpLastWeek, xpWeekStartDate: s.xpWeekStartDate,
         dailyGoal: s.dailyGoal,
+        chapterMastery: s.chapterMastery,
+        activeChapterIndex: s.activeChapterIndex,
       }),
     }
   )

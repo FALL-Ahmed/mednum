@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
@@ -10,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   SafeAreaView,
   StatusBar,
@@ -28,15 +30,32 @@ import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme } from '../components';
 import { askRAG, askWithImage, transcribeAudio, generateSummary, extractPDFWithGemini, NiveauType, detecterMode, computeNiveau } from '../utils/rag';
 import { extractPDFText } from '../utils/pdfExtractor';
-import { getSubjectStyle } from '../utils/subjectStyles';
+import { getSubjectStyle, getProfessorName } from '../utils/subjectStyles';
+import { ProfessorAvatar } from '../components/ProfessorAvatar';
 import { supabase } from '../lib/supabase';
 
 // ─── Bubble ──────────────────────────────────────────────────────────────────
+
+const PulseDot = React.memo(function PulseDot({ color }: { color: string }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 0.2, duration: 600, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1,   duration: 600, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return <Animated.View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, opacity: anim }} />;
+});
 
 const ChatBubble = React.memo(function ChatBubble({
   msg,
   accentColor,
   lightColor,
+  bgColor,
   onFeedback,
   onSuggestion,
   onSpeak,
@@ -45,6 +64,7 @@ const ChatBubble = React.memo(function ChatBubble({
   msg: Message;
   accentColor: string;
   lightColor: string;
+  bgColor: string;
   onFeedback: (id: string, f: 'up' | 'down') => void;
   onSuggestion: (q: string) => void;
   onSpeak: (msg: Message) => void;
@@ -62,7 +82,7 @@ const ChatBubble = React.memo(function ChatBubble({
   if (msg.role === 'user') {
     return (
       <View style={styles.rowUser}>
-        <View style={[styles.bubbleUser, { backgroundColor: Colors.blue }]}>
+        <View style={[styles.bubbleUser, { backgroundColor: bgColor }]}>
           {msg.userImageUri && (
             <Image
               source={{ uri: msg.userImageUri }}
@@ -150,25 +170,25 @@ const ChatBubble = React.memo(function ChatBubble({
             onPress={() => onFeedback(msg.id, 'up')}
             style={[styles.fbBtn, msg.feedback === 'up' && { backgroundColor: lightColor, borderColor: accentColor }]}
           >
-            <Text style={styles.fbEmoji}>👍</Text>
+            <Ionicons name="thumbs-up-outline" size={13} color={msg.feedback === 'up' ? accentColor : '#9CA3AF'} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onFeedback(msg.id, 'down')}
             style={[styles.fbBtn, msg.feedback === 'down' && { backgroundColor: '#FEF2F2', borderColor: Colors.error }]}
           >
-            <Text style={styles.fbEmoji}>👎</Text>
+            <Ionicons name="thumbs-down-outline" size={13} color={msg.feedback === 'down' ? Colors.error : '#9CA3AF'} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleCopy(msg.content)}
             style={[styles.fbBtn, copied && { backgroundColor: lightColor, borderColor: accentColor }]}
           >
-            <Text style={styles.fbEmoji}>{copied ? '✓' : '📋'}</Text>
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={13} color={copied ? accentColor : '#9CA3AF'} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => onSpeak(msg)}
             style={[styles.fbBtn, isSpeaking && { backgroundColor: lightColor, borderColor: accentColor }]}
           >
-            <Text style={styles.fbEmoji}>{isSpeaking ? '⏹' : '🔊'}</Text>
+            <Ionicons name={isSpeaking ? 'stop-circle-outline' : 'volume-medium-outline'} size={13} color={isSpeaking ? accentColor : '#9CA3AF'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -188,7 +208,6 @@ function EmptyState({ emoji, subjectName, courseName, accentColor, lightColor, t
         <>
           <Text style={[styles.emptyTitle, { color: t.text }]}>Prêt à apprendre !</Text>
           <Text style={[styles.emptyCourse, { color: accentColor }]}>{subjectName}</Text>
-          <Text style={[styles.emptySub, { color: t.textMuted }]} numberOfLines={2}>{courseName}</Text>
           <Text style={[styles.emptyHint, { color: t.textMuted }]}>
             Pose n'importe quelle question sur ce cours
           </Text>
@@ -219,6 +238,7 @@ export default function ChatScreen({ route }: any) {
   const navigation = useNavigation<any>();
   const [input, setInput] = useState(prefill || '');
   const [showNoCourseModal, setShowNoCourseModal] = useState(false);
+  const [showAttachSheet, setShowAttachSheet] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
   const [chapterSummaryTitle, setChapterSummaryTitle] = useState('');
   const [chapterSummaryContent, setChapterSummaryContent] = useState('');
@@ -321,7 +341,7 @@ export default function ChatScreen({ route }: any) {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       base64: true,
       quality: 0.7,
     });
@@ -362,25 +382,33 @@ export default function ChatScreen({ route }: any) {
   const pickPDF = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf'],
+        type: ['application/pdf', 'public.pdf'],
         copyToCacheDirectory: true,
       });
       if (result.canceled) return;
       const file = result.assets[0];
+      if (!file?.uri) { Alert.alert('Erreur', 'Fichier introuvable.'); return; }
       setIsPDFLoading(true);
-      let text = '', ok = false;
 
-      // 1. Gemini d'abord
+      // Copie vers cache pour garantir un URI file:// lisible (Android content://)
+      const FileSystem = require('expo-file-system');
+      let fileUri = file.uri;
+      if (!fileUri.startsWith('file://')) {
+        const dest = FileSystem.cacheDirectory + (file.name || 'doc.pdf');
+        await FileSystem.copyAsync({ from: fileUri, to: dest });
+        fileUri = dest;
+      }
+
+      let text = '', ok = false;
       try {
-        const g = await extractPDFWithGemini(file.uri);
+        const g = await extractPDFWithGemini(fileUri);
         text = g.text; ok = true;
       } catch (e: any) {
         console.warn('[PDF] Gemini failed:', e?.message);
       }
-      // 2. Fallback parseur JS
       if (!ok) {
         try {
-          const r = await extractPDFText(file.uri);
+          const r = await extractPDFText(fileUri);
           text = r.text; ok = true;
         } catch (e: any) {
           console.warn('[PDF] JS parser failed:', e?.message);
@@ -391,23 +419,16 @@ export default function ChatScreen({ route }: any) {
         Alert.alert('PDF illisible', 'Impossible d\'extraire le texte.\nEssaie de copier-coller le texte dans l\'onglet Cours.', [{ text: 'OK' }]);
         return;
       }
-      // Le cours actif (manuel) N'EST PAS remplacé — le PDF est juste un contexte additionnel
       const name = file.name.replace(/\.pdf$/i, '');
       setAttachedPDF({ name, text });
-    } catch {
+    } catch (e: any) {
       setIsPDFLoading(false);
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le fichier.');
+      console.warn('[PDF] pickPDF error:', e?.message);
+      Alert.alert('Erreur', 'Impossible d\'ouvrir ce fichier PDF.\n' + (e?.message ?? ''));
     }
   };
 
-  const handleAttach = () => {
-    Alert.alert('Ajouter', '', [
-      { text: '📷 Prendre une photo', onPress: takePhoto },
-      { text: '🖼️ Galerie', onPress: pickFromGallery },
-      { text: '📄 Fichier PDF', onPress: pickPDF },
-      { text: 'Annuler', style: 'cancel' },
-    ]);
-  };
+  const handleAttach = () => setShowAttachSheet(true);
 
   const collapseHeader = () =>
     Animated.timing(headerAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
@@ -416,6 +437,7 @@ export default function ChatScreen({ route }: any) {
     Animated.timing(headerAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
 
   const sendMessage = async () => {
+    Keyboard.dismiss();
     expandHeader();
     const q = input.trim();
     if ((!q && !imageUri) || isLoading) return;
@@ -547,6 +569,7 @@ export default function ChatScreen({ route }: any) {
       msg={item}
       accentColor={subjectStyle.accent}
       lightColor={subjectStyle.light}
+      bgColor={subjectStyle.bg}
       onFeedback={handleFeedback}
       onSuggestion={handleSuggestion}
       onSpeak={handleSpeak}
@@ -571,17 +594,21 @@ export default function ChatScreen({ route }: any) {
           <View style={styles.headerTop}>
             {/* Course info */}
             <View style={styles.headerLeft}>
-              <View style={[styles.headerEmojiWrap, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                <Text style={styles.headerEmoji}>{subjectStyle.emoji}</Text>
+              <View style={styles.headerAvatarWrap}>
+                <ProfessorAvatar
+                  subjectName={activeCourse?.subjectName || ''}
+                  width={68}
+                  height={90}
+                  fallbackSize={58}
+                  animate={false}
+                />
               </View>
               <View style={{ flex: 1 }}>
+                <Text style={styles.headerProfName}>
+                  {getProfessorName(activeCourse?.subjectName || '')}
+                </Text>
                 <Text style={styles.headerSubject}>
                   {activeCourse?.subjectName || 'ProfNum'}
-                </Text>
-                <Text style={styles.headerCourseName} numberOfLines={1}>
-                  {activeCourse
-                    ? hasContent ? activeCourse.name : '⚠️ Cours non lisible'
-                    : 'Sélectionne un cours'}
                 </Text>
               </View>
             </View>
@@ -592,7 +619,7 @@ export default function ChatScreen({ route }: any) {
                   style={styles.iconBtn}
                   onPress={() => { setChapterSummaryTitle(''); setChapterSummaryContent(''); setShowChapters(true); }}
                 >
-                  <Text style={styles.iconBtnText}>📖</Text>
+                  <Ionicons name="list-outline" size={20} color="#fff" />
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat}>
@@ -605,10 +632,12 @@ export default function ChatScreen({ route }: any) {
           <View style={styles.niveauRow}>
             {(() => {
               const niv = computeNiveau(difficultyScore);
-              const labels: Record<NiveauType, string> = { facile: '🌱 Débutant', moyen: '📘 Intermédiaire', avance: '🚀 Avancé' };
+              const labels: Record<NiveauType, string> = { facile: 'Débutant', moyen: 'Intermédiaire', avance: 'Avancé' };
+              const chipColors: Record<NiveauType, string> = { facile: '#22C55E', moyen: '#3B82F6', avance: '#F59E0B' };
               return (
-                <View style={[styles.niveauChip, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                  <Text style={[styles.niveauText, { color: 'rgba(255,255,255,0.9)' }]}>
+                <View style={[styles.niveauChip, { backgroundColor: chipColors[niv] + '30', borderWidth: 1, borderColor: chipColors[niv] + '60' }]}>
+                  <PulseDot color={chipColors[niv]} />
+                  <Text style={[styles.niveauText, { color: '#fff', fontWeight: '800' }]}>
                     {labels[niv]}
                   </Text>
                 </View>
@@ -702,7 +731,7 @@ export default function ChatScreen({ route }: any) {
           >
             {isPDFLoading
               ? <ActivityIndicator size="small" color={Colors.blue} />
-              : <Text style={styles.attachIcon}>+</Text>
+              : <Ionicons name="attach" size={20} color="#6B7280" />
             }
           </TouchableOpacity>
           <TouchableOpacity
@@ -713,7 +742,7 @@ export default function ChatScreen({ route }: any) {
           >
             {isTranscribing
               ? <ActivityIndicator size="small" color={Colors.blue} />
-              : <Text style={styles.micIcon}>{isRecording ? '⏹' : '🎤'}</Text>
+              : <Ionicons name={isRecording ? 'stop' : 'mic'} size={20} color={isRecording ? Colors.error : '#6B7280'} />
             }
           </TouchableOpacity>
           <TextInput
@@ -740,7 +769,7 @@ export default function ChatScreen({ route }: any) {
             disabled={(!input.trim() && !imageUri) || isLoading}
             activeOpacity={0.8}
           >
-            <Text style={styles.sendArrow}>↑</Text>
+            <Ionicons name="arrow-up" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
         <SafeAreaView style={{ backgroundColor: t.surface }} />
@@ -756,25 +785,27 @@ export default function ChatScreen({ route }: any) {
                   onPress={() => { setChapterSummaryTitle(''); setChapterSummaryContent(''); }}
                   style={{ marginRight: 12, padding: 4 }}
                 >
-                  <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>←</Text>
+                  <Ionicons name="arrow-back" size={22} color="#fff" />
                 </TouchableOpacity>
               ) : (
                 <Text style={styles.summaryHeaderEmoji}>{subjectStyle.emoji}</Text>
               )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.summaryHeaderLabel}>
-                  {chapterSummaryTitle ? 'RÉSUMÉ DU CHAPITRE' : 'CHAPITRES DU COURS'}
+                  {chapterSummaryTitle ? 'RÉSUMÉ DU CHAPITRE' : 'CHAPITRES DU PROGRAMME'}
                 </Text>
-                <Text style={styles.summaryHeaderCourse} numberOfLines={1}>
-                  {chapterSummaryTitle || activeCourse?.name}
-                </Text>
+                {chapterSummaryTitle ? (
+                  <Text style={styles.summaryHeaderCourse} numberOfLines={1}>
+                    {chapterSummaryTitle}
+                  </Text>
+                ) : null}
               </View>
             </View>
             <TouchableOpacity
               onPress={() => { setShowChapters(false); setChapterSummaryTitle(''); setChapterSummaryContent(''); }}
               style={styles.summaryClose}
             >
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>✕</Text>
+              <Ionicons name="close" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
 
@@ -783,7 +814,7 @@ export default function ChatScreen({ route }: any) {
             <ScrollView contentContainerStyle={styles.summaryBody} showsVerticalScrollIndicator={false}>
               {chapterSummaryLoading ? (
                 <View style={styles.summaryLoading}>
-                  <Text style={{ fontSize: 36, marginBottom: 16 }}>⏳</Text>
+                  <Ionicons name="hourglass-outline" size={36} color={subjectStyle.accent} style={{ marginBottom: 16 }} />
                   <Text style={[styles.summaryLoadingText, { color: t.text }]}>
                     L'IA lit le chapitre…
                   </Text>
@@ -808,7 +839,7 @@ export default function ChatScreen({ route }: any) {
             /* ── Liste des chapitres ── */
             <ScrollView contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 60 }}>
               <Text style={[{ fontSize: 13, marginBottom: 16, lineHeight: 20 }, { color: t.textMuted }]}>
-                Appuie sur un chapitre pour poser une question, ou sur 📋 pour son résumé.
+                Appuie sur un chapitre pour poser une question, ou sur le bouton résumé pour en obtenir une synthèse.
               </Text>
               {activeCourse?.chunks?.map((chunk, i) => (
                 <View
@@ -830,7 +861,7 @@ export default function ChatScreen({ route }: any) {
                     onPress={() => handleChapterSummary(chunk)}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 15 }}>📋</Text>
+                    <Ionicons name="document-text-outline" size={17} color={subjectStyle.bg} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -882,6 +913,38 @@ export default function ChatScreen({ route }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* ── Attach Bottom Sheet (pas de Modal pour ne pas bloquer les pickers) ── */}
+      {showAttachSheet && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <TouchableOpacity style={styles.sheetOverlay} activeOpacity={1} onPress={() => setShowAttachSheet(false)} />
+          <View style={[styles.sheetContainer, { backgroundColor: t.surface }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { color: t.text }]}>Ajouter un fichier</Text>
+            {[
+              { icon: 'camera-outline' as const,   label: 'Prendre une photo', action: takePhoto },
+              { icon: 'image-outline' as const,    label: 'Galerie',           action: pickFromGallery },
+              { icon: 'document-outline' as const, label: 'Fichier PDF',       action: pickPDF },
+            ].map(({ icon, label, action }) => (
+              <TouchableOpacity
+                key={label}
+                style={[styles.sheetOption, { borderBottomColor: t.border }]}
+                onPress={() => { setShowAttachSheet(false); action(); }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.sheetIconWrap, { backgroundColor: t.surfaceAlt }]}>
+                  <Ionicons name={icon} size={22} color={t.text} />
+                </View>
+                <Text style={[styles.sheetOptionText, { color: t.text }]}>{label}</Text>
+                <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={[styles.sheetCancel, { backgroundColor: t.surfaceAlt }]} onPress={() => setShowAttachSheet(false)}>
+              <Text style={[styles.sheetCancelText, { color: t.text }]}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -905,15 +968,18 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  headerEmojiWrap: {
-    width: 44, height: 44, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  headerAvatarWrap: {
+    width: 72, height: 94,
+    justifyContent: 'flex-end', alignItems: 'center',
   },
-  headerEmoji: { fontSize: 22 },
+  headerProfName: {
+    fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: -0.4,
+    textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
   headerSubject: {
-    fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 1.2, textTransform: 'uppercase',
+    fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 3,
   },
   headerCourseName: {
     fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 1,
@@ -929,10 +995,12 @@ const styles = StyleSheet.create({
   /* Niveau */
   niveauRow: { flexDirection: 'row', gap: 6 },
   niveauChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     borderRadius: Radius.full,
-    paddingHorizontal: 14, paddingVertical: 5,
+    paddingHorizontal: 14, paddingVertical: 6,
   },
-  niveauText: { fontSize: 12, fontWeight: '700' },
+
+  niveauText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
 
   /* Messages */
   listContent: { paddingVertical: Spacing.lg, paddingHorizontal: Spacing.md },
@@ -1049,19 +1117,18 @@ const styles = StyleSheet.create({
 
   /* Bouton + */
   attachBtn: {
-    width: 36, height: 36, borderRadius: 10,
+    width: 40, height: 40, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    backgroundColor: Colors.blueLight,
+    backgroundColor: '#1C1C1E',
   },
-  attachIcon: { fontSize: 24, fontWeight: '700', color: Colors.blue, lineHeight: 28 },
   micBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 40, height: 40, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    backgroundColor: '#1C1C1E',
   },
   micBtnActive: {
     backgroundColor: '#FEE2E2', borderWidth: 1.5, borderColor: Colors.error,
   },
-  micIcon: { fontSize: 22 },
 
   /* Chips pièces jointes */
   attachBar: { borderTopWidth: 0.5, maxHeight: 90 },
@@ -1128,10 +1195,10 @@ const styles = StyleSheet.create({
   summaryHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   summaryHeaderEmoji: { fontSize: 28 },
   summaryHeaderLabel: {
-    fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 1.2, textTransform: 'uppercase',
+    fontSize: 18, fontWeight: '800', color: '#fff',
+    letterSpacing: -0.3,
   },
-  summaryHeaderCourse: { fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 2 },
+  summaryHeaderCourse: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 3 },
   summaryClose: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   summaryBody: { padding: Spacing.lg, paddingBottom: 60 },
   summaryLoading: { alignItems: 'center', paddingVertical: 60 },
@@ -1171,6 +1238,17 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2, shadowRadius: 24, elevation: 12,
   },
+  /* Attach bottom sheet */
+  sheetOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheetContainer:   { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12 },
+  sheetHandle:      { width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 16 },
+  sheetTitle:       { fontSize: 16, fontWeight: '700', marginBottom: 16, letterSpacing: -0.2 },
+  sheetOption:      { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  sheetIconWrap:    { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  sheetOptionText:  { flex: 1, fontSize: 15, fontWeight: '500' },
+  sheetCancel:      { marginTop: 14, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  sheetCancelText:  { fontSize: 15, fontWeight: '600' },
+
   modalEmoji: { fontSize: 52, marginBottom: 16 },
   modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8, letterSpacing: -0.3 },
   modalSub: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },

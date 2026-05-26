@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { SubjectMascot } from './SubjectMascots';
 import { getSubjectKey } from '../utils/subjectStyles';
 
@@ -55,10 +55,12 @@ export function ProfessorAvatar({
   }
 
   return (
-    <Image
+    <ExpoImage
       source={{ uri }}
       style={{ width, height }}
-      resizeMode="contain"
+      contentFit="contain"
+      cachePolicy="memory-disk"
+      transition={0}
       onError={() => setHasError(true)}
     />
   );

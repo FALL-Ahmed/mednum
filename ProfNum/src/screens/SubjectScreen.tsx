@@ -60,7 +60,7 @@ export default function SubjectScreen() {
         if (data?.chunks) { try { chunks = JSON.parse(data.chunks); } catch {} }
         updateCourseChunks(course.id, chunks);
         setActiveCourse(course.id);
-        navigation.goBack();
+        navigation.navigate('SkillTree');
       } else {
         const { data, error } = await supabase.from('courses').select('content, chunks').eq('id', course.id).single();
         if (error) throw error;
@@ -76,7 +76,7 @@ export default function SubjectScreen() {
           fileUri: '', pages: course.pages || 1,
           uploadedAt: new Date(), active: true, content, chunks,
         } as Course);
-        navigation.goBack();
+        navigation.navigate('SkillTree');
       }
     } catch (err: any) {
       Alert.alert('Erreur', err?.message || 'Impossible de charger ce cours.');
