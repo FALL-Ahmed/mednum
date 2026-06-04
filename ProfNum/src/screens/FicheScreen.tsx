@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, StatusBar, Share, Alert, Platform,
+  ActivityIndicator, StatusBar, Alert, Platform,
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store';
@@ -124,6 +127,94 @@ function renderInline(text: string, accent: string, muted: string): React.ReactN
   });
 }
 
+// ── Génération HTML pour PDF ──────────────────────────────────────────────────
+
+function buildFicheHTML(
+  sections: FicheSection[],
+  chapterTitle: string,
+  subjectName: string,
+  accent: string,
+  headerBg: string,
+): string {
+  const sectionColors: Record<string, string> = {
+    '💡': '#F59E0B', '📖': '#2563EB', '📐': '#7C3AED', '🔧': '#059669',
+    '📅': '#DC2626', '👤': '#DB2777', '📝': '#0891B2', '✍️': '#0891B2',
+    '🎯': '#16A34A', '🚨': '#EA580C', '⚠️': '#D97706',
+  };
+
+  const sectionsHTML = sections.map(sec => {
+    const color = sectionColors[sec.emoji] ?? accent;
+    const bodyHTML = sec.body
+      .split('\n')
+      .filter(l => l.trim())
+      .map(line => {
+        const t = line.trim();
+        if (/^\d+\./.test(t)) {
+          const num = t.match(/^(\d+)/)?.[1] ?? '';
+          const content = t.replace(/^\d+\.\s*/, '').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/→/g, '<span style="color:' + color + '">→</span>');
+          return `<div class="numbered"><div class="num-cell"><span class="num" style="background:${color}22;color:${color}">${num}</span></div><span>${content}</span></div>`;
+        }
+        if (/^[•\-]/.test(t)) {
+          const content = t.replace(/^[•\-]\s*/, '').replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${color}">$1</strong>`).replace(/→/g, '<span style="color:' + color + '">→</span>');
+          return `<div class="bullet"><div class="dot"><div class="dot-inner" style="background:${color}"></div></div><span>${content}</span></div>`;
+        }
+        return `<p>${t.replace(/\*\*([^*]+)\*\*/g, `<strong style="color:${color}">$1</strong>`).replace(/→/g, `<span style="color:${color}">→</span>`)}</p>`;
+      }).join('');
+
+    return `
+      <div class="section" style="border-left-color:${color}">
+        <div class="section-header">
+          <span class="emoji">${sec.emoji}</span>
+          <span class="section-title" style="color:${color}">${sec.title}</span>
+        </div>
+        <div class="section-body">${bodyHTML}</div>
+      </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${subjectName} — ${chapterTitle}</title>
+<style>
+  @page { margin: 22mm 14mm 18mm 14mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #1A1D23; background: #F5F6F8; }
+  .header { background: ${headerBg}; color: white; padding: 24px 20px 20px; page-break-after: avoid; margin-bottom: 14px; }
+  .header-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; opacity: 0.7; margin-bottom: 6px; }
+  .header-title { font-size: 20px; font-weight: 800; line-height: 1.3; letter-spacing: -0.3px; }
+  .header-sub { font-size: 11px; opacity: 0.65; margin-top: 6px; font-weight: 500; }
+  .content { padding: 0 14px; }
+  .section { background: white; border-radius: 10px; border-left: 4px solid; box-shadow: 0 1px 3px rgba(0,0,0,0.07); page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; margin-top: 4px; }
+  .section-header { display: table; width: 100%; padding: 11px 14px 8px; page-break-after: avoid; }
+  .emoji { display: table-cell; font-size: 17px; width: 28px; vertical-align: middle; }
+  .section-title { display: table-cell; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; vertical-align: middle; }
+  .section-body { padding: 0 14px 12px; }
+  .bullet { display: table; width: 100%; margin-bottom: 6px; line-height: 1.55; }
+  .dot { display: table-cell; width: 10px; vertical-align: top; padding-top: 6px; }
+  .dot-inner { width: 6px; height: 6px; border-radius: 3px; }
+  .bullet span { display: table-cell; vertical-align: top; }
+  .numbered { display: table; width: 100%; margin-bottom: 6px; line-height: 1.55; }
+  .num-cell { display: table-cell; width: 28px; vertical-align: top; }
+  .num { display: inline-block; width: 22px; height: 22px; border-radius: 11px; font-size: 11px; font-weight: 800; text-align: center; line-height: 22px; }
+  .numbered span { display: table-cell; vertical-align: top; }
+  p { line-height: 1.6; color: #374151; margin-bottom: 6px; }
+  strong { font-weight: 700; }
+  .footer { text-align: center; padding: 20px; font-size: 10px; color: #9CA3AF; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-label">${subjectName.toUpperCase()} · FICHE DE RÉVISION</div>
+    <div class="header-title">${chapterTitle}</div>
+    <div class="header-sub">ProfNum — Généré le ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+  </div>
+  <div class="content">${sectionsHTML}</div>
+  <div class="footer">ProfNum · Mauritanie</div>
+</body>
+</html>`;
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function FicheScreen({ route, navigation }: any) {
@@ -198,13 +289,27 @@ export default function FicheScreen({ route, navigation }: any) {
 
   const sections = raw ? parseFiche(raw) : [];
 
+  const [sharing, setSharing] = useState(false);
+
   const handleShare = async () => {
+    if (!sections.length) return;
+    setSharing(true);
     try {
-      await Share.share({
-        message: `📚 Fiche — ${chapterTitle}\n\n${raw}`,
-        title: `Fiche ${chapterTitle}`,
+      const html = buildFicheHTML(sections, chapterTitle, activeCourse?.subjectName ?? '', accent, bg);
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      // Renommer le fichier avec un nom lisible
+      const safeName = `Fiche_${(activeCourse?.subjectName ?? '').replace(/[^a-zA-Z0-9]/g, '_')}_${chapterTitle.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40)}.pdf`;
+      const newUri = (FileSystem.documentDirectory ?? '') + safeName;
+      await FileSystem.moveAsync({ from: uri, to: newUri });
+      await Sharing.shareAsync(newUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Fiche — ${chapterTitle}`,
+        UTI: 'com.adobe.pdf',
       });
-    } catch {}
+    } catch (e: any) {
+      Alert.alert('Erreur', 'Impossible de générer le PDF.');
+    }
+    setSharing(false);
   };
 
   return (
@@ -255,8 +360,11 @@ export default function FicheScreen({ route, navigation }: any) {
               >
                 <Ionicons name="refresh-outline" size={20} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.75}>
-                <Ionicons name="share-outline" size={20} color="#fff" />
+              <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.75} disabled={sharing}>
+                {sharing
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="share-outline" size={20} color="#fff" />
+                }
               </TouchableOpacity>
             </View>
           ) : null}

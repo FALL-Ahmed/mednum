@@ -112,15 +112,54 @@ export default function ProgressScreen() {
   const t = useTheme();
   const {
     studentName, courses, activeCourse, conceptHistory,
-    chapterMastery, streakCurrent, xpToday, dailyGoal,
+    chapterMastery, streakCurrent, streakLastDate, xpToday, dailyGoal, activeChapterIndex, setActiveChapterIndex,
   } = useAppStore();
+
+  const effectiveStreak = (() => {
+    const today     = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (streakLastDate === today || streakLastDate === yesterday) return streakCurrent;
+    return 0;
+  })();
+
+  const streakColor =
+    effectiveStreak === 0 ? '#9CA3AF' :
+    effectiveStreak < 3  ? '#FCD34D' :
+    effectiveStreak < 7  ? '#FF6B35' :
+    effectiveStreak < 14 ? '#F97316' :
+    '#EF4444';
+
+  const flickerAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (effectiveStreak < 7) { flickerAnim.setValue(1); return; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(flickerAnim, { toValue: 0.65, duration: 80,  useNativeDriver: true }),
+      Animated.timing(flickerAnim, { toValue: 1.0,  duration: 120, useNativeDriver: true }),
+      Animated.timing(flickerAnim, { toValue: 0.80, duration: 60,  useNativeDriver: true }),
+      Animated.timing(flickerAnim, { toValue: 1.0,  duration: 100, useNativeDriver: true }),
+      Animated.timing(flickerAnim, { toValue: 0.55, duration: 90,  useNativeDriver: true }),
+      Animated.timing(flickerAnim, { toValue: 1.0,  duration: 150, useNativeDriver: true }),
+      Animated.delay(200),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [effectiveStreak]);
+
+  const isChapterUnlocked = (idx: number): boolean => {
+    if (!activeCourse) return false;
+    if (idx === 0) return true;
+    const masMap = chapterMastery[activeCourse.id] || {};
+    // Déjà fait = toujours accessible pour retravailler
+    if ((masMap[idx] ?? 0) > 0) return true;
+    return (masMap[idx - 1] ?? 0) >= 70;
+  };
 
   const subjectStyle = getSubjectStyle(activeCourse?.subjectName ?? '');
   const profName     = getProfessorName(activeCourse?.subjectName ?? '');
   const bg           = subjectStyle.bg;
   const accent       = subjectStyle.accent;
 
-  // Maîtrise par chapitre du cours actif
+  // Maîtrise par chapitre du cours actif (intro exclue)
   const chapterStats = useMemo(() => {
     if (!activeCourse?.chunks?.length) return [];
     const masteryMap = chapterMastery[activeCourse.id] || {};
@@ -129,31 +168,38 @@ export default function ProgressScreen() {
       title:   chunk.title || `Chapitre ${i + 1}`,
       mastery: masteryMap[i] ?? 0,
       done:    (masteryMap[i] ?? 0) > 0,
+      isIntro: i === 0 && /^(introduction|intro|préambule|présentation|avant[- ]propos|généralités|sommaire|table)/i.test((chunk.title ?? '').trim()),
     }));
   }, [activeCourse, chapterMastery]);
 
-  // Chapitres triés : danger en premier
-  const sortedChapters = useMemo(() =>
-    [...chapterStats].sort((a, b) => {
-      if (!a.done && !b.done) return a.index - b.index;
-      if (!a.done) return 1;
-      if (!b.done) return -1;
-      return a.mastery - b.mastery;
-    }),
-  [chapterStats]);
+  const sortedChapters = chapterStats;
 
   // Vue toutes matières
   const allSubjects = useMemo(() => {
-    const bySubject: Record<string, { subjectName: string; done: number; total: number }> = {};
+    const bySubject: Record<string, { subjectName: string; lastActivity: string }> = {};
     for (const c of courses) {
-      if (!c.subjectName || !c.chunks?.length) continue;
-      if (!bySubject[c.subjectName]) bySubject[c.subjectName] = { subjectName: c.subjectName, done: 0, total: 0 };
-      const masteryMap = chapterMastery[c.id] || {};
-      bySubject[c.subjectName].total += c.chunks.length;
-      bySubject[c.subjectName].done  += c.chunks.filter((_, i) => (masteryMap[i] ?? 0) > 0).length;
+      if (!c.subjectName) continue;
+      // Dernière activité = date la plus récente dans conceptHistory pour ce cours
+      const concepts = conceptHistory[c.id] || {};
+      const lastDates = Object.values(concepts).map(v => v.lastAsked).filter(Boolean);
+      const lastActivity = lastDates.length > 0 ? lastDates.sort().at(-1)! : '';
+      if (!bySubject[c.subjectName] || lastActivity > bySubject[c.subjectName].lastActivity) {
+        bySubject[c.subjectName] = { subjectName: c.subjectName, lastActivity };
+      }
     }
-    return Object.values(bySubject).sort((a, b) => (a.done / a.total) - (b.done / b.total));
-  }, [courses, chapterMastery]);
+    return Object.values(bySubject);
+  }, [courses, conceptHistory]);
+
+  function getActivityInfo(iso: string, subjectAccent: string): { label: string; hint: string | null; color: string } {
+    if (!iso) return { label: 'Jamais travaillé', hint: "Lance-toi, le prof t'attend !", color: '#9CA3AF' };
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (days === 0) return { label: "Aujourd'hui", hint: null, color: subjectAccent };
+    if (days === 1) return { label: 'Hier', hint: null, color: subjectAccent };
+    if (days <= 3)  return { label: `Il y a ${days} jours`, hint: null, color: '#9CA3AF' };
+    if (days <= 7)  return { label: `Il y a ${days} jours`, hint: 'Ne néglige pas cette matière', color: '#9CA3AF' };
+    if (days <= 14) return { label: 'Il y a 1 semaine', hint: "Tu prends du retard — reprends dès aujourd'hui", color: '#9CA3AF' };
+    return { label: 'Il y a longtemps', hint: 'Revois cette matière avant la compo', color: '#9CA3AF' };
+  }
 
   // Lacune principale
   const weakConcept = useMemo(() => {
@@ -176,7 +222,7 @@ export default function ProgressScreen() {
       icon: 'alert-circle' as const,
       action: `Améliore ton score — ${weak.title}`,
       reason: `Tu as eu ${weak.mastery}% la dernière fois. Refais le quiz pour progresser.`,
-      onPress: () => activeCourse && navigation.navigate('Cours', {
+      onPress: () => activeCourse && isChapterUnlocked(weak.index) && navigation.navigate('Cours', {
         screen: 'Quiz',
         params: { courseId: activeCourse.id, chapterIndex: weak.index, chapterTitle: weak.title },
       }),
@@ -187,7 +233,7 @@ export default function ProgressScreen() {
       icon: 'play-circle' as const,
       action: `Fais le quiz — ${next.title}`,
       reason: `Ce chapitre n'a pas encore été évalué.`,
-      onPress: () => activeCourse && navigation.navigate('Cours', {
+      onPress: () => activeCourse && isChapterUnlocked(next.index) && navigation.navigate('Cours', {
         screen: 'Quiz',
         params: { courseId: activeCourse.id, chapterIndex: next.index, chapterTitle: next.title },
       }),
@@ -224,9 +270,11 @@ export default function ProgressScreen() {
             <Text style={s.headerTitle}>{studentName || 'Élève'}</Text>
           </View>
           <View style={s.streakBox}>
-            <Text style={[s.streakNum, { color: '#FF6B35' }]}>{streakCurrent}</Text>
+            <Text style={[s.streakNum, { color: streakColor }]}>{effectiveStreak}</Text>
             <View style={s.streakBottom}>
-              <Ionicons name="flame" size={18} color="#FF6B35" />
+              <Animated.View style={{ opacity: effectiveStreak >= 7 ? flickerAnim : 1 }}>
+                <Ionicons name="flame" size={effectiveStreak >= 14 ? 22 : 18} color={streakColor} />
+              </Animated.View>
               <Text style={s.streakLabel}>jours</Text>
             </View>
           </View>
@@ -240,29 +288,29 @@ export default function ProgressScreen() {
           <View style={[s.card, { backgroundColor: t.surface, borderColor: t.border }]}>
             <Text style={[s.cardTitle, { color: t.text }]}>Toutes mes matières</Text>
             {allSubjects.map((sub, i) => {
-              const st  = getSubjectStyle(sub.subjectName);
-              const pct = sub.total > 0 ? sub.done / sub.total : 0;
+              const st = getSubjectStyle(sub.subjectName);
               const isActive = sub.subjectName === activeCourse?.subjectName;
+              const { label, hint, color } = getActivityInfo(sub.lastActivity, st.accent);
               return (
-                <View key={sub.subjectName} style={[s.subjectRow, i < allSubjects.length - 1 && { marginBottom: 14 }]}>
-                  <View style={[s.subjectEmoji, { backgroundColor: st.bg + '20' }]}>
+                <View key={sub.subjectName} style={[
+                  s.subjectRow,
+                  { backgroundColor: t.surfaceAlt, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: color },
+                  i < allSubjects.length - 1 && { marginBottom: 10 },
+                ]}>
+                  <View style={[s.subjectEmoji, { backgroundColor: st.bg + '25' }]}>
                     <Text style={{ fontSize: 16 }}>{st.emoji}</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={s.subjectRowTop}>
-                      <Text style={[s.subjectName, { color: isActive ? st.accent : t.text }]} numberOfLines={1}>
-                        {sub.subjectName}{isActive ? ' ●' : ''}
-                      </Text>
-                      <Text style={[s.subjectCount, { color: sub.done > 0 ? st.accent : t.textMuted }]}>
-                        {sub.done}/{sub.total}
-                      </Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={[s.subjectName, { color: isActive ? st.accent : t.text }]} numberOfLines={1}>
+                      {sub.subjectName}{isActive ? '  ●' : ''}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                      <Ionicons name="time-outline" size={12} color={color} />
+                      <Text style={{ fontSize: 12, color, fontWeight: '700' }}>{label}</Text>
                     </View>
-                    <View style={[s.subjectBarBg, { backgroundColor: t.border }]}>
-                      <View style={[s.subjectBarFill, {
-                        width: `${pct * 100}%` as any,
-                        backgroundColor: pct === 0 ? 'transparent' : st.accent,
-                      }]} />
-                    </View>
+                    {hint ? (
+                      <Text style={{ fontSize: 11, color, fontWeight: '500', opacity: 0.85 }}>{hint}</Text>
+                    ) : null}
                   </View>
                 </View>
               );
@@ -284,8 +332,7 @@ export default function ProgressScreen() {
         {(() => {
           const next = getNextExam();
           if (!next) return null;
-          const urgent  = next.daysLeft <= 14;
-          const color   = urgent ? '#EF4444' : '#F59E0B';
+          const color = accent;
           return (
             <View style={[s.card, { backgroundColor: t.surface, borderColor: color + '40' }]}>
               <View style={s.cardHeader}>
@@ -307,7 +354,7 @@ export default function ProgressScreen() {
                   <Text style={[s.examDays, { color }]}>~{next.daysLeft}j</Text>
                 </View>
               </View>
-              {urgent && (
+              {next.daysLeft <= 14 && (
                 <View style={[s.examAlert, { backgroundColor: color + '12', borderColor: color + '30' }]}>
                   <Ionicons name="warning-outline" size={14} color={color} />
                   <Text style={[s.examAlertText, { color }]}>
@@ -327,18 +374,25 @@ export default function ProgressScreen() {
             {sortedChapters.map((ch, i) => {
               const st = chapterStatus(ch.mastery);
               const isDanger = ch.done && ch.mastery < 40;
+              const locked = !isChapterUnlocked(ch.index);
+              const disabled = ch.isIntro || locked;
               return (
                 <TouchableOpacity
                   key={ch.index}
                   style={[
                     s.chapterRow,
                     { backgroundColor: isDanger ? '#EF444410' : t.surfaceAlt, borderColor: isDanger ? '#EF444430' : t.border },
+                    (locked || ch.isIntro) && { opacity: 0.45 },
                     i < sortedChapters.length - 1 && { marginBottom: 8 },
                   ]}
-                  onPress={() => activeCourse && navigation.navigate('Cours', {
-                    screen: 'Quiz',
-                    params: { courseId: activeCourse.id, chapterIndex: ch.index, chapterTitle: ch.title },
-                  })}
+                  onPress={() => {
+                    if (!activeCourse || disabled) return;
+                    navigation.navigate('Cours', {
+                      screen: 'Quiz',
+                      params: { courseId: activeCourse.id, chapterIndex: ch.index, chapterTitle: ch.title },
+                    });
+                  }}
+                  disabled={disabled}
                   activeOpacity={0.8}
                 >
                   {/* Numéro */}
@@ -362,9 +416,17 @@ export default function ProgressScreen() {
                   </View>
 
                   {/* Badge statut */}
-                  <View style={[s.chapterBadge, { backgroundColor: st.bg, borderColor: st.color + '40' }]}>
-                    <Text style={[s.chapterBadgeText, { color: st.color }]}>{st.label}</Text>
-                  </View>
+                  {ch.isIntro ? (
+                    <View style={[s.chapterBadge, { backgroundColor: t.border, borderColor: t.border }]}>
+                      <Text style={[s.chapterBadgeText, { color: t.textMuted }]}>Intro</Text>
+                    </View>
+                  ) : locked ? (
+                    <Ionicons name="lock-closed" size={16} color={t.textMuted} />
+                  ) : (
+                    <View style={[s.chapterBadge, { backgroundColor: st.bg, borderColor: st.color + '40' }]}>
+                      <Text style={[s.chapterBadgeText, { color: st.color }]}>{st.label}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -451,7 +513,7 @@ export default function ProgressScreen() {
               <Text style={[s.cardChip, { color: accent }]}>{profName.toUpperCase()} A REMARQUÉ</Text>
             </View>
             <Text style={[s.insightTitle, { color: t.text }]}>
-              {streakCurrent >= 3 ? 'Ta régularité paie.' : 'Tout roule pour l\'instant.'}
+              {effectiveStreak >= 3 ? 'Ta régularité paie.' : 'Tout roule pour l\'instant.'}
             </Text>
             <Text style={[s.insightSub, { color: t.textMuted }]}>
               {streakCurrent >= 3

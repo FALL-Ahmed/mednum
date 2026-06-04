@@ -4,10 +4,11 @@ import {
   Platform, StatusBar, Animated, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store';
 import { Colors, Spacing, Radius } from '../theme';
 import { useTheme } from '../components';
-import { getSubjectStyle } from '../utils/subjectStyles';
+import { getSubjectStyle, getProfessorName } from '../utils/subjectStyles';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const NODE_SIZE      = 72;
@@ -83,16 +84,17 @@ const AvailableRing = memo(() => {
 });
 
 // ── Étoiles ───────────────────────────────────────────────────────────────────
-function Stars({ count }: { count: number }) {
+function Stars({ count, color }: { count: number; color: string }) {
   if (count === 0) return null;
   return (
     <View style={styles.starsRow}>
       {[1, 2, 3].map(i => (
-        <Text key={i} style={[styles.starChar, { opacity: i <= count ? 1 : 0.14 }]}>★</Text>
+        <Ionicons key={i} name="star" size={10} color={color} style={{ opacity: i <= count ? 1 : 0.18 }} />
       ))}
     </View>
   );
 }
+
 
 // ── Écran principal ───────────────────────────────────────────────────────────
 export default function SkillTreeScreen({ navigation }: any) {
@@ -131,8 +133,7 @@ export default function SkillTreeScreen({ navigation }: any) {
     if (!unlocked) return;
     setActiveCourse(course.id);
     setActiveChapterIndex(course.id, idx);
-    navigation.getParent()?.navigate('Chat');
-  }, [course, chunks, masMap, setActiveCourse, setActiveChapterIndex, navigation]);
+  }, [course, chunks, masMap, setActiveCourse, setActiveChapterIndex]);
 
   const handleQuiz = useCallback((idx: number) => {
     if (!course) return;
@@ -149,7 +150,7 @@ export default function SkillTreeScreen({ navigation }: any) {
       <View style={[styles.root, { paddingTop: top, backgroundColor: t.bg }]}>
         <StatusBar barStyle={t.dark ? 'light-content' : 'dark-content'} backgroundColor={t.bg} />
         <View style={styles.noCourse}>
-          <Text style={styles.noCourseEmoji}>🎯</Text>
+          <Ionicons name="compass-outline" size={60} color={Colors.blue} style={{ marginBottom: 20 }} />
           <Text style={[styles.noCourseTitle, { color: t.text }]}>Commence ton parcours</Text>
           <Text style={[styles.noCourseBody, { color: t.textMuted }]}>
             Choisis ta matière pour voir ton chemin vers la maîtrise.
@@ -265,12 +266,6 @@ export default function SkillTreeScreen({ navigation }: any) {
             status === 'available'  ? t.border + 'CC'     :
             t.border;
 
-          const nodeLabel =
-            status === 'mastered' ? '✓'  :
-            status === 'locked'   ? '🔒' :
-            status === 'intro'    ? '★'  :
-            `${idx + 1}`;
-
           const nodeTextColor =
             status === 'mastered'   ? style.bg      :
             isActive                ? style.accent  :
@@ -278,6 +273,104 @@ export default function SkillTreeScreen({ navigation }: any) {
             status === 'intro'      ? style.accent  :
             status === 'available'  ? t.textMuted   :
             t.border;
+
+          const nodeIcon: React.ReactNode =
+            status === 'mastered' ? <Ionicons name="checkmark" size={26} color={nodeTextColor} /> :
+            status === 'locked'   ? <Ionicons name="lock-closed" size={20} color={nodeTextColor} /> :
+            status === 'intro'    ? <Ionicons name="star" size={20} color={nodeTextColor} /> :
+            null;
+
+          // ── Carte active pleine largeur ──────────────────────────────────────
+          if (isActive) return (
+            <View key={idx} style={styles.slot}>
+              {idx > 0 && <View style={[styles.connector, { backgroundColor: style.accent + '60' }]} />}
+              <TouchableOpacity
+                style={[styles.activeCard, { backgroundColor: style.bg }]}
+                onPress={() => handlePress(idx)}
+                activeOpacity={0.88}
+              >
+                {/* Cercles décoratifs */}
+                <View style={[StyleSheet.absoluteFill, { borderRadius: 20, overflow: 'hidden' }]}>
+                  <View style={styles.activeDeco1} />
+                  <View style={styles.activeDeco2} />
+                </View>
+                {/* Bordure accent */}
+                <View style={[StyleSheet.absoluteFill, { borderRadius: 20, borderWidth: 2.5, borderColor: style.accent }]} pointerEvents="none" />
+
+                <View style={styles.activeCardTop}>
+                  {/* Badge numéro */}
+                  <View style={[styles.activeNodeBadge, { backgroundColor: style.accent }]}>
+                    <Text style={styles.activeNodeTxt}>{idx + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={[styles.activeStatusPill, { backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start' }]}>
+                      <View style={[styles.activePulseDot, { backgroundColor: '#fff' }]} />
+                      <Text style={styles.activeStatusTxt}>EN COURS</Text>
+                    </View>
+                    <Text style={styles.activeTitle} numberOfLines={3}>
+                      {chunk.title || `Chapitre ${idx + 1}`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Info chat */}
+                <View style={[styles.activeChatHint, { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.2)' }]}>
+                  <Ionicons name="information-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.activeChatHintTxt}>
+                    {getProfessorName(course.subjectName)} répond uniquement depuis ce chapitre
+                  </Text>
+                </View>
+
+                {/* Progression */}
+                {mastery > 0 && (
+                  <View style={styles.activeMastery}>
+                    <View style={styles.activeMasteryRow}>
+                      <Text style={[styles.activeMasteryPct, { color: style.accent }]}>{mastery}%</Text>
+                      <Text style={styles.activeMasteryLbl}>maîtrise</Text>
+                    </View>
+                    <View style={[styles.activeMasteryTrack, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                      <View style={[styles.activeMasteryFill, { width: `${mastery}%` as any, backgroundColor: style.accent }]} />
+                    </View>
+                  </View>
+                )}
+
+                {/* Actions */}
+                <View style={styles.activeActions}>
+                  <TouchableOpacity
+                    style={[styles.activeBtn, { backgroundColor: style.accent }]}
+                    onPress={() => navigation.getParent()?.navigate('Chat')}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
+                    <Text style={styles.activeBtnTxt}>Poser une question</Text>
+                  </TouchableOpacity>
+                  <View style={styles.activeSecondary}>
+                    {!intro && (
+                      <TouchableOpacity
+                        style={[styles.activeSecBtn, { borderColor: 'rgba(255,255,255,0.3)' }]}
+                        onPress={(e) => { e.stopPropagation?.(); handleQuiz(idx); }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="pencil-outline" size={14} color="rgba(255,255,255,0.9)" />
+                        <Text style={styles.activeSecBtnTxt}>Quiz</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.activeSecBtn, { borderColor: 'rgba(255,255,255,0.3)' }]}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        navigation.navigate('Fiche', { chapterIndex: idx, chapterTitle: chunk.title || `Chapitre ${idx + 1}` });
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="document-text-outline" size={14} color="rgba(255,255,255,0.9)" />
+                      <Text style={styles.activeSecBtnTxt}>Fiche</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          );
 
           return (
             <View key={idx} style={styles.slot}>
@@ -330,18 +423,14 @@ export default function SkillTreeScreen({ navigation }: any) {
                       shadowRadius: 16,
                     },
                   ]}>
-                    <Text style={[
-                      styles.nodeLabel,
-                      {
-                        color: nodeTextColor,
-                        fontSize: status === 'locked' ? 22 : status === 'mastered' ? 26 : 20,
-                      },
-                    ]}>
-                      {nodeLabel}
-                    </Text>
+                    {nodeIcon ?? (
+                      <Text style={[styles.nodeLabel, { color: nodeTextColor, fontSize: 20 }]}>
+                        {idx + 1}
+                      </Text>
+                    )}
                   </View>
 
-                  {stars > 0 && <Stars count={stars} />}
+                  {stars > 0 && <Stars count={stars} color={style.accent} />}
                 </TouchableOpacity>
 
                 {/* Carte chapitre — tappable en entier */}
@@ -360,7 +449,8 @@ export default function SkillTreeScreen({ navigation }: any) {
                   {/* Badges statut */}
                   {isActive && (
                     <View style={[styles.statusPill, { backgroundColor: style.accent }]}>
-                      <Text style={styles.statusPillTxt}>▶ EN COURS</Text>
+                      <Ionicons name="play" size={7} color="#fff" />
+                      <Text style={styles.statusPillTxt}>EN COURS</Text>
                     </View>
                   )}
                   {status === 'mastered' && !isActive && (
@@ -368,7 +458,8 @@ export default function SkillTreeScreen({ navigation }: any) {
                       backgroundColor: style.accent + '20',
                       borderWidth: 1, borderColor: style.accent + '55',
                     }]}>
-                      <Text style={[styles.statusPillTxt, { color: style.accent }]}>✓ MAÎTRISÉ</Text>
+                      <Ionicons name="checkmark" size={9} color={style.accent} />
+                      <Text style={[styles.statusPillTxt, { color: style.accent }]}>MAÎTRISÉ</Text>
                     </View>
                   )}
                   {status === 'intro' && (
@@ -428,9 +519,8 @@ export default function SkillTreeScreen({ navigation }: any) {
                           style={[styles.quizBtn, { borderColor: style.accent + '45' }]}
                           onPress={(e) => { e.stopPropagation?.(); handleQuiz(idx); }}
                         >
-                          <Text style={[styles.quizBtnTxt, { color: style.accent + 'BB' }]}>
-                            ✏️ Quiz
-                          </Text>
+                          <Ionicons name="pencil-outline" size={11} color={style.accent + 'BB'} />
+                          <Text style={[styles.quizBtnTxt, { color: style.accent + 'BB' }]}>Quiz</Text>
                         </TouchableOpacity>
                       )}
                       <TouchableOpacity
@@ -443,9 +533,8 @@ export default function SkillTreeScreen({ navigation }: any) {
                           });
                         }}
                       >
-                        <Text style={[styles.quizBtnTxt, { color: style.accent + 'BB' }]}>
-                          📄 Fiche
-                        </Text>
+                        <Ionicons name="document-text-outline" size={11} color={style.accent + 'BB'} />
+                        <Text style={[styles.quizBtnTxt, { color: style.accent + 'BB' }]}>Fiche</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -462,9 +551,10 @@ export default function SkillTreeScreen({ navigation }: any) {
             borderColor: style.accent + '30',
             backgroundColor: t.surface,
           }]}>
-            <Text style={[styles.unlockTitle, { color: style.accent }]}>
-              🔓 Prochain déblocage
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="lock-open-outline" size={15} color={style.accent} />
+              <Text style={[styles.unlockTitle, { color: style.accent }]}>Prochain déblocage</Text>
+            </View>
             <Text style={[styles.unlockSub, { color: t.textMuted }]}>
               Chapitre {nextUnlockIdx + 1} — encore {MASTERY_UNLOCK - prevMastery}% à gagner
             </Text>
@@ -482,6 +572,7 @@ export default function SkillTreeScreen({ navigation }: any) {
 
         <View style={{ height: 110 }} />
       </Animated.ScrollView>
+
     </View>
   );
 }
@@ -620,6 +711,7 @@ const styles = StyleSheet.create({
   statusPill: {
     alignSelf: 'flex-start', borderRadius: Radius.full,
     paddingHorizontal: 7, paddingVertical: 3, marginBottom: 5,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   statusPillTxt: { fontSize: 8, fontWeight: '900', color: '#fff', letterSpacing: 1.1 },
 
@@ -642,10 +734,73 @@ const styles = StyleSheet.create({
   quizBtn: {
     borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent',
     paddingHorizontal: 9, paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
   },
   quizBtnTxt: { fontSize: 10, fontWeight: '800' },
 
   lockHint: { fontSize: 9, color: '#2D3148', marginTop: 4, lineHeight: 14 },
+
+  // ── Carte active pleine largeur ──
+  activeCard: {
+    width: '100%', borderRadius: 20, padding: 18, gap: 10, overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20 },
+      android: { elevation: 12 },
+    }),
+  },
+  activeDeco1: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.07)', top: -60, right: -40,
+  },
+  activeDeco2: {
+    position: 'absolute', width: 100, height: 100, borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 10,
+  },
+  activeCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  activeNodeBadge: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2,
+  },
+  activeNodeTxt: { fontSize: 16, fontWeight: '900', color: '#fff' },
+  activeStatusPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 99, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  activePulseDot: { width: 6, height: 6, borderRadius: 3 },
+  activeStatusTxt: { fontSize: 9, fontWeight: '900', color: '#fff', letterSpacing: 1.1 },
+  activeTitle: { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: -0.3, lineHeight: 23 },
+
+  activeChatHint: {
+    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+  },
+  activeChatHintTxt: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '600', flex: 1 },
+
+  activeMastery: { gap: 6 },
+  activeMasteryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  activeMasteryPct: { fontSize: 18, fontWeight: '900' },
+  activeMasteryLbl: { fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  activeMasteryTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  activeMasteryFill: { height: 6, borderRadius: 3 },
+
+  activeActions: { gap: 10 },
+  activeBtn: {
+    borderRadius: 12, paddingVertical: 13, alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'center', gap: 8,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 4 },
+    }),
+  },
+  activeBtnTxt: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
+  activeSecondary: { flexDirection: 'row', gap: 10 },
+  activeSecBtn: {
+    flex: 1, borderRadius: 10, borderWidth: 1.5,
+    paddingVertical: 10, alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  activeSecBtnTxt: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
 
   // Banner déblocage (fond solide pour couvrir le trait)
   unlockBanner: {

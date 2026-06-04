@@ -215,14 +215,26 @@ Le programme officiel (les thèmes, les objectifs pédagogiques) est public et l
 
 ---
 
-## Tableau récapitulatif
+## Tableau récapitulatif — mis à jour le 04/06/2026
 
-| Point | Priorité | Statut actuel | Version cible |
-|-------|----------|---------------|---------------|
-| Abonnement par matière | Haute | À construire | Phase 2 |
-| Focus fondamental / anti-généralité | Haute | Partiellement en place | Amélioration continue |
-| Déblocage progressif par chapitre | Haute | XP/feedback prêts, quiz à construire | Phase 4 |
-| Suivi parental + dashboard admin | Haute | Données disponibles, UI à faire | Phase 3 |
-| Cibler 1ère AS Sciences au lancement | Immédiat | À appliquer maintenant | ✅ Décision prise |
-| Mode hors connexion (niveau 1) | Moyenne | Cours en cache local déjà | Phase 3 |
-| Droits d'auteur — lettre Ministère | Urgent | Risque maîtrisé aujourd'hui | Avant phase commerciale |
+| Point | Priorité | Statut | Notes |
+|-------|----------|--------|-------|
+| Abonnement par matière | Haute | ⏳ À construire | Phase 2 — pas encore touché |
+| Focus fondamental / anti-généralité | Haute | ✅ Avancé | Fiche de révision par chapitre avec "Ce qui tombe en compo" (min 5 questions), RAG strict |
+| Déblocage progressif par chapitre | Haute | ✅ Fait | SkillTree complet : score maîtrise 0-100, cadenas, seuil 70%, quiz par chapitre, étoiles |
+| Suivi parental + dashboard admin | Haute | ⏳ À construire | Données disponibles dans Supabase (XP, streak, mastery), UI pas encore faite |
+| Cibler 1ère AS Sciences au lancement | Immédiat | ✅ En production | App live sur Expo Go, 1ère AS testée |
+| Mode hors connexion (niveau 1) | Moyenne | ⏳ À faire | Cours déjà en cache local (AsyncStorage), chat nécessite encore connexion |
+| Droits d'auteur — lettre Ministère | Urgent | ⏳ En attente | Risque maîtrisé (élève charge son propre PDF), lettre Ministère pas encore envoyée |
+
+## Fonctionnalités ajoutées depuis le feedback (non prévues initialement)
+
+| Feature | Statut | Impact |
+|---------|--------|--------|
+| Fiche de révision PDF par chapitre | ✅ Fait | Forte valeur — partageable entre élèves |
+| Partage fiche Supabase entre élèves de la même classe | ✅ Fait | Économie de tokens, viralité |
+| Auth anonyme Supabase (compte par appareil) | ✅ Fait | Base pour suivi parental futur |
+| Écran Profil/Paramètres | ✅ Fait | Nom, école, niveau, mode sombre |
+| Streak avec couleurs dynamiques + animation flamme | ✅ Fait | Gamification |
+| Dernière activité par matière dans Progression | ✅ Fait | Alerte négligence |
+| Carte active pleine largeur dans SkillTree | ✅ Fait | UX élève plus claire |

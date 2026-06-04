@@ -628,8 +628,22 @@ export default function ChatScreen({ route }: any) {
             </View>
           </View>
 
-          {/* Niveau automatique affiché en lecture seule */}
+          {/* Chapitre actif + niveau */}
           <View style={styles.niveauRow}>
+            {/* Badge chapitre actif */}
+            {activeCourse?.chunks?.length > 0 && (() => {
+              const chapterIdx = activeChapterIndex[activeCourse.id] ?? 0;
+              const chapterTitle = activeCourse.chunks?.[chapterIdx]?.title;
+              if (!chapterTitle) return null;
+              return (
+                <View style={[styles.niveauChip, { backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', flexShrink: 1 }]}>
+                  <Text style={[styles.niveauText, { color: '#fff', fontWeight: '700', flexShrink: 1 }]} numberOfLines={1}>
+                    {chapterTitle}
+                  </Text>
+                </View>
+              );
+            })()}
+            {/* Niveau */}
             {(() => {
               const niv = computeNiveau(difficultyScore);
               const labels: Record<NiveauType, string> = { facile: 'Débutant', moyen: 'Intermédiaire', avance: 'Avancé' };
