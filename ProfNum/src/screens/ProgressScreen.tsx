@@ -1,133 +1,161 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, StatusBar, Dimensions,
+  StatusBar, Animated, Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store';
 import { Spacing, Radius } from '../theme';
 import { useTheme } from '../components';
-import { getSubjectStyle } from '../utils/subjectStyles';
+import { getSubjectStyle, getProfessorName } from '../utils/subjectStyles';
 
-const { width } = Dimensions.get('window');
-const CARD_W = (width - Spacing.lg * 2 - 10) / 2;
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Palette ─────────────────────────────────────────────────────────────────
-const P = {
-  bg:      '#09090F',
-  surface: 'rgba(255,255,255,0.06)',
-  border:  'rgba(255,255,255,0.1)',
-  text:    '#F0F2F5',
-  muted:   'rgba(255,255,255,0.4)',
-  streak:  '#FF6B35',
-  xp:      '#F59E0B',
-  goal:    '#818CF8',
-  green:   '#10B981',
-  purple:  '#A855F7',
-};
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function getWeekStart() {
   const d = new Date(); d.setDate(d.getDate() - d.getDay());
   return d.toISOString().split('T')[0];
 }
 function isThisWeek(iso: string) { return !!iso && iso >= getWeekStart(); }
 
-function streakMessage(n: number) {
-  if (n === 0) return 'Lance ta première série aujourd\'hui !';
-  if (n < 3)  return 'Belle entrée ! Reviens demain.';
-  if (n < 7)  return 'Tu construis une habitude solide 💪';
-  if (n < 14) return 'Une semaine d\'affilée — impressionnant !';
-  return `${n} jours — Tu es dans l'élite 🏆`;
-}
-
-function goalMessage(xpToday: number, goal: number) {
-  const left = goal - xpToday;
-  if (left <= 0) return 'Objectif atteint ! Continue pour aller plus loin 🚀';
-  const q = Math.ceil(left / 10);
-  return `Encore ${q} question${q > 1 ? 's' : ''} pour valider ta journée`;
-}
-
-// Retire les préfixes de question pour n'afficher que le vrai sujet
 function cleanConcept(text: string): string {
   return text
     .replace(/^(c[''`]est quoi|c est quoi|qu[''`]est.ce que?|qu est ce que|explique.?moi|comment fonctionne|comment|pourquoi|kesako|c koi|ckoi|definis|definition de|parle.?moi de|dis.?moi|je comprends? pas)\s+/i, '')
     .replace(/^(le|la|les|un|une|des|du|de la|de l[''`]|l[''`])\s+/i, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 48);
+    .replace(/\s+/g, ' ').trim().slice(0, 48);
 }
 
 function insightMessage(count: number): string {
-  if (count <= 2) return 'Ce point revient dans tes questions — parfait pour aller plus loin';
-  if (count <= 4) return `${count}× cette semaine — 5 minutes maintenant et tu maîtrises ça`;
-  return `${count}× cette semaine — tu veux vraiment comprendre ça. On creuse ensemble ?`;
+  if (count <= 2) return 'Ce point revient dans tes questions — approfondis-le.';
+  if (count <= 4) return `${count}× cette semaine — 5 minutes et tu maîtrises ça.`;
+  return `${count}× cette semaine — tu veux vraiment comprendre ça.`;
 }
 
-// ─── Composant barre de segments (style RPG) ─────────────────────────────────
-function SegmentBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const SEGS = 10;
-  const filled = Math.round((value / max) * SEGS);
-  return (
-    <View style={seg.row}>
-      {Array.from({ length: SEGS }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            seg.cell,
-            { backgroundColor: i < filled ? color : 'rgba(255,255,255,0.08)' },
-            i === 0 && { borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
-            i === SEGS - 1 && { borderTopRightRadius: 4, borderBottomRightRadius: 4 },
-          ]}
-        />
-      ))}
-    </View>
-  );
+function goalMessage(xpToday: number, goal: number) {
+  const left = goal - xpToday;
+  if (left <= 0) return 'Objectif atteint ! Continue pour aller plus loin.';
+  const q = Math.ceil(left / 10);
+  return `Encore ${q} question${q > 1 ? 's' : ''} pour valider ta journée`;
 }
-const seg = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 3, height: 8 },
-  cell: { flex: 1, height: 8 },
-});
 
-// ─── Nombre affiché ──────────────────────────────────────────────────────────
-function AnimatedNumber({ value, color, size = 40 }: { value: number; color: string; size?: number }) {
-  return <Text style={[num.val, { color, fontSize: size }]}>{value}</Text>;
+// ── Calendrier scolaire mauritanien ──────────────────────────────────────────
+// Mois : 0=Jan … 11=Déc
+const SCHOOL_CALENDAR = [
+  { trimestre: 'T1', label: 'Devoir 1',     month: 10, type: 'devoir'      }, // Novembre
+  { trimestre: 'T1', label: 'Devoir 2',     month: 11, type: 'devoir'      }, // Décembre
+  { trimestre: 'T1', label: 'Composition',  month: 11, type: 'composition' }, // Fin Décembre
+  { trimestre: 'T2', label: 'Devoir 1',     month: 1,  type: 'devoir'      }, // Février
+  { trimestre: 'T2', label: 'Devoir 2',     month: 2,  type: 'devoir'      }, // Mars
+  { trimestre: 'T2', label: 'Composition',  month: 2,  type: 'composition' }, // Fin Mars
+  { trimestre: 'T3', label: 'Devoir 1',     month: 3,  type: 'devoir'      }, // Avril
+  { trimestre: 'T3', label: 'Devoir 2',     month: 4,  type: 'devoir'      }, // Mai
+  { trimestre: 'T3', label: 'Composition',  month: 5,  type: 'composition' }, // Juin
+];
+
+const MONTH_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+
+function getNextExam() {
+  const now = new Date();
+  let nearest: typeof SCHOOL_CALENDAR[0] | null = null;
+  let nearestDate: Date | null = null;
+
+  for (const ev of SCHOOL_CALENDAR) {
+    const day = ev.type === 'composition' ? 14 : 10;
+    for (const yearOffset of [0, 1]) {
+      const evDate = new Date(now.getFullYear() + yearOffset, ev.month, day);
+      if (evDate > now) {
+        if (!nearestDate || evDate < nearestDate) {
+          nearestDate = evDate;
+          nearest = ev;
+        }
+        break;
+      }
+    }
+  }
+
+  if (!nearest || !nearestDate) return null;
+  const daysLeft = Math.ceil((nearestDate.getTime() - now.getTime()) / 86400000);
+  return { ...nearest, daysLeft, monthLabel: MONTH_FR[nearest.month] };
 }
-const num = StyleSheet.create({
-  val: { fontWeight: '800', letterSpacing: -1 },
-});
 
-// ─── Carte glassmorphique ────────────────────────────────────────────────────
-function GlassCard({
-  children, glow, delay = 0, style,
-}: { children: React.ReactNode; glow: string; delay?: number; style?: any }) {
-  return (
-    <View style={[glass.card, { borderColor: glow + '30', shadowColor: glow }, style]}>
-      {children}
-    </View>
-  );
+
+function chapterStatus(score: number): { label: string; color: string; bg: string } {
+  if (score >= 70) return { label: 'Maîtrisé',  color: '#10B981', bg: '#10B98118' };
+  if (score >= 40) return { label: 'En cours',  color: '#F59E0B', bg: '#F59E0B18' };
+  if (score >  0)  return { label: 'DANGER',    color: '#EF4444', bg: '#EF444418' };
+  return                   { label: 'Non fait',  color: '#6B7280', bg: 'transparent' };
 }
-const glass = StyleSheet.create({
-  card: {
-    backgroundColor: P.surface,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    padding: Spacing.lg,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-});
 
-// ─── Screen ──────────────────────────────────────────────────────────────────
+
+// ── Dot animé ────────────────────────────────────────────────────────────────
+
+function PulseDot({ color }: { color: string }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(anim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: 1,   duration: 800, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return <Animated.View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: color, opacity: anim }} />;
+}
+
+
+// ── Screen ───────────────────────────────────────────────────────────────────
+
 export default function ProgressScreen() {
   const navigation = useNavigation<any>();
+  const { top } = useSafeAreaInsets();
+  const t = useTheme();
   const {
     studentName, courses, activeCourse, conceptHistory,
-    streakCurrent, streakBest, xpTotal, xpToday, xpThisWeek, xpLastWeek, dailyGoal,
+    chapterMastery, streakCurrent, xpToday, dailyGoal,
   } = useAppStore();
 
+  const subjectStyle = getSubjectStyle(activeCourse?.subjectName ?? '');
+  const profName     = getProfessorName(activeCourse?.subjectName ?? '');
+  const bg           = subjectStyle.bg;
+  const accent       = subjectStyle.accent;
+
+  // Maîtrise par chapitre du cours actif
+  const chapterStats = useMemo(() => {
+    if (!activeCourse?.chunks?.length) return [];
+    const masteryMap = chapterMastery[activeCourse.id] || {};
+    return activeCourse.chunks.map((chunk, i) => ({
+      index:   i,
+      title:   chunk.title || `Chapitre ${i + 1}`,
+      mastery: masteryMap[i] ?? 0,
+      done:    (masteryMap[i] ?? 0) > 0,
+    }));
+  }, [activeCourse, chapterMastery]);
+
+  // Chapitres triés : danger en premier
+  const sortedChapters = useMemo(() =>
+    [...chapterStats].sort((a, b) => {
+      if (!a.done && !b.done) return a.index - b.index;
+      if (!a.done) return 1;
+      if (!b.done) return -1;
+      return a.mastery - b.mastery;
+    }),
+  [chapterStats]);
+
+  // Vue toutes matières
+  const allSubjects = useMemo(() => {
+    const bySubject: Record<string, { subjectName: string; done: number; total: number }> = {};
+    for (const c of courses) {
+      if (!c.subjectName || !c.chunks?.length) continue;
+      if (!bySubject[c.subjectName]) bySubject[c.subjectName] = { subjectName: c.subjectName, done: 0, total: 0 };
+      const masteryMap = chapterMastery[c.id] || {};
+      bySubject[c.subjectName].total += c.chunks.length;
+      bySubject[c.subjectName].done  += c.chunks.filter((_, i) => (masteryMap[i] ?? 0) > 0).length;
+    }
+    return Object.values(bySubject).sort((a, b) => (a.done / a.total) - (b.done / b.total));
+  }, [courses, chapterMastery]);
+
+  // Lacune principale
   const weakConcept = useMemo(() => {
     if (!activeCourse) return null;
     const map = conceptHistory[activeCourse.id] || {};
@@ -138,344 +166,391 @@ export default function ProgressScreen() {
     return { concept: sorted[0][0], count: sorted[0][1].count };
   }, [conceptHistory, activeCourse]);
 
-  const subjectActivity = useMemo(() => {
-    const by: Record<string, { subjectName: string; count: number }> = {};
-    for (const c of courses) {
-      if (!by[c.subjectName]) by[c.subjectName] = { subjectName: c.subjectName, count: 0 };
-      const map = conceptHistory[c.id] || {};
-      by[c.subjectName].count += Object.values(map)
-        .filter(v => isThisWeek(v.lastAsked))
-        .reduce((s, v) => s + v.count, 0);
-    }
-    return Object.values(by).sort((a, b) => b.count - a.count);
-  }, [courses, conceptHistory]);
-
-  const weekDiff = xpLastWeek > 0
-    ? Math.round(((xpThisWeek - xpLastWeek) / xpLastWeek) * 100)
-    : null;
-
-  // Mission du jour : générée depuis les données existantes
-  const questInfo = useMemo(() => {
-    if (weakConcept) {
-      const topic = cleanConcept(weakConcept.concept) || weakConcept.concept.slice(0, 30);
-      return { emoji: '🔍', text: `Approfondis "${topic}" — tu es à 2 questions de maîtriser ça` };
-    }
-    const inactive = subjectActivity.find(s => s.count === 0 && !!s.subjectName);
-    if (inactive)
-      return { emoji: '📝', text: `Explore ${inactive.subjectName} — tu n'y as pas encore touché cette semaine` };
-    if (xpToday === 0 && streakCurrent > 0)
-      return { emoji: '🔥', text: `Maintiens ta série de ${streakCurrent} jour${streakCurrent > 1 ? 's' : ''} — pose 1 question` };
-    return { emoji: '💬', text: 'Lance-toi ! Pose ta première question du jour' };
-  }, [weakConcept, subjectActivity, xpToday, streakCurrent]);
   const questDone = xpToday >= Math.floor(dailyGoal * 0.6);
 
-  // Répétition espacée : concepts vus il y a 2-6 jours avec difficulté (count >= 2)
-  const spacedReps = useMemo(() => {
-    const now = new Date();
-    const results: { concept: string; subjectName: string; daysAgo: number }[] = [];
-    for (const c of courses) {
-      const map = conceptHistory[c.id] || {};
-      for (const [concept, { count, lastAsked }] of Object.entries(map)) {
-        if (!lastAsked || count < 2) continue;
-        const days = Math.floor((now.getTime() - new Date(lastAsked).getTime()) / 86400000);
-        if (days >= 2 && days <= 6) results.push({ concept, subjectName: c.subjectName || '', daysAgo: days });
-      }
-    }
-    return results.sort((a, b) => a.daysAgo - b.daysAgo).slice(0, 2);
-  }, [courses, conceptHistory]);
+  // Mission concrète basée sur les chapitres
+  const dailyMission = useMemo(() => {
+    // 1. Chapitre fait mais score faible → améliorer
+    const weak = chapterStats.find(c => c.done && c.mastery < 60);
+    if (weak) return {
+      icon: 'alert-circle' as const,
+      action: `Améliore ton score — ${weak.title}`,
+      reason: `Tu as eu ${weak.mastery}% la dernière fois. Refais le quiz pour progresser.`,
+      onPress: () => activeCourse && navigation.navigate('Cours', {
+        screen: 'Quiz',
+        params: { courseId: activeCourse.id, chapterIndex: weak.index, chapterTitle: weak.title },
+      }),
+    };
+    // 2. Prochain chapitre non fait
+    const next = chapterStats.find(c => !c.done);
+    if (next) return {
+      icon: 'play-circle' as const,
+      action: `Fais le quiz — ${next.title}`,
+      reason: `Ce chapitre n'a pas encore été évalué.`,
+      onPress: () => activeCourse && navigation.navigate('Cours', {
+        screen: 'Quiz',
+        params: { courseId: activeCourse.id, chapterIndex: next.index, chapterTitle: next.title },
+      }),
+    };
+    // 3. Concept faible → aller au chat
+    if (weakConcept) return {
+      icon: 'chatbubble-ellipses' as const,
+      action: `Approfondis "${cleanConcept(weakConcept.concept)}"`,
+      reason: `Ce point revient souvent dans tes questions.`,
+      onPress: () => navigation.navigate('Chat', {
+        prefill: `Explique-moi : ${weakConcept.concept}`,
+      }),
+    };
+    // 4. Tout bon → encouragement
+    return {
+      icon: 'star' as const,
+      action: `Pose une question à ${profName}`,
+      reason: 'Continue à apprendre — chaque question compte.',
+      onPress: () => navigation.navigate('Chat'),
+    };
+  }, [chapterStats, weakConcept, activeCourse, profName]);
 
   return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={P.bg} />
+    <View style={[s.root, { backgroundColor: t.bg }]}>
+      <StatusBar barStyle="light-content" backgroundColor={bg} />
 
-      {/* ── Header hero : streak + nom ── */}
-      <View style={s.hero}>
-        <SafeAreaView>
-          <View style={s.heroRow}>
-            {/* Gauche : nom + message */}
-            <View style={{ flex: 1 }}>
-              <Text style={s.heroLabel}>BONJOUR</Text>
-              <Text style={s.heroName} numberOfLines={1}>{studentName || 'Élève'}</Text>
-              <Text style={[s.streakMsg, { color: P.muted, marginTop: 4 }]}>{streakMessage(streakCurrent)}</Text>
-            </View>
-            {/* Droite : grand chiffre streak */}
-            <View style={s.heroStreak}>
-              <Text style={[s.streakNum, { color: P.streak }]}>{streakCurrent}</Text>
-              <View style={s.heroStreakBottom}>
-                <Text style={s.streakFire}>🔥</Text>
-                <Text style={[s.streakSub, { color: P.muted }]}>jours</Text>
-              </View>
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <View style={[s.header, { paddingTop: top + Spacing.lg, backgroundColor: bg }]}>
+        <View style={s.hBubble1} />
+        <View style={s.hBubble2} />
+        <View style={s.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.headerLabel}>{activeCourse?.subjectName?.toUpperCase() || 'MA PROGRESSION'}</Text>
+            <Text style={s.headerTitle}>{studentName || 'Élève'}</Text>
+          </View>
+          <View style={s.streakBox}>
+            <Text style={[s.streakNum, { color: '#FF6B35' }]}>{streakCurrent}</Text>
+            <View style={s.streakBottom}>
+              <Ionicons name="flame" size={18} color="#FF6B35" />
+              <Text style={s.streakLabel}>jours</Text>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: 110 }]}>
 
-        {/* ── Mission du jour ── */}
-        <GlassCard glow={questDone ? P.green : P.goal} delay={200}>
-          <View style={s.rowBetween}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={[s.sectionChip, { color: (questDone ? P.green : P.goal) + 'CC' }]}>MISSION DU JOUR</Text>
-              <View style={s.questRow}>
-                <Text style={s.questEmoji}>{questDone ? '✅' : questInfo.emoji}</Text>
-                <Text style={[s.questText, { color: questDone ? P.muted : P.text }]} numberOfLines={2}>
-                  {questDone ? 'Mission accomplie !' : questInfo.text}
-                </Text>
-              </View>
-            </View>
-            <View style={[s.questBadge, { backgroundColor: (questDone ? P.green : P.goal) + '20', borderColor: (questDone ? P.green : P.goal) + '60' }]}>
-              <Text style={[s.questBadgeXP, { color: questDone ? P.green : P.goal }]}>{xpToday}</Text>
-              <Text style={[s.questBadgeMax, { color: P.muted }]}>/{dailyGoal} XP</Text>
-            </View>
+        {/* ── TOUTES MES MATIÈRES ─────────────────────────────────────────── */}
+        {allSubjects.length > 0 && (
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <Text style={[s.cardTitle, { color: t.text }]}>Toutes mes matières</Text>
+            {allSubjects.map((sub, i) => {
+              const st  = getSubjectStyle(sub.subjectName);
+              const pct = sub.total > 0 ? sub.done / sub.total : 0;
+              const isActive = sub.subjectName === activeCourse?.subjectName;
+              return (
+                <View key={sub.subjectName} style={[s.subjectRow, i < allSubjects.length - 1 && { marginBottom: 14 }]}>
+                  <View style={[s.subjectEmoji, { backgroundColor: st.bg + '20' }]}>
+                    <Text style={{ fontSize: 16 }}>{st.emoji}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={s.subjectRowTop}>
+                      <Text style={[s.subjectName, { color: isActive ? st.accent : t.text }]} numberOfLines={1}>
+                        {sub.subjectName}{isActive ? ' ●' : ''}
+                      </Text>
+                      <Text style={[s.subjectCount, { color: sub.done > 0 ? st.accent : t.textMuted }]}>
+                        {sub.done}/{sub.total}
+                      </Text>
+                    </View>
+                    <View style={[s.subjectBarBg, { backgroundColor: t.border }]}>
+                      <View style={[s.subjectBarFill, {
+                        width: `${pct * 100}%` as any,
+                        backgroundColor: pct === 0 ? 'transparent' : st.accent,
+                      }]} />
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-          <View style={{ marginVertical: 12 }}>
-            <SegmentBar value={xpToday} max={dailyGoal} color={questDone ? P.green : P.goal} />
-          </View>
-          <Text style={[s.goalHint, { color: P.muted }]}>{goalMessage(xpToday, dailyGoal)}</Text>
-          <View style={s.xpLegend}>
-            {([['💬','Question','10 XP'], ['📝','Exercice','20 XP'], ['✅','Correction','15 XP']] as [string,string,string][]).map(([i, l, v]) => (
-              <View key={l} style={s.xpChip}>
-                <Text style={s.xpChipIcon}>{i}</Text>
-                <Text style={[s.xpChipText, { color: P.muted }]}>{l}</Text>
-                <Text style={[s.xpChipVal, { color: questDone ? P.green : P.goal }]}>{v}</Text>
-              </View>
-            ))}
-          </View>
-        </GlassCard>
+        )}
 
-        {/* ── ProfNum a remarqué (Lacune) ── */}
+        {!activeCourse && (
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.border, alignItems: 'center', paddingVertical: 28 }]}>
+            <Ionicons name="book-outline" size={36} color={t.textMuted} />
+            <Text style={[s.cardTitle, { color: t.text, marginTop: 12, marginBottom: 4 }]}>Aucune matière active</Text>
+            <Text style={[s.cardSub, { color: t.textMuted, textAlign: 'center' }]}>
+              Sélectionne un cours dans l'onglet Cours pour voir ta progression.
+            </Text>
+          </View>
+        )}
+
+        {/* ── PROCHAIN EXAMEN ─────────────────────────────────────────────── */}
+        {(() => {
+          const next = getNextExam();
+          if (!next) return null;
+          const urgent  = next.daysLeft <= 14;
+          const color   = urgent ? '#EF4444' : '#F59E0B';
+          return (
+            <View style={[s.card, { backgroundColor: t.surface, borderColor: color + '40' }]}>
+              <View style={s.cardHeader}>
+                <PulseDot color={color} />
+                <Text style={[s.cardChip, { color }]}>PROCHAIN EXAMEN — {next.trimestre}</Text>
+              </View>
+              <View style={s.examRow}>
+                <View style={[s.examIcon, { backgroundColor: color + '18' }]}>
+                  <Ionicons
+                    name={next.type === 'composition' ? 'document-text' : 'pencil'}
+                    size={22} color={color}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.examLabel, { color: t.text }]}>{next.label}</Text>
+                  <Text style={[s.examMonth, { color: t.textMuted }]}>Prévu en {next.monthLabel}</Text>
+                </View>
+                <View style={[s.examCountdown, { backgroundColor: color + '18', borderColor: color + '40' }]}>
+                  <Text style={[s.examDays, { color }]}>~{next.daysLeft}j</Text>
+                </View>
+              </View>
+              {urgent && (
+                <View style={[s.examAlert, { backgroundColor: color + '12', borderColor: color + '30' }]}>
+                  <Ionicons name="warning-outline" size={14} color={color} />
+                  <Text style={[s.examAlertText, { color }]}>
+                    {next.daysLeft <= 7 ? 'C\'est très bientôt — révise en priorité !' : 'Dans moins de 2 semaines — commence à réviser.'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })()}
+
+        {/* ── MES CHAPITRES ────────────────────────────────────────────────── */}
+        {sortedChapters.length > 0 && (
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <Text style={[s.cardTitle, { color: t.text }]}>Mes chapitres</Text>
+            <Text style={[s.cardSub, { color: t.textMuted }]}>Appuie sur un chapitre pour refaire le quiz</Text>
+            {sortedChapters.map((ch, i) => {
+              const st = chapterStatus(ch.mastery);
+              const isDanger = ch.done && ch.mastery < 40;
+              return (
+                <TouchableOpacity
+                  key={ch.index}
+                  style={[
+                    s.chapterRow,
+                    { backgroundColor: isDanger ? '#EF444410' : t.surfaceAlt, borderColor: isDanger ? '#EF444430' : t.border },
+                    i < sortedChapters.length - 1 && { marginBottom: 8 },
+                  ]}
+                  onPress={() => activeCourse && navigation.navigate('Cours', {
+                    screen: 'Quiz',
+                    params: { courseId: activeCourse.id, chapterIndex: ch.index, chapterTitle: ch.title },
+                  })}
+                  activeOpacity={0.8}
+                >
+                  {/* Numéro */}
+                  <View style={[s.chapterNum, { backgroundColor: isDanger ? '#EF444425' : subjectStyle.bg + '20' }]}>
+                    <Text style={[s.chapterNumText, { color: isDanger ? '#EF4444' : accent }]}>{ch.index + 1}</Text>
+                  </View>
+
+                  {/* Contenu */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.chapterTitle, { color: t.text }]} numberOfLines={1}>{ch.title}</Text>
+                    {ch.done ? (
+                      <View style={s.chapterBarWrap}>
+                        <View style={[s.chapterBarBg, { backgroundColor: t.border }]}>
+                          <View style={[s.chapterBarFill, { width: `${ch.mastery}%` as any, backgroundColor: st.color }]} />
+                        </View>
+                        <Text style={[s.chapterPct, { color: st.color }]}>{ch.mastery}%</Text>
+                      </View>
+                    ) : (
+                      <Text style={[s.chapterNotDone, { color: t.textMuted }]}>Quiz non fait</Text>
+                    )}
+                  </View>
+
+                  {/* Badge statut */}
+                  <View style={[s.chapterBadge, { backgroundColor: st.bg, borderColor: st.color + '40' }]}>
+                    <Text style={[s.chapterBadgeText, { color: st.color }]}>{st.label}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── MISSION DU JOUR ──────────────────────────────────────────────── */}
+        <View style={[s.card, { backgroundColor: t.surface, borderColor: questDone ? '#10B981' + '40' : accent + '30' }]}>
+          <View style={[s.cardHeader, { justifyContent: 'space-between' }]}>
+            <View style={s.cardHeader}>
+              <PulseDot color={questDone ? '#10B981' : accent} />
+              <Text style={[s.cardChip, { color: questDone ? '#10B981' : accent }]}>MISSION DU JOUR</Text>
+            </View>
+            <View style={[s.xpBadge, { backgroundColor: (questDone ? '#10B981' : accent) + '18', borderColor: (questDone ? '#10B981' : accent) + '40' }]}>
+              <Text style={[s.xpBadgeNum, { color: questDone ? '#10B981' : accent }]}>{xpToday}</Text>
+              <Text style={[s.xpBadgeMax, { color: t.textMuted }]}> XP</Text>
+            </View>
+          </View>
+
+          {questDone ? (
+            <View style={s.missionRow}>
+              <View style={[s.missionIcon, { backgroundColor: '#10B98120' }]}>
+                <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+              </View>
+              <Text style={[s.missionText, { color: t.text }]}>Mission du jour accomplie !</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[s.missionCard, { backgroundColor: accent + '12', borderColor: accent + '30' }]}
+              onPress={dailyMission.onPress}
+              activeOpacity={0.8}
+            >
+              <View style={[s.missionIcon, { backgroundColor: accent + '20' }]}>
+                <Ionicons name={dailyMission.icon} size={22} color={accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.missionAction, { color: t.text }]} numberOfLines={2}>{dailyMission.action}</Text>
+                <Text style={[s.missionReason, { color: t.textMuted }]} numberOfLines={2}>{dailyMission.reason}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={accent} />
+            </TouchableOpacity>
+          )}
+
+          <View style={{ marginTop: 12 }}>
+            <View style={[s.missionBarBg, { backgroundColor: t.border }]}>
+              <View style={[s.missionBarFill, {
+                width: `${Math.min((xpToday / dailyGoal) * 100, 100)}%` as any,
+                backgroundColor: questDone ? '#10B981' : accent,
+              }]} />
+            </View>
+            <Text style={[s.missionBarLabel, { color: t.textMuted }]}>{xpToday} / {dailyGoal} XP aujourd'hui</Text>
+          </View>
+        </View>
+
+        {/* ── PROF X A REMARQUÉ ────────────────────────────────────────────── */}
         {weakConcept ? (
-          <GlassCard glow={P.purple} delay={300} style={s.lacuneCard}>
-            <View style={s.lacuneTop}>
-              <View style={[s.liveIndicator, { backgroundColor: P.purple }]} />
-              <Text style={[s.sectionChip, { color: P.purple + 'CC' }]}>PROFNUM A REMARQUÉ</Text>
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: accent + '40' }]}>
+            <View style={s.cardHeader}>
+              <PulseDot color={accent} />
+              <Text style={[s.cardChip, { color: accent }]}>{profName.toUpperCase()} A REMARQUÉ</Text>
             </View>
-            <Text style={s.lacuneText}>
-              Ce sujet revient dans tes questions :{'\n'}
-              <Text style={[s.lacuneTopic, { color: P.purple }]}>
+            <Text style={[s.insightTitle, { color: t.text }]}>
+              Ce sujet revient souvent :{'\n'}
+              <Text style={{ color: accent, fontWeight: '800' }}>
                 {cleanConcept(weakConcept.concept) || weakConcept.concept.slice(0, 45)}
               </Text>
             </Text>
-            <Text style={[s.lacuneCount, { color: P.muted }]}>
-              {insightMessage(weakConcept.count)}
-            </Text>
+            <Text style={[s.insightSub, { color: t.textMuted }]}>{insightMessage(weakConcept.count)}</Text>
             <TouchableOpacity
-              style={[s.lacuneBtn, { backgroundColor: P.purple }]}
+              style={[s.insightBtn, { backgroundColor: bg }]}
               onPress={() => navigation.navigate('Chat', {
                 prefill: `Explique-moi en détail et donne-moi un exercice sur : ${cleanConcept(weakConcept.concept) || weakConcept.concept}`,
               })}
               activeOpacity={0.8}
             >
-              <Text style={s.lacuneBtnText}>Maîtriser ce point →</Text>
+              <Text style={s.insightBtnText}>Maîtriser ce point</Text>
+              <Ionicons name="arrow-forward" size={15} color="#fff" />
             </TouchableOpacity>
-          </GlassCard>
-        ) : (
-          <GlassCard glow={P.green} delay={300}>
-            <View style={s.lacuneTop}>
-              <View style={[s.liveIndicator, { backgroundColor: P.green }]} />
-              <Text style={[s.sectionChip, { color: P.green + 'CC' }]}>PROFNUM A REMARQUÉ</Text>
-            </View>
-            {xpThisWeek > xpLastWeek && xpLastWeek > 0 ? (
-              <>
-                <Text style={[s.lacuneText, { marginTop: 4 }]}>Ta progression accélère 📈</Text>
-                <Text style={[s.lacuneCount, { color: P.muted, marginTop: 4 }]}>
-                  +{Math.round(((xpThisWeek - xpLastWeek) / xpLastWeek) * 100)}% vs. la semaine dernière — continue comme ça !
-                </Text>
-              </>
-            ) : streakCurrent >= 3 ? (
-              <>
-                <Text style={[s.lacuneText, { marginTop: 4 }]}>Ta régularité paie ✨</Text>
-                <Text style={[s.lacuneCount, { color: P.muted, marginTop: 4 }]}>
-                  {streakCurrent} jours consécutifs — les élèves réguliers progressent 3× plus vite.
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text style={[s.lacuneText, { marginTop: 4 }]}>Tout roule pour l'instant ✅</Text>
-                <Text style={[s.lacuneCount, { color: P.muted, marginTop: 4 }]}>
-                  Continue à poser des questions — ProfNum apprendra à te connaître.
-                </Text>
-              </>
-            )}
-          </GlassCard>
-        )}
-
-        {/* ── Répétition espacée ── */}
-        {spacedReps.length > 0 && (
-          <GlassCard glow={P.green} delay={350}>
-            <View style={s.lacuneTop}>
-              <View style={[s.liveIndicator, { backgroundColor: P.green }]} />
-              <Text style={[s.sectionChip, { color: P.green + 'CC' }]}>À RÉVISER MAINTENANT</Text>
-            </View>
-            <Text style={[s.lacuneText, { marginTop: 4, marginBottom: 10 }]}>
-              Ton cerveau commence à oublier — parfait moment pour revoir
-            </Text>
-            {spacedReps.map(sr => (
-              <TouchableOpacity
-                key={`${sr.concept}-${sr.subjectName}`}
-                style={[s.spacedItem, { borderColor: P.green + '30' }]}
-                onPress={() => navigation.navigate('Chat', {
-                  prefill: `Réexplique-moi : ${sr.concept}`,
-                })}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.spacedConcept, { color: P.text }]} numberOfLines={2}>
-                    {cleanConcept(sr.concept) || sr.concept.slice(0, 48)}
-                  </Text>
-                  <Text style={[s.spacedMeta, { color: P.muted }]}>
-                    {sr.subjectName} · vu il y a {sr.daysAgo} jour{sr.daysAgo > 1 ? 's' : ''}
-                  </Text>
-                </View>
-                <Text style={[s.spacedArrow, { color: P.green }]}>Réviser →</Text>
-              </TouchableOpacity>
-            ))}
-          </GlassCard>
-        )}
-
-        {/* ── Matières ── */}
-        {subjectActivity.length > 0 && (
-          <GlassCard glow="rgba(255,255,255,0.1)" delay={400}>
-            <Text style={[s.sectionTitle, { marginBottom: 14 }]}>Cette semaine</Text>
-            <View style={s.subGrid}>
-              {subjectActivity.map((sub, idx) => {
-                const st = getSubjectStyle(sub.subjectName);
-                return (
-                  <View key={sub.subjectName || idx} style={[s.subCard, { borderColor: st.accent + '40', backgroundColor: st.accent + '12' }]}>
-                    <Text style={s.subEmoji}>{st.emoji}</Text>
-                    <Text style={[s.subName, { color: st.accent }]} numberOfLines={1}>{sub.subjectName}</Text>
-                    <SegmentBar value={sub.count} max={10} color={st.accent} />
-                    <Text style={[s.subCount, { color: P.muted }]}>
-                      {sub.count > 0 ? `${sub.count}/10 questions` : 'Pas encore'}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </GlassCard>
-        )}
-
-        {/* ── Semaine stats ── */}
-        <GlassCard glow={P.xp} delay={500}>
-          <Text style={[s.sectionTitle, { marginBottom: 14 }]}>Cette semaine vs. la dernière</Text>
-          <View style={s.statsRow}>
-            <View style={s.statCell}>
-              <AnimatedNumber value={xpThisWeek} color={P.xp} size={34} />
-              <Text style={[s.statLabel, { color: P.muted }]}>XP cette sem.</Text>
-              {weekDiff !== null && (
-                <View style={[s.diffBadge, { backgroundColor: weekDiff >= 0 ? P.green + '25' : '#EF4444' + '25' }]}>
-                  <Text style={[s.diffText, { color: weekDiff >= 0 ? P.green : '#EF4444' }]}>
-                    {weekDiff >= 0 ? '↑' : '↓'} {Math.abs(weekDiff)}%
-                  </Text>
-                </View>
-              )}
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <AnimatedNumber value={xpLastWeek || 0} color={P.muted} size={34} />
-              <Text style={[s.statLabel, { color: P.muted }]}>Semaine passée</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <AnimatedNumber value={streakBest} color={P.streak} size={34} />
-              <Text style={[s.statLabel, { color: P.muted }]}>Meilleur streak</Text>
-            </View>
           </View>
-        </GlassCard>
-
-        {/* ── Message bas ── */}
-        <View style={s.footer}>
-          <Text style={[s.footerText, { color: P.muted }]}>
-            {streakCurrent >= 7
-              ? `🏆 ${streakCurrent} jours d'affilée — Tu es parmi les meilleurs élèves !`
-              : '💡 Les élèves réguliers progressent 3× plus vite. Reviens demain !'}
-          </Text>
-        </View>
+        ) : (
+          <View style={[s.card, { backgroundColor: t.surface, borderColor: accent + '30' }]}>
+            <View style={s.cardHeader}>
+              <PulseDot color={accent} />
+              <Text style={[s.cardChip, { color: accent }]}>{profName.toUpperCase()} A REMARQUÉ</Text>
+            </View>
+            <Text style={[s.insightTitle, { color: t.text }]}>
+              {streakCurrent >= 3 ? 'Ta régularité paie.' : 'Tout roule pour l\'instant.'}
+            </Text>
+            <Text style={[s.insightSub, { color: t.textMuted }]}>
+              {streakCurrent >= 3
+                ? `${streakCurrent} jours consécutifs — les élèves réguliers progressent 3× plus vite.`
+                : `Continue à poser des questions — ${profName} apprendra à te connaître.`}
+            </Text>
+          </View>
+        )}
 
       </ScrollView>
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.bg },
-  scroll: { paddingHorizontal: Spacing.lg, paddingBottom: 50, gap: 12 },
+  root: { flex: 1 },
 
-  /* Hero */
-  hero: {
-    backgroundColor: P.bg, paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl, borderBottomWidth: 1, borderBottomColor: P.border,
+  /* Header */
+  header: {
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl,
+    borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden',
   },
-  heroRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 },
-  heroLabel: { fontSize: 10, fontWeight: '800', color: P.muted, letterSpacing: 2, textTransform: 'uppercase' },
-  heroName:  { fontSize: 26, fontWeight: '800', color: P.text, letterSpacing: -0.5, marginTop: 2 },
-  heroStreak:{ alignItems: 'center', paddingLeft: 16 },
-  heroStreakBottom: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  hBubble1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -40 },
+  hBubble2: { position: 'absolute', width: 110, height: 110, borderRadius: 55,  backgroundColor: 'rgba(255,255,255,0.05)', bottom: 10, left: 20 },
+  headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 1.4, marginBottom: 4 },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  streakBox:   { alignItems: 'center' },
+  streakNum:   { fontSize: 52, fontWeight: '900', letterSpacing: -2, lineHeight: 56 },
+  streakBottom:{ flexDirection: 'row', alignItems: 'center', gap: 4 },
+  streakLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
 
-  /* Streak */
-  sectionChip: { fontSize: 10, fontWeight: '800', color: P.muted, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 },
-  streakNum:  { fontSize: 64, fontWeight: '900', letterSpacing: -3, lineHeight: 68 },
-  streakFire: { fontSize: 28 },
-  streakSub:  { fontSize: 13, color: P.muted, fontWeight: '600' },
-  streakMsg:  { fontSize: 13, marginTop: 6, lineHeight: 19 },
+  /* Scroll */
+  scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: 14 },
 
-  /* Mission du jour */
-  questRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  questEmoji:      { fontSize: 22 },
-  questText:       { flex: 1, fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  questBadge:      { alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, minWidth: 60 },
-  questBadgeXP:    { fontSize: 22, fontWeight: '900', letterSpacing: -1 },
-  questBadgeMax:   { fontSize: 10, fontWeight: '600' },
+  /* Cards */
+  card: {
+    borderRadius: 20, borderWidth: 1, padding: Spacing.lg,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 10 },
+      android: { elevation: 2 },
+    }),
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  cardChip:   { fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+  cardTitle:  { fontSize: 17, fontWeight: '800', color: '#000', letterSpacing: -0.3, marginBottom: 4 },
+  cardSub:    { fontSize: 12, fontWeight: '500', marginBottom: 16 },
 
-  /* Répétition espacée */
-  spacedItem:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, marginTop: 8 },
-  spacedConcept:   { fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  spacedMeta:      { fontSize: 11, fontWeight: '600', marginTop: 2 },
-  spacedArrow:     { fontSize: 12, fontWeight: '800' },
+  /* Toutes matières */
+  subjectRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  subjectEmoji:  { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  subjectRowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
+  subjectName:   { fontSize: 13, fontWeight: '700' },
+  subjectCount:  { fontSize: 12, fontWeight: '800' },
+  subjectBarBg:  { height: 5, borderRadius: 3, overflow: 'hidden' },
+  subjectBarFill:{ height: 5, borderRadius: 3 },
 
-  /* Goal */
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: P.text, letterSpacing: -0.2 },
-  rowBetween:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  xpCount:      { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  xpMax:        { fontSize: 13, fontWeight: '600', opacity: 0.5 },
-  goalHint:     { fontSize: 13, lineHeight: 19, marginBottom: 12 },
-  xpLegend:     { flexDirection: 'row', gap: 6 },
-  xpChip:       { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: Radius.sm, padding: 8, alignItems: 'center', gap: 2 },
-  xpChipIcon:   { fontSize: 14 },
-  xpChipText:   { fontSize: 10, fontWeight: '600' },
-  xpChipVal:    { fontSize: 11, fontWeight: '800' },
+  /* Exam */
+  examRow:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  examIcon:      { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  examLabel:     { fontSize: 16, fontWeight: '800', marginBottom: 3 },
+  examMonth:     { fontSize: 13, fontWeight: '500' },
+  examCountdown: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
+  examDays:      { fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
+  examAlert:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, borderRadius: 10, borderWidth: 1, padding: 10 },
+  examAlertText: { flex: 1, fontSize: 12, fontWeight: '700' },
 
-  /* Lacune */
-  lacuneCard: {},
-  lacuneTop:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  liveIndicator: { width: 6, height: 6, borderRadius: 3 },
-  lacuneText: { fontSize: 17, fontWeight: '700', color: P.text, lineHeight: 25 },
-  lacuneTopic:{ fontWeight: '800' },
-  lacuneCount:{ fontSize: 12, marginTop: 6, marginBottom: 14, lineHeight: 18 },
-  lacuneBtn:  { borderRadius: Radius.full, paddingVertical: 12, paddingHorizontal: 20, alignSelf: 'flex-start' },
-  lacuneBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  /* Chapters */
+  chapterRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, borderWidth: 0.5, padding: 12 },
+  chapterNum:       { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  chapterNumText:   { fontSize: 13, fontWeight: '800' },
+  chapterTitle:     { fontSize: 13, fontWeight: '700', marginBottom: 5 },
+  chapterBarWrap:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  chapterBarBg:     { flex: 1, height: 5, borderRadius: 3, overflow: 'hidden' },
+  chapterBarFill:   { height: 5, borderRadius: 3 },
+  chapterPct:       { fontSize: 11, fontWeight: '800', minWidth: 28 },
+  chapterNotDone:   { fontSize: 11, fontWeight: '500' },
+  chapterBadge:     { borderRadius: Radius.full, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  chapterBadgeText: { fontSize: 10, fontWeight: '800' },
 
-  /* Subjects */
-  subGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  subCard:    { width: CARD_W, borderRadius: Radius.lg, borderWidth: 1, padding: Spacing.md, gap: 6 },
-  subEmoji:   { fontSize: 24 },
-  subName:    { fontSize: 13, fontWeight: '800' },
-  subCount:   { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  /* Mission */
+  missionRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  missionCard:    { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, padding: 12, marginTop: 4 },
+  missionIcon:    { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  missionText:    { fontSize: 14, fontWeight: '700', lineHeight: 20 },
+  missionAction:  { fontSize: 14, fontWeight: '800', lineHeight: 20, marginBottom: 3 },
+  missionReason:  { fontSize: 12, lineHeight: 17 },
+  xpBadge:        { flexDirection: 'row', alignItems: 'baseline', borderRadius: Radius.md, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
+  xpBadgeNum:     { fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
+  xpBadgeMax:     { fontSize: 11, fontWeight: '600' },
+  missionBarBg:   { height: 6, borderRadius: 3, overflow: 'hidden' },
+  missionBarFill: { height: 6, borderRadius: 3 },
+  missionBarLabel:{ fontSize: 11, fontWeight: '600', marginTop: 6 },
 
-  /* Stats */
-  statsRow:   { flexDirection: 'row', alignItems: 'center' },
-  statCell:   { flex: 1, alignItems: 'center', gap: 4 },
-  statLabel:  { fontSize: 11, fontWeight: '700', textAlign: 'center' },
-  statDivider:{ width: 1, height: 50, backgroundColor: P.border },
-  diffBadge:  { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
-  diffText:   { fontSize: 11, fontWeight: '800' },
-
-  /* Footer */
-  footer:     { paddingVertical: Spacing.lg, alignItems: 'center' },
-  footerText: { fontSize: 13, textAlign: 'center', lineHeight: 20, fontWeight: '500' },
+  /* Insight */
+  insightTitle:    { fontSize: 16, fontWeight: '700', lineHeight: 24, marginBottom: 6 },
+  insightSub:      { fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  insightBtn:      { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: Radius.full, paddingVertical: 10, paddingHorizontal: 18, alignSelf: 'flex-start' },
+  insightBtnText:  { fontSize: 14, fontWeight: '800', color: '#fff' },
 });

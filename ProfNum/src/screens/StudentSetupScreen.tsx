@@ -16,10 +16,11 @@ import { Colors, Spacing, Radius } from '../theme';
 import { useTheme } from '../components';
 
 export default function StudentSetupScreen() {
-  const { setStudentInfo } = useAppStore();
+  const { setStudentInfo, userId } = useAppStore();
   const t = useTheme();
   const { top, bottom } = useSafeAreaInsets();
   const [name, setName] = useState('');
+  const [school, setSchool] = useState('');
   const [classes, setClasses] = useState<SBClass[]>([]);
   const [selected, setSelected] = useState<SBClass | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,7 @@ export default function StudentSetupScreen() {
       });
   }, []);
 
-  const ready = name.trim().length > 0 && selected !== null;
+  const ready = name.trim().length > 0 && school.trim().length > 0 && selected !== null;
 
   return (
     <View style={[styles.root, { backgroundColor: t.bg, paddingTop: top }]}>
@@ -64,6 +65,20 @@ export default function StudentSetupScreen() {
             onChangeText={setName}
             autoCapitalize="words"
             autoFocus
+            selectionColor={Colors.blue}
+          />
+        </View>
+
+        {/* École */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>TON ÉCOLE</Text>
+          <TextInput
+            style={[styles.nameInput, { color: t.text, borderBottomColor: school ? Colors.blue : t.border }]}
+            placeholder="ex : École Privée Main Al Ouloum…"
+            placeholderTextColor={t.textMuted}
+            value={school}
+            onChangeText={setSchool}
+            autoCapitalize="words"
             selectionColor={Colors.blue}
           />
         </View>
@@ -110,12 +125,14 @@ export default function StudentSetupScreen() {
             style={[styles.btn, !ready && styles.btnDisabled]}
             onPress={() => {
               if (!ready) return;
-              supabase.from('students').insert({
+              supabase.from('students').upsert({
+                user_id: userId,
                 name: name.trim(),
                 class_id: selected!.id,
                 class_name: selected!.name,
-              }).then(() => {});
-              setStudentInfo(name.trim(), selected!.id, selected!.name);
+                school_name: school.trim(),
+              }, { onConflict: 'user_id' }).then(() => {});
+              setStudentInfo(name.trim(), selected!.id, selected!.name, school.trim());
             }}
             disabled={!ready}
             activeOpacity={0.85}

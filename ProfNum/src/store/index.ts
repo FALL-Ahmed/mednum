@@ -53,6 +53,9 @@ export type ChatSession = {
 type AppStore = {
   // UUID stable généré au premier lancement, envoyé à la Edge Function pour le quota
   deviceId: string;
+  // ID Supabase Auth (anonymous) — unique par appareil, persisté
+  userId: string;
+  setUserId: (id: string) => void;
 
   darkMode: boolean;
   toggleDarkMode: () => void;
@@ -61,7 +64,8 @@ type AppStore = {
   studentName: string;
   studentClassId: string;
   studentClassName: string;
-  setStudentInfo: (name: string, classId: string, className: string) => void;
+  studentSchoolName: string;
+  setStudentInfo: (name: string, classId: string, className: string, schoolName?: string) => void;
   resetStudent: () => void;
 
   courses: Course[];
@@ -89,11 +93,17 @@ type AppStore = {
   // Adaptive difficulty (IRT-inspired 2-Up/1-Down)
   difficultyScore: number;   // 0–10, démarre à 4 (moyen bas)
   updateDifficulty: (event: 'success' | 'struggle' | 'frustration') => void;
+  setDifficultyScore: (score: number) => void;
 
   // Suivi des concepts demandés par l'élève (courseId → concept → { count, lastAsked })
   conceptHistory: Record<string, Record<string, { count: number; lastAsked: string }>>;
   trackConcept: (courseId: string, concept: string) => void;
   getWeakConcepts: (courseId: string, n?: number) => string[];
+
+  // Fiches générées en cache (courseId_chunkIndex → texte)
+  fiches: Record<string, string>;
+  ficheContentHash: Record<string, string>; // hash du contenu au moment de la génération
+  saveFiche: (courseId: string, chunkIndex: number, text: string, contentHash: string) => void;
 
   // Skill Tree — Mastery par chapitre (courseId → chunkIndex → score 0–100)
   chapterMastery: Record<string, Record<number, number>>;
@@ -124,6 +134,8 @@ export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       deviceId: generateDeviceId(),
+      userId: '',
+      setUserId: (id) => set({ userId: id }),
 
       darkMode: false,
       toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
@@ -131,10 +143,16 @@ export const useAppStore = create<AppStore>()(
       studentName: '',
       studentClassId: '',
       studentClassName: '',
-      setStudentInfo: (name, classId, className) =>
-        set({ studentName: name, studentClassId: classId, studentClassName: className }),
+      studentSchoolName: '',
+      setStudentInfo: (name, classId, className, schoolName) =>
+        set(s => ({
+          studentName: name,
+          studentClassId: classId,
+          studentClassName: className,
+          studentSchoolName: schoolName ?? s.studentSchoolName,
+        })),
       resetStudent: () =>
-        set({ studentName: '', studentClassId: '', studentClassName: '', activeCourse: null, currentMessages: [] }),
+        set({ studentName: '', studentClassId: '', studentClassName: '', studentSchoolName: '', activeCourse: null, currentMessages: [] }),
 
       courses: [],
       activeCourse: null,
@@ -218,6 +236,7 @@ export const useAppStore = create<AppStore>()(
       setNiveau: (n) => set({ niveau: n }),
 
       difficultyScore: 4,
+      setDifficultyScore: (score) => set({ difficultyScore: Math.min(10, Math.max(0, score)) }),
       updateDifficulty: (event) => set(s => {
         let score = s.difficultyScore;
         if (event === 'frustration') score = Math.max(0, score - 3);
@@ -243,6 +262,17 @@ export const useAppStore = create<AppStore>()(
           .slice(0, n)
           .map(([concept]) => concept);
       },
+
+      fiches: {},
+      ficheContentHash: {},
+      saveFiche: (courseId, chunkIndex, text, contentHash) =>
+        set(s => {
+          const key = `${courseId}_${chunkIndex}`;
+          return {
+            fiches: { ...s.fiches, [key]: text },
+            ficheContentHash: { ...s.ficheContentHash, [key]: contentHash },
+          };
+        }),
 
       // Skill Tree
       chapterMastery: {},

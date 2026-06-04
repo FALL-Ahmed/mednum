@@ -846,6 +846,88 @@ NIVEAU : ${NIVEAUX[niveau]}`;
   }
 }
 
+// ─── Fiche de révision par chapitre ──────────────────────────────────────────
+
+function detectSubjectType(subjectName: string): 'sciences' | 'histoire' | 'lettres' | 'general' {
+  const s = subjectName.toLowerCase();
+  if (/math|physique|chimie|physic/.test(s))               return 'sciences';
+  if (/histoire|géo|geographie|géographie|civique/.test(s)) return 'histoire';
+  if (/français|arabe|anglais|lettre|langue/.test(s))       return 'lettres';
+  return 'general';
+}
+
+export async function generateFiche(
+  chunk: CourseChunk,
+  subjectName: string,
+  courseName: string
+): Promise<string> {
+  const type = detectSubjectType(subjectName);
+
+  const specificSections =
+    type === 'sciences' ? `
+## 📐 FORMULES & LOIS
+[Liste chaque formule/loi importante avec sa signification. Format : • **Nom** : formule → ce qu'elle dit]
+[Si aucune formule, écris "Aucune formule dans ce chapitre"]
+
+## 🔧 MÉTHODE DE RÉSOLUTION
+[Étapes numérotées pour résoudre un exercice type de ce chapitre]
+[Format : 1. Étape · 2. Étape · ...]`
+
+    : type === 'histoire' ? `
+## 📅 DATES & ÉVÉNEMENTS CLÉS
+[Format : • **Année/Date** → Événement en 1 ligne]
+
+## 👤 PERSONNAGES IMPORTANTS
+[Format : • **Nom** → rôle/action en 1 ligne]`
+
+    : type === 'lettres' ? `
+## 📝 RÈGLES & NOTIONS GRAMMATICALES
+[Les règles importantes du chapitre avec exemples]
+
+## ✍️ EXEMPLES À RETENIR
+[2-3 exemples concrets qui illustrent les notions clés]`
+
+    : '';
+
+  const prompt = `Tu es un excellent élève de terminale qui prépare sa composition. Tu dois créer une fiche de révision COMPLÈTE et DENSE pour le chapitre "${chunk.title}" (cours : ${courseName}, matière : ${subjectName}).
+
+RÈGLES ABSOLUES :
+- Utilise UNIQUEMENT le contenu du chapitre fourni
+- Sois exhaustif sur les définitions et points clés — ne résume pas, LISTE TOUT
+- Langage clair, direct, collégien mauritanien
+- Chaque section commence OBLIGATOIREMENT par son titre ## suivi de l'emoji exact
+
+STRUCTURE OBLIGATOIRE :
+
+## 💡 IDÉE PRINCIPALE
+[1-2 phrases qui résument l'essentiel du chapitre — ce qu'il faut comprendre avant tout]
+
+## 📖 DÉFINITIONS CLÉS
+[TOUS les termes techniques définis. Format : • **Terme** : définition précise en 1-2 lignes]
+[Minimum 3 définitions, maximum illimité — sois exhaustif]
+${specificSections}
+## 🎯 À RETENIR ABSOLUMENT
+[Les 4-6 points les plus importants du chapitre — ce qu'un bon élève ne peut pas oublier]
+[Format : • point important]
+
+## 🚨 CE QUI TOMBE EN COMPO
+[Questions types qui reviennent souvent dans les examens mauritaniens sur ce chapitre]
+[Format : • Question → approche de réponse en 1-2 lignes]
+[MINIMUM 5 questions — couvre les différents aspects du chapitre]
+
+## ⚠️ PIÈGE CLASSIQUE
+[L'erreur que font presque tous les élèves sur ce chapitre + comment l'éviter]
+
+---
+Contenu du chapitre :
+${chunk.content.slice(0, 6000)}`;
+
+  const messages = [
+    { role: 'user' as const, content: prompt },
+  ];
+  return await callAI(messages);
+}
+
 // ─── Génération de résumé ─────────────────────────────────────────────────────
 
 export async function generateSummary(courseContent: string, courseName: string): Promise<string> {

@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../store';
 import { Colors, Spacing, Radius } from '../theme';
+import { useTheme } from '../components';
 import { getSubjectStyle } from '../utils/subjectStyles';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -100,6 +101,7 @@ export default function SkillTreeScreen({ navigation }: any) {
     setActiveChapterIndex, setActiveCourse,
   } = useAppStore();
 
+  const t = useTheme();
   const { top } = useSafeAreaInsets();
   const entranceAnim = useRef(new Animated.Value(0)).current;
 
@@ -144,12 +146,12 @@ export default function SkillTreeScreen({ navigation }: any) {
   // ── Pas de cours ─────────────────────────────────────────────────────────
   if (!course || chunks.length === 0) {
     return (
-      <View style={[styles.root, { paddingTop: top }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#0D0F17" />
+      <View style={[styles.root, { paddingTop: top, backgroundColor: t.bg }]}>
+        <StatusBar barStyle={t.dark ? 'light-content' : 'dark-content'} backgroundColor={t.bg} />
         <View style={styles.noCourse}>
           <Text style={styles.noCourseEmoji}>🎯</Text>
-          <Text style={styles.noCourseTitle}>Commence ton parcours</Text>
-          <Text style={styles.noCourseBody}>
+          <Text style={[styles.noCourseTitle, { color: t.text }]}>Commence ton parcours</Text>
+          <Text style={[styles.noCourseBody, { color: t.textMuted }]}>
             Choisis ta matière pour voir ton chemin vers la maîtrise.
           </Text>
           <TouchableOpacity
@@ -175,7 +177,7 @@ export default function SkillTreeScreen({ navigation }: any) {
   const prevMastery = nextUnlockIdx > 0 ? (masMap[nextUnlockIdx - 1] ?? 0) : 100;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: t.bg }]}>
       <StatusBar barStyle="light-content" backgroundColor={style.bg} />
 
       {/* ── HEADER UNIFIÉ (titre + stats + barre) ──────────────────────── */}
@@ -250,18 +252,18 @@ export default function SkillTreeScreen({ navigation }: any) {
 
           const nodeColor =
             status === 'mastered'   ? style.accent :
-            status === 'inProgress' ? '#181B2C'    :
-            status === 'intro'      ? style.bg      :
-            status === 'available'  ? '#181B2C'    :
-            '#0E1019';
+            status === 'inProgress' ? t.surface    :
+            status === 'intro'      ? style.bg     :
+            status === 'available'  ? t.surface    :
+            t.surfaceAlt;
 
           const borderColor =
-            status === 'mastered'   ? style.accent       :
-            isActive                ? style.accent       :
+            status === 'mastered'   ? style.accent        :
+            isActive                ? style.accent        :
             status === 'inProgress' ? style.accent + 'BB' :
             status === 'intro'      ? style.accent + '88' :
-            status === 'available'  ? '#3A3D58'           :
-            '#1C1F30';
+            status === 'available'  ? t.border + 'CC'     :
+            t.border;
 
           const nodeLabel =
             status === 'mastered' ? '✓'  :
@@ -274,8 +276,8 @@ export default function SkillTreeScreen({ navigation }: any) {
             isActive                ? style.accent  :
             status === 'inProgress' ? style.accent  :
             status === 'intro'      ? style.accent  :
-            status === 'available'  ? '#6B7280'     :
-            '#252840';
+            status === 'available'  ? t.textMuted   :
+            t.border;
 
           return (
             <View key={idx} style={styles.slot}>
@@ -284,7 +286,7 @@ export default function SkillTreeScreen({ navigation }: any) {
               {idx > 0 && (
                 <View style={[
                   styles.connector,
-                  { backgroundColor: unlocked ? style.accent + '60' : '#1C1F30' },
+                  { backgroundColor: unlocked ? style.accent + '60' : t.border },
                 ]} />
               )}
 
@@ -298,7 +300,7 @@ export default function SkillTreeScreen({ navigation }: any) {
                 <View style={[
                   styles.stem,
                   isLeft ? styles.stemLeft : styles.stemRight,
-                  { backgroundColor: unlocked ? style.accent + '40' : '#1C1F30' },
+                  { backgroundColor: unlocked ? style.accent + '40' : t.border },
                 ]} />
 
                 {/* Nœud (cercle) */}
@@ -346,9 +348,10 @@ export default function SkillTreeScreen({ navigation }: any) {
                 <TouchableOpacity
                   style={[
                     styles.chapterCard,
+                    { backgroundColor: t.surface, borderColor: t.border },
                     isLeft ? styles.chapterCardRight : styles.chapterCardLeft,
                     status === 'locked' && styles.chapterCardLocked,
-                    !( status === 'locked') && { borderLeftColor: style.accent + '55' },
+                    status !== 'locked' && { borderLeftColor: style.accent + '55' },
                   ]}
                   onPress={() => handlePress(idx)}
                   disabled={status === 'locked'}
@@ -380,7 +383,8 @@ export default function SkillTreeScreen({ navigation }: any) {
                   <Text
                     style={[
                       styles.chapterTitle,
-                      status === 'locked' && styles.chapterTitleDim,
+                      { color: t.text },
+                      status === 'locked' && { color: t.textMuted, opacity: 0.5 },
                     ]}
                     numberOfLines={3}
                   >
@@ -414,7 +418,7 @@ export default function SkillTreeScreen({ navigation }: any) {
                   )}
 
                   {status === 'locked' ? (
-                    <Text style={styles.lockHint}>
+                    <Text style={[styles.lockHint, { color: t.textMuted }]}>
                       Atteins {MASTERY_UNLOCK}% au ch. précédent
                     </Text>
                   ) : (
@@ -429,6 +433,20 @@ export default function SkillTreeScreen({ navigation }: any) {
                           </Text>
                         </TouchableOpacity>
                       )}
+                      <TouchableOpacity
+                        style={[styles.quizBtn, { borderColor: style.accent + '45', marginLeft: 6 }]}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          navigation.navigate('Fiche', {
+                            chapterIndex: idx,
+                            chapterTitle: chunk.title || `Chapitre ${idx + 1}`,
+                          });
+                        }}
+                      >
+                        <Text style={[styles.quizBtnTxt, { color: style.accent + 'BB' }]}>
+                          📄 Fiche
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -442,11 +460,12 @@ export default function SkillTreeScreen({ navigation }: any) {
         {nextUnlockIdx > 0 && prevMastery < MASTERY_UNLOCK && (
           <View style={[styles.unlockBanner, {
             borderColor: style.accent + '30',
+            backgroundColor: t.surface,
           }]}>
             <Text style={[styles.unlockTitle, { color: style.accent }]}>
               🔓 Prochain déblocage
             </Text>
-            <Text style={styles.unlockSub}>
+            <Text style={[styles.unlockSub, { color: t.textMuted }]}>
               Chapitre {nextUnlockIdx + 1} — encore {MASTERY_UNLOCK - prevMastery}% à gagner
             </Text>
             <View style={styles.unlockBarTrack}>
@@ -471,13 +490,13 @@ export default function SkillTreeScreen({ navigation }: any) {
 const STEM_W = (SCREEN_W / 2) - NODE_SIZE / 2 - 24 - Spacing.lg;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0F17' },
+  root: { flex: 1 },
 
   // ── No-course ──
   noCourse: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   noCourseEmoji: { fontSize: 60, marginBottom: 20 },
-  noCourseTitle: { fontSize: 24, fontWeight: '800', color: '#E2E8F0', marginBottom: 10, letterSpacing: -0.5 },
-  noCourseBody:  { fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 24, marginBottom: 36 },
+  noCourseTitle: { fontSize: 24, fontWeight: '800', marginBottom: 10, letterSpacing: -0.5 },
+  noCourseBody:  { fontSize: 15, textAlign: 'center', lineHeight: 24, marginBottom: 36 },
   pickBtn: {
     backgroundColor: Colors.blue, borderRadius: Radius.lg,
     paddingVertical: 16, paddingHorizontal: 32,
@@ -585,9 +604,8 @@ const styles = StyleSheet.create({
   chapterCard: {
     flex: 1,
     paddingHorizontal: 12, paddingVertical: 10,
-    backgroundColor: '#131520',
     borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: '#1B1E2E',
+    borderWidth: 1,
     borderLeftWidth: 3,
     marginVertical: 2,
     ...Platform.select({
@@ -605,8 +623,7 @@ const styles = StyleSheet.create({
   },
   statusPillTxt: { fontSize: 8, fontWeight: '900', color: '#fff', letterSpacing: 1.1 },
 
-  chapterTitle:    { fontSize: 12, fontWeight: '700', color: '#C8D0E0', lineHeight: 18, marginBottom: 6 },
-  chapterTitleDim: { color: '#2D3148' },
+  chapterTitle:    { fontSize: 12, fontWeight: '700', lineHeight: 18, marginBottom: 6 },
 
   masterySection: { marginBottom: 8 },
   masteryRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
@@ -635,10 +652,9 @@ const styles = StyleSheet.create({
     width: '88%', borderRadius: Radius.lg, borderWidth: 1,
     padding: Spacing.lg, marginTop: Spacing.xl,
     alignItems: 'center', gap: 7,
-    backgroundColor: '#0D0F17',
   },
   unlockTitle:    { fontSize: 13, fontWeight: '800' },
-  unlockSub:      { fontSize: 11, color: 'rgba(255,255,255,0.38)', textAlign: 'center' },
+  unlockSub:      { fontSize: 11, textAlign: 'center' },
   unlockBarTrack: {
     width: '100%', height: 8, borderRadius: 4,
     backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden',

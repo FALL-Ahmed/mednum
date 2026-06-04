@@ -90,36 +90,42 @@ export default function SubjectScreen() {
     <View style={[styles.root, { backgroundColor: t.bg }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.blue} />
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces contentContainerStyle={{ paddingBottom: 110 }}>
-
-        {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-        <View style={[styles.header, { paddingTop: top + Spacing.lg }]}>
-          <View style={styles.hBubble1} />
-          <View style={styles.hBubble2} />
-          <View style={styles.headerRow}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.greeting}>{greeting()},</Text>
-              <Text style={styles.studentName}>{studentName || 'Élève'}</Text>
-              {studentClassName ? (
-                <View style={styles.classPill}>
-                  <Text style={styles.classPillTxt}>{studentClassName}</Text>
-                </View>
-              ) : null}
-              <Text style={styles.headerSub}>
-                {sbCourses.length > 0 ? `${sbCourses.length} cours disponibles` : 'Prêt à apprendre ?'}
-              </Text>
-            </View>
-            <View style={styles.headerMascot}>
-              <SubjectMascot subjectName={activeSubject} size={90} animate opacity={0.9} />
-            </View>
+      {/* ── HEADER fixe ─────────────────────────────────────────────────────── */}
+      <View style={[styles.header, { paddingTop: top + Spacing.lg }]}>
+        <View style={styles.hBubble1} />
+        <View style={styles.hBubble2} />
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>{greeting()},</Text>
+            <Text style={styles.studentName}>{studentName || 'Élève'}</Text>
+            {studentClassName ? (
+              <View style={styles.classPill}>
+                <Text style={styles.classPillTxt}>{studentClassName}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.headerSub}>
+              {sbCourses.length > 0 ? `${sbCourses.length} cours disponibles` : 'Prêt à apprendre ?'}
+            </Text>
+          </View>
+          <View style={styles.headerMascot}>
+            <SubjectMascot subjectName={activeSubject} size={90} animate opacity={0.9} />
           </View>
         </View>
+      </View>
+
+      {/* ── LOADING centré ───────────────────────────────────────────────────── */}
+      {loading ? (
+        <View style={styles.loadingCenter}>
+          <ActivityIndicator color={Colors.blue} size="large" />
+          <Text style={[styles.loadingTxt, { color: t.textMuted }]}>Chargement des cours…</Text>
+        </View>
+      ) : (
+
+      <ScrollView showsVerticalScrollIndicator={false} bounces contentContainerStyle={{ paddingBottom: 110 }}>
 
         {/* ── CARDS ──────────────────────────────────────────────────────────── */}
         <View style={styles.list}>
-          {loading ? (
-            <ActivityIndicator color={Colors.blue} size="large" style={{ marginTop: 64 }} />
-          ) : sbCourses.length === 0 ? (
+          {sbCourses.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📭</Text>
               <Text style={[styles.emptyTitle, { color: t.text }]}>Pas encore de cours</Text>
@@ -200,11 +206,20 @@ export default function SubjectScreen() {
 
                     {/* Professeur IA ancré en bas à droite */}
                     <View
-                      style={[styles.profWrap, isActive ? styles.profWrapActive : styles.profWrapInactive]}
+                      style={[
+                        styles.profWrap,
+                        isActive ? styles.profWrapActive : styles.profWrapInactive,
+                        isDown && styles.profWrapLoading,
+                      ]}
                       pointerEvents="none"
                     >
                       {isDown
-                        ? <ActivityIndicator color={s.accent} size={isActive ? 'large' : 'small'} style={{ marginBottom: 20 }} />
+                        ? (
+                          <View style={styles.downloadingBox}>
+                            <ActivityIndicator color={s.accent} size="large" />
+                            <Text style={[styles.downloadingTxt, { color: s.accent }]}>Chargement…</Text>
+                          </View>
+                        )
                         : <ProfessorAvatar
                             subjectName={subjectName}
                             width={isActive ? 190 : 130}
@@ -221,6 +236,7 @@ export default function SubjectScreen() {
           )}
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -234,6 +250,15 @@ const INACTIVE_SHADOW = Platform.select({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+
+  /* Loading */
+  loadingCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  loadingTxt: { fontSize: 14, fontWeight: '500' },
 
   /* Header */
   header: {
@@ -300,9 +325,19 @@ const styles = StyleSheet.create({
   profName:         { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.9)', letterSpacing: 0.3 },
 
   /* Professor anchored to card bottom-right */
-  profWrap:         { position: 'absolute', top: 0, right: 0, justifyContent: 'flex-end', alignItems: 'center' },
+  profWrap:         { position: 'absolute', top: 0, right: 0, bottom: 0, justifyContent: 'flex-end', alignItems: 'center' },
   profWrapActive:   { width: 164, bottom: -22 },
   profWrapInactive: { width: 124, bottom: -18 },
+  profWrapLoading:  { justifyContent: 'center', bottom: 0 },
+
+  /* Downloading overlay */
+  downloadingBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingBottom: 24,
+  },
+  downloadingTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
 
   /* Empty */
   empty:      { alignItems: 'center', paddingTop: 60 },

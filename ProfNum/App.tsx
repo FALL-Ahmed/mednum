@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from './src/store';
 import { useTheme } from './src/components';
 import { scheduleStreakReminder } from './src/utils/notifications';
+import { supabase } from './src/lib/supabase';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import StudentSetupScreen from './src/screens/StudentSetupScreen';
@@ -18,8 +19,10 @@ import ChatScreen from './src/screens/ChatScreen';
 import SubjectScreen from './src/screens/SubjectScreen';
 import SkillTreeScreen from './src/screens/SkillTreeScreen';
 import QuizScreen from './src/screens/QuizScreen';
+import FicheScreen from './src/screens/FicheScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ProgressScreen from './src/screens/ProgressScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -33,6 +36,7 @@ const TAB_CONFIG = [
   { name: 'Chat',       label: 'Chat',       color: '#059669', icon: 'chatbubble-ellipses-outline'as IoniconsName, iconOn: 'chatbubble-ellipses' as IoniconsName },
   { name: 'Progression',label: 'Progrès',    color: '#D97706', icon: 'bar-chart-outline'          as IoniconsName, iconOn: 'bar-chart'           as IoniconsName },
   { name: 'Historique', label: 'Historique', color: '#7C3AED', icon: 'time-outline'               as IoniconsName, iconOn: 'time'                as IoniconsName },
+  { name: 'Profil',     label: 'Profil',     color: '#64748B', icon: 'person-circle-outline'       as IoniconsName, iconOn: 'person-circle'       as IoniconsName },
 ] as const;
 
 function TabIcon({
@@ -80,6 +84,7 @@ function SubjectNavigator() {
       <SubjectStack.Screen name="SubjectList" component={SubjectScreen} />
       <SubjectStack.Screen name="SkillTree"   component={SkillTreeScreen} />
       <SubjectStack.Screen name="Quiz"        component={QuizScreen} />
+      <SubjectStack.Screen name="Fiche"       component={FicheScreen} />
     </SubjectStack.Navigator>
   );
 }
@@ -117,7 +122,8 @@ function MainTabs() {
           cfg.name === 'Cours'       ? SubjectNavigator :
           cfg.name === 'Chat'        ? ChatScreen       :
           cfg.name === 'Progression' ? ProgressScreen   :
-          HistoryScreen;
+          cfg.name === 'Historique'  ? HistoryScreen    :
+          SettingsScreen;
 
         return (
           <Tab.Screen
@@ -143,7 +149,20 @@ function MainTabs() {
 }
 
 function AppNavigator() {
-  const { onboardingDone, studentName, streakCurrent, xpToday } = useAppStore();
+  const { onboardingDone, studentName, streakCurrent, xpToday, setUserId } = useAppStore();
+
+  React.useEffect(() => {
+    // Auth anonyme — crée un compte persistant par appareil si pas déjà connecté
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        supabase.auth.signInAnonymously().then(({ data }) => {
+          if (data.user) setUserId(data.user.id);
+        });
+      } else {
+        setUserId(session.user.id);
+      }
+    });
+  }, []);
 
   React.useEffect(() => {
     if (onboardingDone && studentName) {
