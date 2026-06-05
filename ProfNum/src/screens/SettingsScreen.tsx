@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store';
+import { supabase } from '../lib/supabase';
 import { Colors, Spacing, Radius, Typography, Shadows } from '../theme';
 import { useTheme } from '../components';
 import { computeNiveau } from '../utils/rag';
@@ -47,9 +48,12 @@ export default function SettingsScreen() {
     darkMode, toggleDarkMode,
     difficultyScore, setDifficultyScore,
     xpTotal, streakCurrent,
-    setStudentInfo, studentClassId,
+    dailyGoal, setDailyGoal,
+    setStudentInfo, studentClassId, userId,
     resetStudent, clearHistory,
   } = useAppStore();
+
+  const GOAL_OPTIONS = [25, 50, 100, 200];
 
   const niveau = computeNiveau(difficultyScore);
 
@@ -63,6 +67,7 @@ export default function SettingsScreen() {
     if (!trimmed) return;
     setStudentInfo(trimmed, studentClassId, studentClassName);
     setEditNameModal(false);
+    supabase.from('students').update({ name: trimmed }).eq('user_id', userId).then(() => {});
   };
 
   const saveSchool = () => {
@@ -70,6 +75,7 @@ export default function SettingsScreen() {
     if (!trimmed) return;
     setStudentInfo(studentName, studentClassId, studentClassName, trimmed);
     setEditSchoolModal(false);
+    supabase.from('students').update({ school_name: trimmed }).eq('user_id', userId).then(() => {});
   };
 
   const confirmReset = (type: 'history' | 'profile') => {
@@ -213,6 +219,31 @@ export default function SettingsScreen() {
               trackColor={{ false: Colors.border, true: Colors.blue + '90' }}
               thumbColor={darkMode ? Colors.blue : '#fff'}
             />
+          </View>
+        </View>
+
+        {/* ── SECTION : OBJECTIF QUOTIDIEN ─────────────────────── */}
+        <SectionLabel label="OBJECTIF QUOTIDIEN" />
+        <View style={[styles.card, { backgroundColor: t.surface, padding: Spacing.lg }]}>
+          <Text style={[styles.goalDesc, { color: t.textMuted }]}>XP à gagner chaque jour pour maintenir ton streak</Text>
+          <View style={styles.goalGrid}>
+            {GOAL_OPTIONS.map(goal => {
+              const active = dailyGoal === goal;
+              return (
+                <TouchableOpacity
+                  key={goal}
+                  style={[
+                    styles.goalBtn,
+                    { borderColor: active ? Colors.blue : t.border, backgroundColor: active ? Colors.blue : t.surfaceAlt },
+                  ]}
+                  onPress={() => setDailyGoal(goal)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.goalXP, { color: active ? '#fff' : t.text }]}>{goal}</Text>
+                  <Text style={[styles.goalLabel, { color: active ? 'rgba(255,255,255,0.75)' : t.textMuted }]}>XP</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -454,6 +485,15 @@ const styles = StyleSheet.create({
   },
 
   /* ── Version ── */
+  goalDesc: { fontSize: 12, marginBottom: Spacing.md },
+  goalGrid: { flexDirection: 'row', gap: 10 },
+  goalBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: 14,
+    borderRadius: Radius.md, borderWidth: 1.5, gap: 2,
+  },
+  goalXP: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  goalLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+
   version: { textAlign: 'center', fontSize: 12, marginTop: Spacing.xxxl, letterSpacing: 0.3 },
 
   /* ── Modals ── */

@@ -152,14 +152,27 @@ function AppNavigator() {
   const { onboardingDone, studentName, streakCurrent, xpToday, setUserId } = useAppStore();
 
   React.useEffect(() => {
-    // Auth anonyme — crée un compte persistant par appareil si pas déjà connecté
+    const syncStudent = async (uid: string) => {
+      setUserId(uid);
+      const { data } = await supabase.from('students').select('school_name').eq('user_id', uid).maybeSingle();
+      const { studentName: n, studentClassId: cid, studentClassName: cn, studentSchoolName: sn, setStudentInfo } = useAppStore.getState();
+      if (data) {
+        if (data.school_name) setStudentInfo(n, cid, cn, data.school_name);
+      } else if (n) {
+        // Ligne manquante en base (uid était '' lors du setup) — on la crée maintenant
+        await supabase.from('students').upsert({
+          user_id: uid, name: n, class_id: cid, class_name: cn, school_name: sn,
+        }, { onConflict: 'user_id' });
+      }
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         supabase.auth.signInAnonymously().then(({ data }) => {
-          if (data.user) setUserId(data.user.id);
+          if (data.user) syncStudent(data.user.id);
         });
       } else {
-        setUserId(session.user.id);
+        syncStudent(session.user.id);
       }
     });
   }, []);

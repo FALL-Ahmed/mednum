@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Audio } from 'expo-av';
@@ -237,6 +238,7 @@ export default function ChatScreen({ route }: any) {
   const t = useTheme();
   const navigation = useNavigation<any>();
   const [input, setInput] = useState(prefill || '');
+  const [isOnline, setIsOnline] = useState(true);
   const [showNoCourseModal, setShowNoCourseModal] = useState(false);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
@@ -260,6 +262,13 @@ export default function ChatScreen({ route }: any) {
   const subjectStyle = getSubjectStyle(activeCourse?.subjectName || '');
 
   useEffect(() => { if (prefill) setInput(prefill); }, [prefill]);
+
+  useEffect(() => {
+    const unsub = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? true);
+    });
+    return () => unsub();
+  }, []);
 
   // Re-fetche les chunks depuis Supabase à chaque ouverture du Chat (pick up admin edits)
   useEffect(() => {
@@ -441,6 +450,15 @@ export default function ChatScreen({ route }: any) {
     expandHeader();
     const q = input.trim();
     if ((!q && !imageUri) || isLoading) return;
+    if (!isOnline) {
+      addMessage({
+        id: Date.now().toString(),
+        role: 'error',
+        content: 'Pas de connexion internet. Consulte ta fiche de révision pour ce chapitre — elle est disponible hors ligne.',
+        timestamp: new Date(),
+      });
+      return;
+    }
 
     // Mode image — pas besoin de cours
     if (imageBase64) {
@@ -735,6 +753,20 @@ export default function ChatScreen({ route }: any) {
           </ScrollView>
         )}
 
+        {/* Bannière hors ligne — juste au-dessus de la saisie */}
+        {!isOnline && (
+          <View style={styles.offlineBanner}>
+            <View style={styles.offlineIconWrap}>
+              <Ionicons name="wifi-outline" size={16} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.offlineTitle}>Pas de connexion</Text>
+              <Text style={styles.offlineSub}>Le chat est désactivé · Ta fiche reste accessible</Text>
+            </View>
+            <View style={styles.offlineDot} />
+          </View>
+        )}
+
         {/* Input Bar */}
         <View style={[styles.inputBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
           <TouchableOpacity
@@ -1005,6 +1037,30 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   newChatText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+
+  /* Hors ligne */
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#D97706',
+    paddingHorizontal: 16, paddingVertical: 11,
+    borderRadius: 16,
+    marginHorizontal: 12, marginBottom: 8,
+    ...Platform.select({
+      ios: { shadowColor: '#D97706', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+      android: { elevation: 6 },
+    }),
+  },
+  offlineIconWrap: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  offlineTitle: { fontSize: 13, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
+  offlineSub:   { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '500', marginTop: 1 },
+  offlineDot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
 
   /* Niveau */
   niveauRow: { flexDirection: 'row', gap: 6 },

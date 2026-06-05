@@ -124,6 +124,7 @@ type AppStore = {
   xpLastWeek: number;
   xpWeekStartDate: string;
   dailyGoal: number;
+  setDailyGoal: (goal: number) => void;
   addXP: (amount: number) => void;
 
   onboardingDone: boolean;
@@ -291,6 +292,7 @@ export const useAppStore = create<AppStore>()(
       // Gamification
       streakCurrent: 0, streakBest: 0, streakLastDate: '',
       xpTotal: 0, xpToday: 0, xpTodayDate: '', xpThisWeek: 0, xpLastWeek: 0, xpWeekStartDate: '', dailyGoal: 50,
+      setDailyGoal: (goal) => set({ dailyGoal: goal }),
 
       addXP: (amount) => {
         set((s) => {
@@ -343,6 +345,7 @@ export const useAppStore = create<AppStore>()(
         studentName: s.studentName,
         studentClassId: s.studentClassId,
         studentClassName: s.studentClassName,
+        studentSchoolName: s.studentSchoolName,
         conceptHistory: s.conceptHistory,
         difficultyScore: s.difficultyScore,
         streakCurrent: s.streakCurrent, streakBest: s.streakBest, streakLastDate: s.streakLastDate,

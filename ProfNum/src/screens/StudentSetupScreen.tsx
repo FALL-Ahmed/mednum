@@ -123,10 +123,13 @@ export default function StudentSetupScreen() {
         <View style={styles.btnWrap}>
           <TouchableOpacity
             style={[styles.btn, !ready && styles.btnDisabled]}
-            onPress={() => {
+            onPress={async () => {
               if (!ready) return;
+              // Lire l'UID depuis la session en cours, pas depuis le store (qui peut être '' si auth pas encore finie)
+              const { data: { session } } = await supabase.auth.getSession();
+              const uid = session?.user?.id || userId;
               supabase.from('students').upsert({
-                user_id: userId,
+                user_id: uid,
                 name: name.trim(),
                 class_id: selected!.id,
                 class_name: selected!.name,
