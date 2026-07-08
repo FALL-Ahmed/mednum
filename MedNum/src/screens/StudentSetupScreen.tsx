@@ -8,19 +8,27 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase, SBPromotion } from '../lib/supabase';
 import { useAppStore } from '../store';
-import { Colors, Spacing, Radius, Shadows } from '../theme';
+import { Spacing, Radius, Shadows } from '../theme';
 import { useTheme, Text, TextInput } from '../components';
+
+// Palette medicale
+const NAVY    = '#0B1E34';
+const NAVY_MID= '#152C47';
+const RED     = '#C0392B';
+const RED_BG  = '#FDF2F1';
+const GOLD    = '#B8860B';
 
 export default function StudentSetupScreen() {
   const { setStudentInfo, userId } = useAppStore();
   const t = useTheme();
   const { top, bottom } = useSafeAreaInsets();
-  const [name, setName] = useState('');
+  const [name, setName]             = useState('');
   const [promotions, setPromotions] = useState<SBPromotion[]>([]);
-  const [selected, setSelected] = useState<SBPromotion | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [selected, setSelected]     = useState<SBPromotion | null>(null);
+  const [loading, setLoading]       = useState(true);
 
   useEffect(() => {
     supabase
@@ -33,50 +41,94 @@ export default function StudentSetupScreen() {
       });
   }, []);
 
-  const ready = name.trim().length > 0 && selected !== null;
+  const ready     = name.trim().length > 0 && selected !== null;
+  const step1Done = name.trim().length > 0;
+  const step2Done = selected !== null;
 
   const handleStart = async () => {
     if (!ready) return;
     const { data: { session } } = await supabase.auth.getSession();
     const uid = session?.user?.id || userId;
     supabase.from('students').upsert({
-      user_id: uid,
-      name: name.trim(),
-      promotion_id: selected!.id,
+      user_id:        uid,
+      name:           name.trim(),
+      promotion_id:   selected!.id,
       promotion_name: selected!.name,
-      school_name: 'FMPOS UNAM',
+      school_name:    'FMPOS UNAM',
     }, { onConflict: 'user_id' }).then(() => {});
     setStudentInfo(name.trim(), selected!.id, selected!.name);
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: t.bg, paddingTop: top }]}>
+    <View style={[styles.root, { backgroundColor: t.bg }]}>
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 32 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 40 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Hero */}
-        <View style={[styles.hero, { backgroundColor: Colors.blue }]}>
-          <View style={styles.heroBubble1} />
-          <View style={styles.heroBubble2} />
+
+        {/* ══ HERO ══ */}
+        <View style={[styles.hero, { paddingTop: top + 20 }]}>
+
+          {/* ECG line decoration */}
+          <View style={styles.ecgLine}>
+            <View style={styles.ecgFlat1} />
+            <View style={styles.ecgUp} />
+            <View style={styles.ecgDown} />
+            <View style={styles.ecgUp2} />
+            <View style={styles.ecgFlat2} />
+          </View>
+
+          {/* icone centrale */}
+          <View style={styles.iconRing}>
+            <Ionicons name="pulse-outline" size={28} color="#fff" />
+          </View>
+
           <Text style={styles.heroTitle}>Bienvenue</Text>
           <Text style={styles.heroSub}>
-            Dr. Ahmed va personnaliser votre revision selon votre promotion
+            Dites-nous ou vous en etes dans vos etudes
           </Text>
+
+          {/* steps */}
           <View style={styles.stepsRow}>
-            <View style={[styles.stepDot, name.trim() ? styles.stepDotDone : {}]} />
-            <View style={styles.stepLine} />
-            <View style={[styles.stepDot, selected ? styles.stepDotDone : {}]} />
+            <View style={styles.stepWrap}>
+              <View style={[styles.stepCircle, step1Done && styles.stepCircleDone]}>
+                <Text style={[styles.stepNum, step1Done && styles.stepNumDone]}>
+                  {step1Done ? '✓' : '1'}
+                </Text>
+              </View>
+              <Text style={[styles.stepLabel, step1Done && styles.stepLabelDone]}>
+                Identite
+              </Text>
+            </View>
+            <View style={[styles.stepLine, step1Done && styles.stepLineDone]} />
+            <View style={styles.stepWrap}>
+              <View style={[styles.stepCircle, step2Done && styles.stepCircleDone]}>
+                <Text style={[styles.stepNum, step2Done && styles.stepNumDone]}>
+                  {step2Done ? '✓' : '2'}
+                </Text>
+              </View>
+              <Text style={[styles.stepLabel, step2Done && styles.stepLabelDone]}>
+                Promotion
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Prenom */}
+        {/* ══ PRENOM ══ */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>VOTRE PRENOM</Text>
+          <View style={styles.fieldHeader}>
+            <View style={[styles.fieldNum, step1Done && styles.fieldNumDone]}>
+              <Text style={[styles.fieldNumText, step1Done && styles.fieldNumTextDone]}>
+                {step1Done ? '✓' : '1'}
+              </Text>
+            </View>
+            <Text style={[styles.fieldLabel, { color: t.textMuted }]}>VOTRE PRENOM</Text>
+          </View>
+
           <View style={[
             styles.inputCard,
-            { backgroundColor: t.surface, borderColor: name ? Colors.blue : t.border },
+            { backgroundColor: t.surface, borderColor: name ? RED : t.border },
           ]}>
             <TextInput
               style={[styles.nameInput, { color: t.text }]}
@@ -86,44 +138,81 @@ export default function StudentSetupScreen() {
               onChangeText={setName}
               autoCapitalize="words"
               autoFocus
-              selectionColor={Colors.blue}
+              selectionColor={RED}
             />
+            {step1Done && (
+              <Ionicons name="checkmark-circle" size={22} color={RED} style={{ marginLeft: 8 }} />
+            )}
           </View>
         </View>
 
-        {/* Promotion */}
+        {/* ══ PROMOTION ══ */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>VOTRE PROMOTION</Text>
+          <View style={styles.fieldHeader}>
+            <View style={[styles.fieldNum, step2Done && styles.fieldNumDone]}>
+              <Text style={[styles.fieldNumText, step2Done && styles.fieldNumTextDone]}>
+                {step2Done ? '✓' : '2'}
+              </Text>
+            </View>
+            <Text style={[styles.fieldLabel, { color: t.textMuted }]}>ANNEE D'ETUDES</Text>
+          </View>
 
           {loading ? (
-            <ActivityIndicator color={Colors.blue} style={{ marginTop: 20 }} />
+            <ActivityIndicator color={RED} style={{ marginTop: 24 }} />
           ) : promotions.length === 0 ? (
             <Text style={[styles.emptyText, { color: t.textMuted }]}>
               Aucune promotion disponible
             </Text>
           ) : (
-            <View style={styles.promoGrid}>
-              {promotions.map(item => {
+            <View style={styles.promoList}>
+              {promotions.map((item, idx) => {
                 const active = selected?.id === item.id;
+                const isResidanat = idx === promotions.length - 1;
                 return (
                   <TouchableOpacity
                     key={item.id}
                     style={[
                       styles.promoCard,
                       { backgroundColor: t.surface, borderColor: t.border },
-                      active ? styles.promoCardActive : {},
+                      active && { backgroundColor: RED_BG, borderColor: RED },
                     ]}
                     onPress={() => setSelected(item)}
-                    activeOpacity={0.75}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.promoLabel, active ? styles.promoLabelActive : {}]}>
-                      {item.name}
-                    </Text>
-                    {item.description ? (
-                      <Text style={[styles.promoDesc, { color: active ? 'rgba(255,255,255,0.75)' : t.textMuted }]}>
-                        {item.description}
+                    {/* accent gauche */}
+                    <View style={[styles.cardAccent, active && styles.cardAccentActive]} />
+
+                    {/* badge annee */}
+                    <View style={[
+                      styles.yearBadge,
+                      { backgroundColor: active ? RED : t.surfaceAlt ?? '#F1F3F6' },
+                    ]}>
+                      <Text style={[
+                        styles.yearBadgeText,
+                        { color: active ? '#fff' : t.textMuted },
+                      ]}>
+                        {item.name}
                       </Text>
-                    ) : null}
+                    </View>
+
+                    {/* texte */}
+                    <View style={styles.cardBody}>
+                      <Text style={[
+                        styles.cardTitle,
+                        { color: active ? RED : t.text },
+                      ]}>
+                        {item.description ?? item.name}
+                      </Text>
+                      {isResidanat && (
+                        <Text style={[styles.cardSub, { color: active ? '#8B1A14' : t.textMuted }]}>
+                          Specialisation post-graduee
+                        </Text>
+                      )}
+                    </View>
+
+                    {active && (
+                      <Ionicons name="checkmark-circle" size={20} color={RED} style={{ marginRight: 14 }} />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -131,164 +220,202 @@ export default function StudentSetupScreen() {
           )}
         </View>
 
-        {/* Bouton */}
+        {/* ══ BOUTON ══ */}
         <View style={styles.btnWrap}>
           <TouchableOpacity
+            style={[styles.btn, !ready && styles.btnDisabled]}
             onPress={handleStart}
             disabled={!ready}
             activeOpacity={0.85}
           >
-            <View style={[styles.btn, !ready ? styles.btnDisabled : {}]}>
-              <Text style={styles.btnText}>Commencer</Text>
-              <Text style={styles.btnArrow}>{'->'}</Text>
-            </View>
+            <Text style={[styles.btnText, !ready && styles.btnTextOff]}>
+              Commencer
+            </Text>
+            {ready && (
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            )}
           </TouchableOpacity>
+          {!ready && (
+            <Text style={[styles.btnHint, { color: t.textMuted }]}>
+              {!step1Done
+                ? 'Entrez votre prenom pour continuer'
+                : 'Choisissez votre annee d\'etudes'}
+            </Text>
+          )}
         </View>
+
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  scroll: { paddingTop: 0, paddingHorizontal: 0 },
+  root:  { flex: 1 },
+  scroll: { paddingTop: 0 },
 
+  /* ── Hero ── */
   hero: {
+    backgroundColor: NAVY,
     alignItems: 'center',
-    paddingTop: Spacing.xxxl,
-    paddingBottom: Spacing.xxxl + 8,
     paddingHorizontal: Spacing.xxl,
+    paddingBottom: 44,
     marginBottom: Spacing.xxxl,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     overflow: 'hidden',
   },
-  heroBubble1: {
-    position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.07)', top: -60, right: -40,
+
+  /* ECG decoratif */
+  ecgLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    opacity: 0.12,
   },
-  heroBubble2: {
-    position: 'absolute', width: 110, height: 110, borderRadius: 55,
-    backgroundColor: 'rgba(255,255,255,0.06)', bottom: -20, left: -20,
+  ecgFlat1: { flex: 2, height: 2, backgroundColor: '#fff' },
+  ecgUp:    { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderBottomWidth: 22, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: '#fff' },
+  ecgDown:  { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 18, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#fff' },
+  ecgUp2:   { width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderBottomWidth: 14, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: '#fff' },
+  ecgFlat2: { flex: 3, height: 2, backgroundColor: '#fff' },
+
+  iconRing: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.xl,
   },
+
   heroTitle: {
-    marginTop: Spacing.sm,
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '800',
     color: '#fff',
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
     marginBottom: Spacing.sm,
+    textAlign: 'center',
   },
   heroSub: {
-    fontSize: 15,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 260,
-    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 20,
+    maxWidth: 240,
   },
+
+  /* Steps */
   stepsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.xxl,
+    marginTop: Spacing.xxxl,
   },
-  stepDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  stepDotDone: { backgroundColor: '#fff' },
-  stepLine: {
-    width: 40, height: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    marginHorizontal: 6,
-  },
-
-  section: { marginBottom: Spacing.xxxl, paddingHorizontal: Spacing.xxl },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginBottom: Spacing.lg,
-  },
-
-  inputCard: {
-    borderRadius: Radius.lg,
+  stepWrap:  { alignItems: 'center', gap: 5 },
+  stepCircle: {
+    width: 30, height: 30, borderRadius: 15,
     borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepCircleDone: { backgroundColor: RED, borderColor: RED },
+  stepNum: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.35)' },
+  stepNumDone: { color: '#fff' },
+  stepLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: 0.4 },
+  stepLabelDone: { color: 'rgba(255,255,255,0.75)' },
+  stepLine: {
+    width: 52, height: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginHorizontal: 10, marginBottom: 14,
+  },
+  stepLineDone: { backgroundColor: RED },
+
+  /* ── Section ── */
+  section: { marginBottom: Spacing.xxxl, paddingHorizontal: Spacing.xxl },
+  fieldHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12,
+  },
+  fieldNum: {
+    width: 20, height: 20, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#CBD5E0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fieldNumDone: { backgroundColor: RED, borderColor: RED },
+  fieldNumText: { fontSize: 10, fontWeight: '700', color: '#A0AEC0' },
+  fieldNumTextDone: { color: '#fff' },
+  fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
+
+  /* ── Input ── */
+  inputCard: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: Radius.lg, borderWidth: 1.5,
     paddingHorizontal: Spacing.lg,
     ...Shadows.sm,
   },
   nameInput: {
-    fontSize: 20,
+    flex: 1,
+    fontSize: 19,
     fontWeight: '600',
     paddingVertical: 14,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
 
-  promoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  /* ── Promo list ── */
+  promoList: { gap: 8 },
   promoCard: {
-    width: '46%',
-    flexGrow: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    minHeight: 60,
     ...Shadows.sm,
   },
-  promoCardActive: {
-    backgroundColor: Colors.blue,
-    borderColor: Colors.blue,
+  cardAccent: { width: 4, alignSelf: 'stretch', backgroundColor: 'transparent' },
+  cardAccentActive: { backgroundColor: RED },
+  yearBadge: {
+    marginLeft: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.sm,
+    minWidth: 44,
+    alignItems: 'center',
   },
-  promoLabel: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.textSecondary,
-    letterSpacing: -0.2,
-    textAlign: 'center',
-  },
-  promoLabelActive: {
-    color: '#fff',
-  },
-  promoDesc: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 3,
-    textAlign: 'center',
-  },
+  yearBadgeText: { fontSize: 12, fontWeight: '800', letterSpacing: -0.2 },
+  cardBody: { flex: 1, paddingVertical: 14, paddingHorizontal: 12 },
+  cardTitle: { fontSize: 14, fontWeight: '600', letterSpacing: -0.1 },
+  cardSub:   { fontSize: 11, fontWeight: '400', marginTop: 2 },
 
-  emptyText: {
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginTop: Spacing.lg,
-  },
+  /* ── Empty ── */
+  emptyText: { fontSize: 14, textAlign: 'center', marginTop: Spacing.lg },
 
+  /* ── Bouton ── */
+  btnWrap: { paddingHorizontal: Spacing.xxl, alignItems: 'center' },
   btn: {
-    backgroundColor: Colors.blue,
-    borderRadius: Radius.lg,
-    paddingVertical: 16,
-    paddingHorizontal: Spacing.xxl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: Spacing.sm,
+    gap: 8,
+    backgroundColor: NAVY,
+    borderRadius: Radius.xl,
+    paddingVertical: 16,
+    alignSelf: 'stretch',
     ...Platform.select({
       ios: {
-        shadowColor: Colors.blue,
+        shadowColor: NAVY,
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.4,
         shadowRadius: 14,
       },
       android: { elevation: 6 },
     }),
   },
-  btnDisabled: { backgroundColor: Colors.blueMid, elevation: 0, shadowOpacity: 0 },
-  btnText: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
-  btnArrow: { fontSize: 18, color: '#fff', fontWeight: '700' },
-  btnWrap: { paddingHorizontal: Spacing.xxl },
+  btnDisabled: { backgroundColor: '#9CA3AF', elevation: 0, shadowOpacity: 0 },
+  btnText:     { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
+  btnTextOff:  { color: 'rgba(255,255,255,0.7)' },
+  btnHint:     { fontSize: 12, marginTop: 10, textAlign: 'center' },
 });
