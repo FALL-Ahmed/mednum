@@ -5,7 +5,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -19,27 +18,24 @@ import { supabase } from './src/lib/supabase';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import StudentSetupScreen from './src/screens/StudentSetupScreen';
-import CourseScreen from './src/screens/CourseScreen';
+import HomeScreen from './src/screens/HomeScreen';
 import ChatScreen from './src/screens/ChatScreen';
-import SubjectScreen from './src/screens/SubjectScreen';
-import SkillTreeScreen from './src/screens/SkillTreeScreen';
-import QuizScreen from './src/screens/QuizScreen';
-import FicheScreen from './src/screens/FicheScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
-import ProgressScreen from './src/screens/ProgressScreen';
+import ReviserScreen from './src/screens/ReviserScreen';
+import FicheScreen from './src/screens/FicheScreen';
+import QuizScreen from './src/screens/QuizScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import SubscriptionScreen from './src/screens/SubscriptionScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
-const SubjectStack = createStackNavigator();
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TAB_CONFIG = [
-  { name: 'Cours',      labelKey: 'courses'  as const, color: '#2563EB', icon: 'book-outline'               as IoniconsName, iconOn: 'book'                as IoniconsName },
-  { name: 'Chat',       labelKey: 'chat'     as const, color: '#059669', icon: 'chatbubble-ellipses-outline' as IoniconsName, iconOn: 'chatbubble-ellipses' as IoniconsName },
-  { name: 'Progression',labelKey: 'progress' as const, color: '#D97706', icon: 'bar-chart-outline'           as IoniconsName, iconOn: 'bar-chart'           as IoniconsName },
+  { name: 'Accueil',    labelKey: 'home'     as const, color: '#07A997', icon: 'home-outline'                as IoniconsName, iconOn: 'home'                as IoniconsName },
+  { name: 'Chat',       labelKey: 'chat'     as const, color: '#07A997', icon: 'chatbubble-ellipses-outline' as IoniconsName, iconOn: 'chatbubble-ellipses' as IoniconsName },
+  { name: 'Reviser',    labelKey: 'progress' as const, color: '#D97706', icon: 'reader-outline'               as IoniconsName, iconOn: 'reader'              as IoniconsName },
   { name: 'Historique', labelKey: 'history'  as const, color: '#7C3AED', icon: 'time-outline'                as IoniconsName, iconOn: 'time'                as IoniconsName },
   { name: 'Profil',     labelKey: 'profile'  as const, color: '#64748B', icon: 'person-circle-outline'       as IoniconsName, iconOn: 'person-circle'       as IoniconsName },
 ] as const;
@@ -55,32 +51,14 @@ function TabIcon({
 }) {
   return (
     <View style={tab.item}>
-      <View style={[tab.iconBox, focused && { backgroundColor: color + '18' }]}>
-        <Ionicons
-          name={focused ? iconOn : icon}
-          size={focused ? 23 : 21}
-          color={focused ? color : '#94A3B8'}
-        />
-      </View>
-      <Text style={[tab.label, { color: focused ? color : '#94A3B8' }, focused && tab.labelActive]}>
+      <Ionicons name={focused ? iconOn : icon} size={22} color={focused ? color : '#94A3B8'} />
+      <Text
+        style={[tab.label, { color: focused ? color : '#94A3B8', fontWeight: focused ? '700' : '500' }]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
-      <View style={[tab.dot, focused && { backgroundColor: color }]} />
     </View>
-  );
-}
-
-function SubjectNavigator() {
-  const activeCourse = useAppStore(s => s.activeCourse);
-  const initialRoute = activeCourse ? 'SkillTree' : 'SubjectList';
-  return (
-    <SubjectStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
-      <SubjectStack.Screen name="SubjectList" component={SubjectScreen} />
-      <SubjectStack.Screen name="SkillTree"   component={SkillTreeScreen} />
-      <SubjectStack.Screen name="Quiz"        component={QuizScreen} />
-      <SubjectStack.Screen name="Fiche"       component={FicheScreen} />
-      <SubjectStack.Screen name="AdminUpload" component={CourseScreen} />
-    </SubjectStack.Navigator>
   );
 }
 
@@ -95,17 +73,22 @@ function MainTabs() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
+          position: 'absolute',
+          left: 20,
+          right: 20,
+          bottom: bottom + 16,
           backgroundColor: t.surface,
           borderTopWidth: 0,
-          height: 64 + bottom,
-          paddingBottom: bottom || 10,
+          borderRadius: 28,
+          height: 64,
           paddingTop: 8,
+          paddingBottom: 8,
           ...Platform.select({
             ios: {
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.07,
-              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.12,
+              shadowRadius: 20,
             },
             android: { elevation: 14 },
           }),
@@ -114,10 +97,10 @@ function MainTabs() {
     >
       {TAB_CONFIG.map((cfg) => {
         const Screen =
-          cfg.name === 'Cours'        ? SubjectNavigator :
-          cfg.name === 'Chat'         ? ChatScreen       :
-          cfg.name === 'Progression'  ? ProgressScreen   :
-          cfg.name === 'Historique'   ? HistoryScreen    :
+          cfg.name === 'Accueil'      ? HomeScreen     :
+          cfg.name === 'Chat'         ? ChatScreen     :
+          cfg.name === 'Reviser'      ? ReviserScreen  :
+          cfg.name === 'Historique'   ? HistoryScreen  :
           SettingsScreen;
 
         return (
@@ -150,13 +133,14 @@ function AppNavigator() {
     const syncStudent = async (uid: string) => {
       setUserId(uid);
       syncQuota();
+      useAppStore.getState().hydrateCoursesFromSupabase();
       const { data } = await supabase.from('students').select('school_name').eq('user_id', uid).maybeSingle();
       const { studentName: n, studentClassId: cid, studentClassName: cn, studentSchoolName: sn, setStudentInfo } = useAppStore.getState();
       if (data) {
         if (data.school_name) setStudentInfo(n, cid, cn, data.school_name);
       } else if (n) {
         await supabase.from('students').upsert({
-          user_id: uid, name: n, class_id: cid, class_name: cn, school_name: sn,
+          user_id: uid, name: n, promotion_id: cid, promotion_name: cn, school_name: sn,
         }, { onConflict: 'user_id' });
       }
     };
@@ -199,6 +183,8 @@ function AppNavigator() {
               component={SubscriptionScreen}
               options={{ presentation: 'modal', headerShown: false }}
             />
+            <Stack.Screen name="Fiche" component={FicheScreen} />
+            <Stack.Screen name="Quiz" component={QuizScreen} />
           </Stack.Group>
         )}
       </Stack.Navigator>
@@ -260,7 +246,6 @@ export default function App() {
       <SafeAreaProvider>
         <AppNavigator />
         <GlobalOfflineBanner />
-        <StatusBar style="auto" />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -291,29 +276,11 @@ const tab = StyleSheet.create({
   item: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    minWidth: 60,
-  },
-  iconBox: {
-    width: 44,
-    height: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 3,
+    minWidth: 50,
   },
   label: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 9.5,
     letterSpacing: 0.1,
-  },
-  labelActive: {
-    fontWeight: '700',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'transparent',
-    marginTop: 2,
   },
 });

@@ -11,20 +11,47 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, SBPromotion } from '../lib/supabase';
 import { useAppStore } from '../store';
-import { Spacing, Radius, Shadows } from '../theme';
+import { Spacing, Radius } from '../theme';
 import { useTheme, Text, TextInput } from '../components';
 
-// Palette medicale
 const NAVY    = '#0B1E34';
-const NAVY_MID= '#152C47';
-const RED     = '#C0392B';
-const RED_BG  = '#FDF2F1';
-const GOLD    = '#B8860B';
+const TEAL    = '#07A997';
+const TEAL_BG = '#EAF7F6';
+const SERIF   = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+
+const STRINGS = {
+  fr: {
+    title1:      'Dossier',
+    title2:      'etudiant',
+    sub:         "Dr. Ahmed s'adapte a votre niveau et votre programme",
+    labelName:   'PRENOM',
+    placeholder: 'Votre prenom...',
+    labelYear:   "ANNEE D'ETUDES",
+    empty:       'Aucune promotion disponible',
+    btn:         'Commencer',
+    hint1:       "Renseignez votre prenom d'abord",
+    hint2:       "Choisissez votre annee d'etudes",
+  },
+  ar: {
+    title1:      'ملف',
+    title2:      'الطالب',
+    sub:         'د. أحمد يتكيّف مع مستواك ودروسك',
+    labelName:   'الاسم',
+    placeholder: 'اسمك...',
+    labelYear:   'السنة الدراسية',
+    empty:       'لا توجد ترقيات متاحة',
+    btn:         'ابدأ',
+    hint1:       'أدخل اسمك أولاً',
+    hint2:       'اختر سنتك الدراسية',
+  },
+} as const;
 
 export default function StudentSetupScreen() {
-  const { setStudentInfo, userId } = useAppStore();
+  const { setStudentInfo, userId, uiLanguage } = useAppStore();
   const t = useTheme();
   const { top, bottom } = useSafeAreaInsets();
+  const s   = STRINGS[uiLanguage] ?? STRINGS.fr;
+  const rtl = uiLanguage === 'ar';
   const [name, setName]             = useState('');
   const [promotions, setPromotions] = useState<SBPromotion[]>([]);
   const [selected, setSelected]     = useState<SBPromotion | null>(null);
@@ -43,7 +70,6 @@ export default function StudentSetupScreen() {
 
   const ready     = name.trim().length > 0 && selected !== null;
   const step1Done = name.trim().length > 0;
-  const step2Done = selected !== null;
 
   const handleStart = async () => {
     if (!ready) return;
@@ -60,186 +86,128 @@ export default function StudentSetupScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: t.bg }]}>
+    <View style={[styles.root, { paddingTop: top }]}>
+
+      {/* ── HEADER navy ── */}
+      <View style={[styles.header, rtl && styles.rtl]}>
+        <Text style={[styles.titleLine1, rtl && styles.rtlText]}>{s.title1}</Text>
+        <Text style={[styles.titleLine2, rtl && styles.rtlText]}>{s.title2}</Text>
+        <Text style={[styles.headerSub, rtl && styles.rtlText]}>{s.sub}</Text>
+      </View>
+
+      {/* ── BODY blanc ── */}
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 40 }]}
+        style={styles.body}
+        contentContainerStyle={[styles.bodyContent, { paddingBottom: bottom + 32 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* ══ HERO ══ */}
-        <View style={[styles.hero, { paddingTop: top + 20 }]}>
-
-          {/* ECG line decoration */}
-          <View style={styles.ecgLine}>
-            <View style={styles.ecgFlat1} />
-            <View style={styles.ecgUp} />
-            <View style={styles.ecgDown} />
-            <View style={styles.ecgUp2} />
-            <View style={styles.ecgFlat2} />
-          </View>
-
-          {/* icone centrale */}
-          <View style={styles.iconRing}>
-            <Ionicons name="pulse-outline" size={28} color="#fff" />
-          </View>
-
-          <Text style={styles.heroTitle}>Bienvenue</Text>
-          <Text style={styles.heroSub}>
-            Dites-nous ou vous en etes dans vos etudes
-          </Text>
-
-          {/* steps */}
-          <View style={styles.stepsRow}>
-            <View style={styles.stepWrap}>
-              <View style={[styles.stepCircle, step1Done && styles.stepCircleDone]}>
-                <Text style={[styles.stepNum, step1Done && styles.stepNumDone]}>
-                  {step1Done ? '✓' : '1'}
-                </Text>
-              </View>
-              <Text style={[styles.stepLabel, step1Done && styles.stepLabelDone]}>
-                Identite
-              </Text>
-            </View>
-            <View style={[styles.stepLine, step1Done && styles.stepLineDone]} />
-            <View style={styles.stepWrap}>
-              <View style={[styles.stepCircle, step2Done && styles.stepCircleDone]}>
-                <Text style={[styles.stepNum, step2Done && styles.stepNumDone]}>
-                  {step2Done ? '✓' : '2'}
-                </Text>
-              </View>
-              <Text style={[styles.stepLabel, step2Done && styles.stepLabelDone]}>
-                Promotion
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ══ PRENOM ══ */}
-        <View style={styles.section}>
-          <View style={styles.fieldHeader}>
-            <View style={[styles.fieldNum, step1Done && styles.fieldNumDone]}>
-              <Text style={[styles.fieldNumText, step1Done && styles.fieldNumTextDone]}>
-                {step1Done ? '✓' : '1'}
-              </Text>
-            </View>
-            <Text style={[styles.fieldLabel, { color: t.textMuted }]}>VOTRE PRENOM</Text>
-          </View>
-
-          <View style={[
-            styles.inputCard,
-            { backgroundColor: t.surface, borderColor: name ? RED : t.border },
-          ]}>
-            <TextInput
-              style={[styles.nameInput, { color: t.text }]}
-              placeholder="Ahmed, Fatima..."
-              placeholderTextColor={t.textMuted}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              autoFocus
-              selectionColor={RED}
-            />
-            {step1Done && (
-              <Ionicons name="checkmark-circle" size={22} color={RED} style={{ marginLeft: 8 }} />
-            )}
-          </View>
-        </View>
-
-        {/* ══ PROMOTION ══ */}
-        <View style={styles.section}>
-          <View style={styles.fieldHeader}>
-            <View style={[styles.fieldNum, step2Done && styles.fieldNumDone]}>
-              <Text style={[styles.fieldNumText, step2Done && styles.fieldNumTextDone]}>
-                {step2Done ? '✓' : '2'}
-              </Text>
-            </View>
-            <Text style={[styles.fieldLabel, { color: t.textMuted }]}>ANNEE D'ETUDES</Text>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={RED} style={{ marginTop: 24 }} />
-          ) : promotions.length === 0 ? (
-            <Text style={[styles.emptyText, { color: t.textMuted }]}>
-              Aucune promotion disponible
-            </Text>
-          ) : (
-            <View style={styles.promoList}>
-              {promotions.map((item, idx) => {
-                const active = selected?.id === item.id;
-                const isResidanat = idx === promotions.length - 1;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.promoCard,
-                      { backgroundColor: t.surface, borderColor: t.border },
-                      active && { backgroundColor: RED_BG, borderColor: RED },
-                    ]}
-                    onPress={() => setSelected(item)}
-                    activeOpacity={0.7}
-                  >
-                    {/* accent gauche */}
-                    <View style={[styles.cardAccent, active && styles.cardAccentActive]} />
-
-                    {/* badge annee */}
-                    <View style={[
-                      styles.yearBadge,
-                      { backgroundColor: active ? RED : t.surfaceAlt ?? '#F1F3F6' },
-                    ]}>
-                      <Text style={[
-                        styles.yearBadgeText,
-                        { color: active ? '#fff' : t.textMuted },
-                      ]}>
-                        {item.name}
-                      </Text>
-                    </View>
-
-                    {/* texte */}
-                    <View style={styles.cardBody}>
-                      <Text style={[
-                        styles.cardTitle,
-                        { color: active ? RED : t.text },
-                      ]}>
-                        {item.description ?? item.name}
-                      </Text>
-                      {isResidanat && (
-                        <Text style={[styles.cardSub, { color: active ? '#8B1A14' : t.textMuted }]}>
-                          Specialisation post-graduee
-                        </Text>
-                      )}
-                    </View>
-
-                    {active && (
-                      <Ionicons name="checkmark-circle" size={20} color={RED} style={{ marginRight: 14 }} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+        {/* Prenom */}
+        <Text style={[styles.fieldLabel, { color: t.textMuted }, rtl && styles.rtlText]}>
+          {s.labelName}
+        </Text>
+        <View style={[
+          styles.inputRow,
+          { borderBottomColor: step1Done ? TEAL : t.border },
+          rtl && styles.rtl,
+        ]}>
+          <TextInput
+            style={[styles.nameInput, { color: t.text }, rtl && styles.rtlText]}
+            placeholder={s.placeholder}
+            placeholderTextColor={t.textMuted}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+            autoFocus
+            selectionColor={TEAL}
+            textAlign={rtl ? 'right' : 'left'}
+          />
+          {step1Done && (
+            <Ionicons name="checkmark-circle" size={22} color={TEAL} />
           )}
         </View>
 
-        {/* ══ BOUTON ══ */}
+        {/* Divider */}
+        <View style={[styles.divider, { backgroundColor: t.border }]} />
+
+        {/* Promotion */}
+        <Text style={[styles.fieldLabel, { color: t.textMuted }, rtl && styles.rtlText]}>
+          {s.labelYear}
+        </Text>
+
+        {loading ? (
+          <ActivityIndicator color={TEAL} style={{ marginTop: 20 }} />
+        ) : promotions.length === 0 ? (
+          <Text style={[styles.emptyText, { color: t.textMuted }, rtl && styles.rtlText]}>
+            {s.empty}
+          </Text>
+        ) : (
+          <View style={styles.radioList}>
+            {promotions.map(item => {
+              const active = selected?.id === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.radioItem,
+                    active && { backgroundColor: TEAL_BG },
+                  ]}
+                  onPress={() => setSelected(item)}
+                  activeOpacity={0.6}
+                >
+                  {/* cercle radio */}
+                  <View style={[styles.radioCircle, active && styles.radioCircleActive]}>
+                    {active && <View style={styles.radioDot} />}
+                  </View>
+
+                  {/* textes */}
+                  <View style={[styles.radioTexts, rtl && styles.rtl]}>
+                    <Text style={[
+                      styles.radioMain,
+                      { color: t.text },
+                      active && { color: NAVY, fontWeight: '700' },
+                      rtl && styles.rtlText,
+                    ]}>
+                      {item.description ?? item.name}
+                    </Text>
+                    <Text style={[
+                      styles.radioCode,
+                      { color: t.textMuted },
+                      active && { color: TEAL },
+                      rtl && styles.rtlText,
+                    ]}>
+                      {item.name}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Bouton */}
         <View style={styles.btnWrap}>
           <TouchableOpacity
-            style={[styles.btn, !ready && styles.btnDisabled]}
+            style={[styles.btn, !ready && styles.btnOff]}
             onPress={handleStart}
             disabled={!ready}
             activeOpacity={0.85}
           >
             <Text style={[styles.btnText, !ready && styles.btnTextOff]}>
-              Commencer
+              {s.btn}
             </Text>
             {ready && (
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
+              <Ionicons
+                name={rtl ? 'arrow-back' : 'arrow-forward'}
+                size={18}
+                color="#fff"
+              />
             )}
           </TouchableOpacity>
           {!ready && (
-            <Text style={[styles.btnHint, { color: t.textMuted }]}>
-              {!step1Done
-                ? 'Entrez votre prenom pour continuer'
-                : 'Choisissez votre annee d\'etudes'}
+            <Text style={[styles.hintText, { color: t.textMuted }, rtl && styles.rtlText]}>
+              {!step1Done ? s.hint1 : s.hint2}
             </Text>
           )}
         </View>
@@ -250,172 +218,180 @@ export default function StudentSetupScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:  { flex: 1 },
-  scroll: { paddingTop: 0 },
-
-  /* ── Hero ── */
-  hero: {
+  root: {
+    flex: 1,
     backgroundColor: NAVY,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xxl,
-    paddingBottom: 44,
-    marginBottom: Spacing.xxxl,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    overflow: 'hidden',
   },
 
-  /* ECG decoratif */
-  ecgLine: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 24,
+  /* ── Header ── */
+  header: {
+    paddingHorizontal: 28,
+    paddingTop: Spacing.lg,
+    paddingBottom: 36,
+  },
+  titleLine1: {
+    fontFamily: SERIF,
+    fontSize: 46,
+    fontWeight: '400',
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    lineHeight: 50,
+  },
+  titleLine2: {
+    fontFamily: SERIF,
+    fontSize: 46,
+    fontWeight: '400',
+    color: TEAL,
+    letterSpacing: -2,
+    lineHeight: 50,
+    marginBottom: 14,
+  },
+  headerSub: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.38)',
+    lineHeight: 19,
+    maxWidth: 220,
+  },
+
+  /* ── Body ── */
+  body: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  bodyContent: {
+    flexGrow: 1,
+    padding: 28,
+  },
+
+  /* ── Field label ── */
+  fieldLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 14,
+  },
+
+  /* ── Input underline ── */
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    opacity: 0.12,
-  },
-  ecgFlat1: { flex: 2, height: 2, backgroundColor: '#fff' },
-  ecgUp:    { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderBottomWidth: 22, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: '#fff' },
-  ecgDown:  { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 18, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#fff' },
-  ecgUp2:   { width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderBottomWidth: 14, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: '#fff' },
-  ecgFlat2: { flex: 3, height: 2, backgroundColor: '#fff' },
-
-  iconRing: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-  },
-
-  heroTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.8,
-    marginBottom: Spacing.sm,
-    textAlign: 'center',
-  },
-  heroSub: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 240,
-  },
-
-  /* Steps */
-  stepsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: Spacing.xxxl,
-  },
-  stepWrap:  { alignItems: 'center', gap: 5 },
-  stepCircle: {
-    width: 30, height: 30, borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  stepCircleDone: { backgroundColor: RED, borderColor: RED },
-  stepNum: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.35)' },
-  stepNumDone: { color: '#fff' },
-  stepLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.3)', letterSpacing: 0.4 },
-  stepLabelDone: { color: 'rgba(255,255,255,0.75)' },
-  stepLine: {
-    width: 52, height: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    marginHorizontal: 10, marginBottom: 14,
-  },
-  stepLineDone: { backgroundColor: RED },
-
-  /* ── Section ── */
-  section: { marginBottom: Spacing.xxxl, paddingHorizontal: Spacing.xxl },
-  fieldHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12,
-  },
-  fieldNum: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#CBD5E0',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  fieldNumDone: { backgroundColor: RED, borderColor: RED },
-  fieldNumText: { fontSize: 10, fontWeight: '700', color: '#A0AEC0' },
-  fieldNumTextDone: { color: '#fff' },
-  fieldLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
-
-  /* ── Input ── */
-  inputCard: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: Radius.lg, borderWidth: 1.5,
-    paddingHorizontal: Spacing.lg,
-    ...Shadows.sm,
+    gap: 10,
+    borderBottomWidth: 2,
+    paddingBottom: 11,
+    marginBottom: 28,
   },
   nameInput: {
     flex: 1,
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: '600',
-    paddingVertical: 14,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
+    paddingVertical: 0,
   },
 
-  /* ── Promo list ── */
-  promoList: { gap: 8 },
-  promoCard: {
+  /* ── Divider ── */
+  divider: {
+    height: 1,
+    marginLeft: -28,
+    marginRight: -28,
+    marginBottom: 28,
+  },
+
+  /* ── Radio list ── */
+  radioList: {
+    gap: 2,
+    marginBottom: 32,
+  },
+  radioItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: Radius.md,
-    borderWidth: 1.5,
-    overflow: 'hidden',
-    minHeight: 60,
-    ...Shadows.sm,
+    gap: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
+    borderRadius: 10,
   },
-  cardAccent: { width: 4, alignSelf: 'stretch', backgroundColor: 'transparent' },
-  cardAccentActive: { backgroundColor: RED },
-  yearBadge: {
-    marginLeft: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radius.sm,
-    minWidth: 44,
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#CBD5E0',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  yearBadgeText: { fontSize: 12, fontWeight: '800', letterSpacing: -0.2 },
-  cardBody: { flex: 1, paddingVertical: 14, paddingHorizontal: 12 },
-  cardTitle: { fontSize: 14, fontWeight: '600', letterSpacing: -0.1 },
-  cardSub:   { fontSize: 11, fontWeight: '400', marginTop: 2 },
+  radioCircleActive: {
+    borderColor: TEAL,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: TEAL,
+  },
+  radioTexts: { flex: 1 },
+  radioMain: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 19,
+  },
+  radioCode: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+    letterSpacing: 0.3,
+  },
 
   /* ── Empty ── */
-  emptyText: { fontSize: 14, textAlign: 'center', marginTop: Spacing.lg },
+  emptyText: {
+    fontSize: 14,
+    marginTop: 16,
+    marginBottom: 32,
+  },
 
-  /* ── Bouton ── */
-  btnWrap: { paddingHorizontal: Spacing.xxl, alignItems: 'center' },
+  /* ── Button ── */
+  btnWrap: {
+    alignItems: 'center',
+  },
   btn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: NAVY,
-    borderRadius: Radius.xl,
-    paddingVertical: 16,
+    backgroundColor: TEAL,
+    borderRadius: Radius.lg,
+    paddingVertical: 17,
     alignSelf: 'stretch',
     ...Platform.select({
       ios: {
-        shadowColor: NAVY,
+        shadowColor: TEAL,
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 14,
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
       },
       android: { elevation: 6 },
     }),
   },
-  btnDisabled: { backgroundColor: '#9CA3AF', elevation: 0, shadowOpacity: 0 },
-  btnText:     { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
-  btnTextOff:  { color: 'rgba(255,255,255,0.7)' },
-  btnHint:     { fontSize: 12, marginTop: 10, textAlign: 'center' },
+  btnOff: {
+    backgroundColor: '#E2E8F0',
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  btnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: -0.2,
+  },
+  btnTextOff: { color: '#A0AEC0' },
+  hintText: {
+    fontSize: 12,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+
+  /* ── RTL (arabe) ── */
+  rtl:     { flexDirection: 'row-reverse' },
+  rtlText: { textAlign: 'right', writingDirection: 'rtl' },
 });

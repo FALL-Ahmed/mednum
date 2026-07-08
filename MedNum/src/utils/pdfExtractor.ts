@@ -379,6 +379,12 @@ function extractRawLiterals(binary: string): string {
 
 // ─── Point d'entrée ───────────────────────────────────────────────────────────
 
+export async function estimatePDFPageCount(fileUri: string): Promise<number> {
+  const base64 = await (FileSystem as any).readAsStringAsync(fileUri, { encoding: 'base64' });
+  const binary = atob(base64);
+  return (binary.match(/\/Type\s*\/Page[^s]/g) || []).length || 1;
+}
+
 export async function extractPDFText(fileUri: string): Promise<{ text: string; pages: number }> {
   const base64 = await (FileSystem as any).readAsStringAsync(fileUri, { encoding: 'base64' });
   const binary = atob(base64);

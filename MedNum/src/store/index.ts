@@ -52,6 +52,28 @@ export type ChatSession = {
   createdAt: Date;
 };
 
+// Sauvegarde/actualise la session en cours dans l'historique, indexée sur le
+// premier message (id stable) pour éviter les doublons quand on sauvegarde plusieurs fois.
+function upsertSession(
+  currentMessages: Message[],
+  activeCourse: Course | null,
+  chatHistory: ChatSession[]
+): ChatSession[] {
+  if (currentMessages.length === 0) return chatHistory;
+  const sessionId = currentMessages[0].id;
+  const existing = chatHistory.find((s) => s.id === sessionId);
+  const session: ChatSession = {
+    id: sessionId,
+    courseId: activeCourse?.id ?? '',
+    courseName: activeCourse?.name ?? 'Discussion libre',
+    subjectName: activeCourse?.subjectName ?? '',
+    messages: [...currentMessages],
+    createdAt: existing?.createdAt ?? new Date(),
+  };
+  const rest = chatHistory.filter((s) => s.id !== sessionId);
+  return [session, ...rest].slice(0, 50);
+}
+
 type AppStore = {
   // UUID stable généré au premier lancement, envoyé à la Edge Function pour le quota
   deviceId: string;
@@ -77,6 +99,7 @@ type AppStore = {
   activeCourse: Course | null;
   addCourse: (course: Course) => void;
   removeCourse: (id: string) => void;
+  hydrateCoursesFromSupabase: () => Promise<void>;
   setActiveCourse: (id: string) => void;
   setCourseSummary: (id: string, summary: string) => void;
   updateCourseChunks: (id: string, chunks: CourseChunk[]) => void;
@@ -176,11 +199,28 @@ export const useAppStore = create<AppStore>()(
 
       courses: [],
       activeCourse: null,
-      addCourse: (course) =>
+      addCourse: (course) => {
         set((s) => {
           const updated = s.courses.map((c) => ({ ...c, active: false }));
           return { courses: [...updated, { ...course, active: true }], activeCourse: course };
-        }),
+        });
+        // Sync serveur best-effort — ne bloque pas l'UI, texte extrait uniquement (pas le PDF)
+        const uid = get().userId;
+        if (uid) {
+          supabase.from('documents').upsert({
+            id: course.id,
+            user_id: uid,
+            name: course.name,
+            subject_name: course.subjectName,
+            file_name: course.fileName,
+            pages: course.pages,
+            content: course.content,
+            chunks: course.chunks,
+            language: course.language ?? null,
+            updated_at: new Date().toISOString(),
+          }).then(({ error }) => { if (error) console.log('[documents] upsert error:', error.message); });
+        }
+      },
       setCourseSummary: (id, summary) =>
         set((s) => ({
           courses: s.courses.map((c) => c.id === id ? { ...c, summary } : c),
@@ -196,29 +236,57 @@ export const useAppStore = create<AppStore>()(
           courses: s.courses.map((c) => c.id === id ? { ...c, language } : c),
           activeCourse: s.activeCourse?.id === id ? { ...s.activeCourse, language } : s.activeCourse,
         })),
-      removeCourse: (id) =>
+      removeCourse: (id) => {
         set((s) => {
           const filtered = s.courses.filter((c) => c.id !== id);
           const activeCourse = filtered.find((c) => c.active) || filtered[0] || null;
           return { courses: filtered, activeCourse };
-        }),
+        });
+        supabase.from('documents').delete().eq('id', id)
+          .then(({ error }) => { if (error) console.log('[documents] delete error:', error.message); });
+      },
+      hydrateCoursesFromSupabase: async () => {
+        const uid = get().userId;
+        if (!uid || get().courses.length > 0) return; // ne remplace pas des cours déjà présents localement
+        const { data, error } = await supabase.from('documents').select('*').eq('user_id', uid);
+        if (error) { console.log('[documents] hydrate error:', error.message); return; }
+        if (!data || data.length === 0) return;
+        const courses: Course[] = data.map((d: any, i: number) => ({
+          id: d.id,
+          name: d.name,
+          subjectName: d.subject_name ?? '',
+          fileName: d.file_name ?? '',
+          fileUri: '',
+          pages: d.pages ?? 1,
+          uploadedAt: new Date(d.created_at),
+          active: i === data.length - 1,
+          content: d.content,
+          chunks: d.chunks ?? [],
+          language: d.language ?? undefined,
+        }));
+        const fiches: Record<string, string> = {};
+        const ficheContentHash: Record<string, string> = {};
+        for (const d of data) {
+          if (d.fiche) {
+            fiches[`${d.id}_0`] = d.fiche;
+            if (d.fiche_hash) ficheContentHash[`${d.id}_0`] = d.fiche_hash;
+          }
+        }
+        set((s) => ({
+          courses,
+          activeCourse: courses[courses.length - 1] ?? null,
+          fiches: { ...fiches, ...s.fiches },
+          ficheContentHash: { ...ficheContentHash, ...s.ficheContentHash },
+        }));
+        console.log('[documents] hydraté depuis Supabase —', courses.length, 'document(s)');
+      },
       setActiveCourse: (id) =>
         set((s) => {
           if (s.activeCourse?.id === id) return {};
           const courses = s.courses.map((c) => ({ ...c, active: c.id === id }));
           const activeCourse = courses.find((c) => c.id === id) || null;
           // Auto-save current session then clear messages
-          let chatHistory = s.chatHistory;
-          if (s.currentMessages.length > 0 && s.activeCourse) {
-            const session: ChatSession = {
-              id: Date.now().toString(),
-              courseId: s.activeCourse.id,
-              courseName: s.activeCourse.name,
-              messages: [...s.currentMessages],
-              createdAt: new Date(),
-            };
-            chatHistory = [session, ...chatHistory].slice(0, 50);
-          }
+          const chatHistory = upsertSession(s.currentMessages, s.activeCourse, s.chatHistory);
           return { courses, activeCourse, currentMessages: [], chatHistory };
         }),
 
@@ -239,16 +307,7 @@ export const useAppStore = create<AppStore>()(
       },
       saveChatSession: () => {
         const { currentMessages, activeCourse, chatHistory } = get();
-        if (!activeCourse || currentMessages.length === 0) return;
-        const session: ChatSession = {
-          id: Date.now().toString(),
-          courseId: activeCourse.id,
-          courseName: activeCourse.name,
-          subjectName: activeCourse.subjectName,
-          messages: [...currentMessages],
-          createdAt: new Date(),
-        };
-        set({ chatHistory: [session, ...chatHistory].slice(0, 50) });
+        set({ chatHistory: upsertSession(currentMessages, activeCourse, chatHistory) });
       },
       setFeedback: (msgId, feedback) =>
         set((s) => ({

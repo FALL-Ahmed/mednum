@@ -24,33 +24,22 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore, Message, CourseChunk } from '../store';
 import { Colors, Typography, Spacing, Radius } from '../theme';
 import { SourceBadge, TypingIndicator, useTheme, Text, TextInput } from '../components';
 import { useT, useUiLang } from '../i18n';
-import { askRAG, askWithImage, transcribeAudio, generateSummary, extractPDFWithGemini, NiveauType, detecterMode, computeNiveau } from '../utils/rag';
+import { askRAG, askWithImage, transcribeAudio, generateSummary, extractPDFWithGemini, detecterMode, computeNiveau } from '../utils/rag';
 import { extractPDFText } from '../utils/pdfExtractor';
 import { getSubjectStyle, getProfessorName } from '../utils/subjectStyles';
-import { ProfessorAvatar } from '../components/ProfessorAvatar';
 import { supabase } from '../lib/supabase';
 
-// ─── Bubble ──────────────────────────────────────────────────────────────────
+const NAVY    = '#0B1E34';
+const TEAL    = '#07A997';
+const TEAL_BG = '#EAF7F6';
+const SERIF   = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 
-const PulseDot = React.memo(function PulseDot({ color }: { color: string }) {
-  const anim = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 0.2, duration: 600, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 1,   duration: 600, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-  return <Animated.View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, opacity: anim }} />;
-});
+// ─── Bubble ──────────────────────────────────────────────────────────────────
 
 const ChatBubble = React.memo(function ChatBubble({
   msg,
@@ -136,7 +125,7 @@ const ChatBubble = React.memo(function ChatBubble({
   return (
     <View style={styles.rowAI}>
       <View style={[styles.aiAvatar, { backgroundColor: lightColor }]}>
-        <Text style={{ fontSize: 14 }}>🎓</Text>
+        <Text style={{ fontSize: 14 }}>🩺</Text>
       </View>
       <View style={[styles.bubbleAI, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
         <Text style={[styles.bubbleAIText, { color: t.text }]}>{msg.content}</Text>
@@ -153,19 +142,6 @@ const ChatBubble = React.memo(function ChatBubble({
           </View>
         )}
         {msg.sources && msg.sources.length > 0 && <SourceBadge pages={msg.sources} />}
-        {msg.suggestions && msg.suggestions.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.suggRow}>
-            {msg.suggestions.map((q, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[styles.suggChip, { backgroundColor: lightColor, borderColor: accentColor }]}
-                onPress={() => onSuggestion(q)}
-              >
-                <Text style={[styles.suggText, { color: accentColor }]}>💡 {q}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
         <View style={styles.feedbackRow}>
           <TouchableOpacity
             onPress={() => onFeedback(msg.id, 'up')}
@@ -199,12 +175,12 @@ const ChatBubble = React.memo(function ChatBubble({
 
 // ─── Empty State ─────────────────────────────────────────────────────────────
 
-function EmptyState({ emoji, subjectName, courseName, accentColor, lightColor, t }: any) {
+function EmptyState({ subjectName, courseName, accentColor, lightColor, t }: any) {
   const tr = useT();
   return (
     <View style={styles.emptyState}>
       <View style={[styles.emptyEmojiWrap, { backgroundColor: lightColor }]}>
-        <Text style={styles.emptyEmoji}>{emoji}</Text>
+        <Text style={styles.emptyEmoji}>🩺</Text>
       </View>
       {courseName ? (
         <>
@@ -215,12 +191,7 @@ function EmptyState({ emoji, subjectName, courseName, accentColor, lightColor, t
           </Text>
         </>
       ) : (
-        <>
-          <Text style={[styles.emptyTitle, { color: t.text }]}>{tr.chat.emptyNoCourseTitle}</Text>
-          <Text style={[styles.emptySub, { color: t.textMuted }]}>
-            {tr.chat.emptyNoCourseSub}
-          </Text>
-        </>
+        <Text style={[styles.emptyTitle, { color: t.text }]}>{tr.chat.emptyNoCourseTitle}</Text>
       )}
     </View>
   );
@@ -244,6 +215,7 @@ export default function ChatScreen({ route }: any) {
   const tr = useT();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const { bottom } = useSafeAreaInsets();
 
   // Sauvegarde automatique quand l'élève quitte l'écran Chat
   useEffect(() => {
@@ -253,7 +225,6 @@ export default function ChatScreen({ route }: any) {
   }, [isFocused]);
   const [input, setInput] = useState(prefill || '');
   const [isOnline, setIsOnline] = useState(true);
-  const [showNoCourseModal, setShowNoCourseModal] = useState(false);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
   const [chapterSummaryTitle, setChapterSummaryTitle] = useState('');
@@ -267,11 +238,25 @@ export default function ChatScreen({ route }: any) {
   const [attachedPDF, setAttachedPDF] = useState<{ name: string; text: string } | null>(null);
   const [isPDFLoading, setIsPDFLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const headerAnim = useRef(new Animated.Value(1)).current;
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const tabBarClearance = isKeyboardVisible ? 8 : bottom + 88;
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingRef = useRef<Audio.Recording | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const listRef = useRef<FlatList>(null);
+  const micLevel = useRef(new Animated.Value(0)).current;
+  const ring1 = useRef(new Animated.Value(0)).current;
+  const ring2 = useRef(new Animated.Value(0)).current;
+  const ring1Loop = useRef<Animated.CompositeAnimation | null>(null);
+  const ring2Loop = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    ring1Loop.current?.stop();
+    ring2Loop.current?.stop();
+  }, []);
 
   const subjectStyle = getSubjectStyle(activeCourse?.subjectName || '');
 
@@ -290,6 +275,14 @@ export default function ChatScreen({ route }: any) {
     if (quotaDate !== today) syncQuota();
   }, []);
 
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subShow = Keyboard.addListener(showEvt, () => setIsKeyboardVisible(true));
+    const subHide = Keyboard.addListener(hideEvt, () => setIsKeyboardVisible(false));
+    return () => { subShow.remove(); subHide.remove(); };
+  }, []);
+
   // Re-fetche les chunks depuis Supabase à chaque ouverture du Chat (pick up admin edits)
   useEffect(() => {
     if (!activeCourse?.id) return;
@@ -306,6 +299,27 @@ export default function ChatScreen({ route }: any) {
   const scrollToBottom = () =>
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
+  const startRingLoops = () => {
+    ring1.setValue(0);
+    ring2.setValue(0);
+    ring1Loop.current = Animated.loop(
+      Animated.timing(ring1, { toValue: 1, duration: 1800, useNativeDriver: true })
+    );
+    ring2Loop.current = Animated.loop(
+      Animated.timing(ring2, { toValue: 1, duration: 1800, useNativeDriver: true, delay: 600 })
+    );
+    ring1Loop.current.start();
+    ring2Loop.current.start();
+  };
+
+  const stopRingLoops = () => {
+    ring1Loop.current?.stop();
+    ring2Loop.current?.stop();
+    ring1.setValue(0);
+    ring2.setValue(0);
+    micLevel.setValue(0);
+  };
+
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -314,33 +328,64 @@ export default function ChatScreen({ route }: any) {
         return;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      const { recording } = await Audio.Recording.createAsync(
+        { ...Audio.RecordingOptionsPresets.HIGH_QUALITY, isMeteringEnabled: true },
+        (status) => {
+          if (status.isRecording && typeof status.metering === 'number') {
+            const norm = Math.max(0, Math.min(1, (status.metering + 50) / 50));
+            Animated.timing(micLevel, { toValue: norm, duration: 120, useNativeDriver: true }).start();
+          }
+        },
+        80
+      );
       recordingRef.current = recording;
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
+      startRingLoops();
       setIsRecording(true);
     } catch {
       Alert.alert(tr.subject.error, tr.chat.recordErrorMsg);
     }
   };
 
-  const stopRecording = async () => {
-    if (!recordingRef.current) return;
+  const teardownRecording = async () => {
     setIsRecording(false);
+    stopRingLoops();
+    if (recordingTimerRef.current) { clearInterval(recordingTimerRef.current); recordingTimerRef.current = null; }
+    if (!recordingRef.current) return null;
     try {
       await recordingRef.current.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       const uri = recordingRef.current.getURI();
+      return uri;
+    } finally {
       recordingRef.current = null;
-      if (!uri) return;
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recordingRef.current) return;
+    try {
+      const uri = await teardownRecording();
+      if (!uri) {
+        Alert.alert(tr.chat.transcribeFailedTitle, tr.chat.transcribeFailedMsg);
+        return;
+      }
       setIsTranscribing(true);
       const text = await transcribeAudio(uri);
-      if (text) setInput(text);
+      if (text) {
+        setInput((prev: string) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+      } else {
+        Alert.alert(tr.chat.transcribeFailedTitle, tr.chat.transcribeFailedMsg);
+      }
     } catch {
       Alert.alert(tr.chat.transcribeFailedTitle, tr.chat.transcribeFailedMsg);
     } finally {
       setIsTranscribing(false);
-      recordingRef.current = null;
     }
   };
+
+  const cancelRecording = () => { teardownRecording(); };
 
   const toggleRecording = () => {
     if (isRecording) stopRecording();
@@ -459,15 +504,8 @@ export default function ChatScreen({ route }: any) {
 
   const handleAttach = () => setShowAttachSheet(true);
 
-  const collapseHeader = () =>
-    Animated.timing(headerAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start();
-
-  const expandHeader = () =>
-    Animated.timing(headerAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
-
   const sendMessage = async () => {
     Keyboard.dismiss();
-    expandHeader();
     const q = input.trim();
     if ((!q && !imageUri) || isLoading) return;
     if (isQuotaBlocked) return;
@@ -491,6 +529,7 @@ export default function ChatScreen({ route }: any) {
       setImageUri(null);
       setImageBase64(null);
       addMessage({ id: Date.now().toString(), role: 'user', content: displayContent, userImageUri: capturedUri!, timestamp: new Date() });
+      saveChatSession();
       setLoading(true);
       scrollToBottom();
       const result = await askWithImage(q, capturedBase64, computeNiveau(difficultyScore), studentName || undefined);
@@ -502,6 +541,7 @@ export default function ChatScreen({ route }: any) {
         suggestions: result.suggestions,
         timestamp: new Date(),
       });
+      saveChatSession();
       if (result.type === 'answer') addXP(15);
       setLoading(false);
       scrollToBottom();
@@ -509,7 +549,6 @@ export default function ChatScreen({ route }: any) {
     }
 
     if (!q || isLoading) return;
-    if (!activeCourse) { setShowNoCourseModal(true); return; }
 
     // PDF : capturé et vidé du chip — le contenu reste dans l'historique API via apiContent
     const capturedPDF = attachedPDF;
@@ -536,16 +575,17 @@ export default function ChatScreen({ route }: any) {
       pdfName: capturedPDF?.name,
       apiContent: capturedPDF ? questionWithPDF : undefined,
     });
+    saveChatSession();
     setLoading(true);
     scrollToBottom();
 
     const niveau = computeNiveau(difficultyScore, frustrated);
 
-    const chapterIdx = activeChapterIndex[activeCourse.id] ?? 0;
-    const activeChapterTitle = activeCourse.chunks?.[chapterIdx]?.title || undefined;
+    const chapterIdx = activeCourse ? (activeChapterIndex[activeCourse.id] ?? 0) : 0;
+    const activeChapterTitle = activeCourse?.chunks?.[chapterIdx]?.title || undefined;
 
     decrementQuota();
-    const result = await askRAG(questionWithPDF, activeCourse.content ?? '', activeCourse.name, currentMessages, niveau, activeCourse.chunks, studentName || undefined, activeCourse.id, hintLevel, frustrated, activeChapterTitle, activeCourse.subjectName, activeCourse.language);
+    const result = await askRAG(questionWithPDF, activeCourse?.content ?? '', activeCourse?.name ?? '', currentMessages, niveau, activeCourse?.chunks, studentName || undefined, activeCourse?.id, hintLevel, frustrated, activeChapterTitle, activeCourse?.subjectName, activeCourse?.language);
 
     if (result.type === 'quota_exceeded') {
       syncQuota();  // resync depuis le serveur
@@ -555,6 +595,7 @@ export default function ChatScreen({ route }: any) {
         content: tr.chat.quotaExceededMsg,
         timestamp: new Date(),
       });
+      saveChatSession();
       setLoading(false);
       scrollToBottom();
       return;
@@ -570,8 +611,9 @@ export default function ChatScreen({ route }: any) {
       hallucination: result.hallucination,
       timestamp: new Date(),
     });
-    if (result.type === 'answer' && activeCourse.id) {
-      trackConcept(activeCourse.id, result.topic || q);
+    saveChatSession();
+    if (result.type === 'answer') {
+      if (activeCourse?.id) trackConcept(activeCourse.id, result.topic || q);
       addXP(result.mode === 'exercice' ? 20 : result.mode === 'correction' ? 15 : 10);
       // Mise à jour du niveau adaptatif (IRT 2-Up/1-Down)
       if (frustrated) updateDifficulty('frustration');
@@ -622,101 +664,95 @@ export default function ChatScreen({ route }: any) {
   const renderItem = useCallback(({ item }: { item: Message }) => (
     <ChatBubble
       msg={item}
-      accentColor={subjectStyle.accent}
-      lightColor={subjectStyle.light}
-      bgColor={subjectStyle.bg}
+      accentColor={TEAL}
+      lightColor={TEAL_BG}
+      bgColor={NAVY}
       onFeedback={handleFeedback}
       onSuggestion={handleSuggestion}
       onSpeak={handleSpeak}
       isSpeaking={speakingMsgId === item.id}
     />
-  ), [handleFeedback, handleSuggestion, handleSpeak, speakingMsgId, subjectStyle]);
+  ), [handleFeedback, handleSuggestion, handleSpeak, speakingMsgId]);
 
   const hasContent = activeCourse?.content && activeCourse.content.trim().length > 50;
   // RTL uniquement piloté par la langue de l'interface (pas par la langue du cours).
   const courseIsAr = useUiLang() === 'ar';
 
   return (
-    <View style={[styles.root, { backgroundColor: t.bg }]}>
-      <StatusBar barStyle="light-content" backgroundColor={subjectStyle.bg} />
+    <View style={[styles.root, { backgroundColor: TEAL_BG }]}>
+      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
 
-      {/* ── Header (se replie quand l'input est focus) ── */}
-      <Animated.View style={[
-        styles.header,
-        { backgroundColor: subjectStyle.bg, overflow: 'hidden' },
-        { maxHeight: headerAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 280] }) },
-        { opacity: headerAnim },
-      ]}>
-        <SafeAreaView edges={['top']}>
-          <View style={[styles.headerTop, courseIsAr && { flexDirection: 'row-reverse' }]}>
-            {/* Course info */}
-            <View style={[styles.headerLeft, courseIsAr && { flexDirection: 'row-reverse' }]}>
-              <View style={styles.headerAvatarWrap}>
-                <ProfessorAvatar
-                  subjectName={activeCourse?.subjectName || ''}
-                  width={68}
-                  height={90}
-                  fallbackSize={58}
-                  animate={false}
+      {/* ── Header ── */}
+      <View style={styles.headerWrap}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: NAVY }}>
+          <View style={[styles.consultBar, courseIsAr && { flexDirection: 'row-reverse' }]}>
+            <Ionicons
+              name="medical-outline"
+              size={130}
+              color="rgba(255,255,255,0.05)"
+              style={[styles.consultWatermark, courseIsAr && { right: undefined, left: -24 }]}
+            />
+
+            <View style={[styles.consultLeft, courseIsAr && { flexDirection: 'row-reverse' }]}>
+              <View style={styles.consultAvatarWrap}>
+                <Image
+                  source={require('../../assets/dr_ahmed.png')}
+                  style={styles.consultAvatar}
+                  resizeMode="contain"
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.headerProfName}>
+                <Text style={styles.headerProfName} numberOfLines={1}>
                   {getProfessorName(activeCourse?.subjectName || '')}
                 </Text>
-                <Text style={styles.headerSubject}>
-                  {activeCourse?.subjectName || 'ProfNum'}
-                </Text>
+                <View style={[styles.consultStatusRow, courseIsAr && { flexDirection: 'row-reverse' }]}>
+                  <View style={styles.consultStatusDot} />
+                  <Text style={styles.consultStatusText} numberOfLines={1}>
+                    En ligne
+                  </Text>
+                </View>
+                {activeCourse?.name ? (
+                  <Text style={styles.consultCourseText} numberOfLines={1}>
+                    {activeCourse.name}
+                  </Text>
+                ) : null}
               </View>
             </View>
-            {/* Actions */}
-            <View style={[styles.headerBtns, courseIsAr && { flexDirection: 'row-reverse' }]}>
+
+            <View style={[styles.consultActions, courseIsAr && { flexDirection: 'row-reverse' }]}>
               {activeCourse && (activeCourse.chunks?.length > 0 || hasContent) && (
                 <TouchableOpacity
                   style={styles.iconBtn}
                   onPress={() => { setChapterSummaryTitle(''); setChapterSummaryContent(''); setShowChapters(true); }}
                 >
-                  <Ionicons name="list-outline" size={20} color="#fff" />
+                  <Ionicons name="list-outline" size={18} color="#fff" />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat}>
-                <Text style={styles.newChatText}>{tr.chat.newChat}</Text>
+              <TouchableOpacity style={styles.iconBtn} onPress={handleNewChat}>
+                <Ionicons name="add" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Chapitre actif + niveau */}
-          <View style={[styles.niveauRow, courseIsAr && { flexDirection: 'row-reverse' }]}>
-            {/* Badge chapitre actif */}
-            {activeCourse?.chunks?.length > 0 && (() => {
-              const chapterIdx = activeChapterIndex[activeCourse.id] ?? 0;
-              const chapterTitle = activeCourse.chunks?.[chapterIdx]?.title;
-              if (!chapterTitle) return null;
-              return (
-                <View style={[styles.niveauChip, { backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', flexShrink: 1 }]}>
-                  <Text style={[styles.niveauText, { color: '#fff', fontWeight: '700', flexShrink: 1 }]} numberOfLines={1}>
-                    {chapterTitle}
-                  </Text>
-                </View>
-              );
-            })()}
-            {/* Niveau */}
-            {(() => {
-              const niv = computeNiveau(difficultyScore);
-              const labels: Record<NiveauType, string> = { facile: tr.settings.levelBeginner, moyen: tr.settings.levelMedium, avance: tr.settings.levelAdvanced };
-              const chipColors: Record<NiveauType, string> = { facile: '#22C55E', moyen: '#3B82F6', avance: '#F59E0B' };
-              return (
-                <View style={[styles.niveauChip, { backgroundColor: chipColors[niv] + '30', borderWidth: 1, borderColor: chipColors[niv] + '60' }, courseIsAr && { flexDirection: 'row-reverse' }]}>
-                  <PulseDot color={chipColors[niv]} />
-                  <Text style={[styles.niveauText, { color: '#fff', fontWeight: '800' }]}>
-                    {labels[niv]}
-                  </Text>
-                </View>
-              );
-            })()}
-          </View>
         </SafeAreaView>
-      </Animated.View>
+      </View>
+
+      {(plan === 'freemium' || plan === 'trial') && (
+        <TouchableOpacity style={styles.upgradeStrip} onPress={() => navigation.navigate('Subscription')} activeOpacity={0.9}>
+          <View style={styles.upgradeHalo} />
+          <View style={{ flex: 1 }}>
+            <View style={styles.upgradeBadge}>
+              <Ionicons name={plan === 'trial' ? 'gift-outline' : 'sparkles'} size={11} color={TEAL} />
+              <Text style={styles.upgradeBadgeText}>{plan === 'trial' ? 'Essai gratuit' : 'Freemium'}</Text>
+            </View>
+            <Text style={styles.upgradeStripTitle}>
+              {quotaRemaining} message{quotaRemaining > 1 ? 's' : ''} restant{quotaRemaining > 1 ? 's' : ''} aujourd'hui
+            </Text>
+          </View>
+          <View style={styles.upgradeStripBtn}>
+            <Text style={styles.upgradeStripBtnText}>S'abonner</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -731,8 +767,8 @@ export default function ChatScreen({ route }: any) {
                 emoji={subjectStyle.emoji}
                 subjectName={activeCourse?.subjectName}
                 courseName={activeCourse?.name}
-                accentColor={subjectStyle.accent}
-                lightColor={subjectStyle.light}
+                accentColor={TEAL}
+                lightColor={TEAL_BG}
                 t={t}
               />
             </View>
@@ -750,8 +786,8 @@ export default function ChatScreen({ route }: any) {
             onTouchStart={() => Keyboard.dismiss()}
             ListFooterComponent={isLoading ? (
               <View style={styles.typingWrap}>
-                <View style={[styles.aiAvatar, { backgroundColor: subjectStyle.light }]}>
-                  <Text style={{ fontSize: 14 }}>🎓</Text>
+                <View style={[styles.aiAvatar, { backgroundColor: TEAL_BG }]}>
+                  <Text style={{ fontSize: 14 }}>🩺</Text>
                 </View>
                 <View style={[styles.typingBubble, { backgroundColor: t.surfaceAlt, borderColor: t.border }]}>
                   <TypingIndicator />
@@ -782,7 +818,7 @@ export default function ChatScreen({ route }: any) {
             )}
             {attachedPDF && (
               <View style={[styles.attachChip, styles.attachChipFile, { borderColor: t.border }]}>
-                <View style={[styles.attachFileIconWrap, { backgroundColor: Colors.blueLight }]}>
+                <View style={[styles.attachFileIconWrap, { backgroundColor: TEAL_BG }]}>
                   <Text style={{ fontSize: 18 }}>📄</Text>
                 </View>
                 <Text style={[styles.attachFileName, { color: t.text }]} numberOfLines={1}>
@@ -799,42 +835,10 @@ export default function ChatScreen({ route }: any) {
           </ScrollView>
         )}
 
-        {/* Bannière quota — uniquement quand il reste des messages */}
-        {!isQuotaBlocked && (plan === 'freemium' || plan === 'trial') ? (
-          /* ── AVERTISSEMENT : une ligne colorée, compact ── */
-          <TouchableOpacity
-            style={[
-              styles.quotaWarnBar,
-              quotaRemaining <= 1
-                ? { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }
-                : quotaRemaining <= 3
-                  ? { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }
-                  : { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' },
-            ]}
-            onPress={() => navigation.navigate('Subscription')}
-            activeOpacity={0.85}
-          >
-            <Ionicons
-              name={plan === 'trial' ? 'gift-outline' : 'chatbubble-outline'}
-              size={13}
-              color={quotaRemaining <= 1 ? '#DC2626' : quotaRemaining <= 3 ? '#D97706' : '#16A34A'}
-            />
-            <Text style={[
-              styles.quotaWarnBarText,
-              { color: quotaRemaining <= 1 ? '#991B1B' : quotaRemaining <= 3 ? '#92400E' : '#166534' },
-            ]} numberOfLines={1}>
-              {quotaRemaining}/{quotaLimit} {tr.chat.messagesRemaining}
-            </Text>
-            <View style={[styles.quotaWarnDots, { backgroundColor: quotaRemaining <= 1 ? '#DC2626' : quotaRemaining <= 3 ? '#D97706' : '#16A34A' }]}>
-              <Text style={styles.quotaWarnDotsText}>{quotaRemaining}</Text>
-            </View>
-          </TouchableOpacity>
-        ) : null}
-
 
         {/* Input Bar — ou zone de blocage si quota atteint */}
         {isQuotaBlocked ? (
-          <View style={[styles.quotaLockedZone, { backgroundColor: t.surface, borderTopColor: t.border }]}>
+          <View style={[styles.quotaLockedZone, { backgroundColor: t.surface, paddingBottom: tabBarClearance }]}>
             <Ionicons name="lock-closed" size={22} color="#9CA3AF" />
             <View style={{ flex: 1 }}>
               <Text style={[styles.quotaLockedTitle, { color: t.text }]}>
@@ -846,7 +850,7 @@ export default function ChatScreen({ route }: any) {
             </View>
             {plan === 'freemium' && (
               <TouchableOpacity
-                style={[styles.quotaLockedBtn, { backgroundColor: subjectStyle.bg }]}
+                style={[styles.quotaLockedBtn, { backgroundColor: NAVY }]}
                 onPress={() => navigation.navigate('Subscription')}
                 activeOpacity={0.88}
               >
@@ -855,55 +859,59 @@ export default function ChatScreen({ route }: any) {
             )}
           </View>
         ) : (
-          <View style={[styles.inputBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
-            <TouchableOpacity
-              style={[styles.attachBtn, { backgroundColor: isPDFLoading ? Colors.blueLight : 'transparent' }]}
-              onPress={handleAttach}
-              activeOpacity={0.7}
-              disabled={isPDFLoading}
-            >
-              {isPDFLoading
-                ? <ActivityIndicator size="small" color={Colors.blue} />
-                : <Ionicons name="attach" size={20} color="#6B7280" />
-              }
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.micBtn, isRecording && styles.micBtnActive]}
-              onPress={toggleRecording}
-              activeOpacity={0.7}
-              disabled={isTranscribing}
-            >
-              {isTranscribing
-                ? <ActivityIndicator size="small" color={Colors.blue} />
-                : <Ionicons name={isRecording ? 'stop' : 'mic'} size={20} color={isRecording ? Colors.error : '#6B7280'} />
-              }
-            </TouchableOpacity>
-            <TextInput
-              style={[styles.input, { backgroundColor: t.bg, color: t.text, borderColor: t.border }]}
-              placeholder={tr.chat.inputPlaceholder}
-              placeholderTextColor={t.textMuted}
-              value={input}
-              onChangeText={setInput}
-              onFocus={collapseHeader}
-              onBlur={expandHeader}
-              multiline
-              maxLength={500}
-              returnKeyType="send"
-              onSubmitEditing={sendMessage}
-              blurOnSubmit
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendBtn,
-                { backgroundColor: subjectStyle.bg },
-                ((!input.trim() && !imageUri) || isLoading) && { opacity: 0.35 },
-              ]}
-              onPress={sendMessage}
-              disabled={(!input.trim() && !imageUri) || isLoading}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-up" size={20} color="#fff" />
-            </TouchableOpacity>
+          <View style={[styles.inputBar, { backgroundColor: TEAL_BG, paddingBottom: tabBarClearance }]}>
+            <View style={styles.inputCard}>
+              <TextInput
+                style={[styles.input, { color: t.text }]}
+                placeholder={tr.chat.inputPlaceholder}
+                placeholderTextColor={t.textMuted}
+                value={input}
+                onChangeText={setInput}
+                multiline
+                maxLength={500}
+                returnKeyType="send"
+                onSubmitEditing={sendMessage}
+                blurOnSubmit
+              />
+              <View style={styles.inputToolsRow}>
+                <View style={styles.inputToolsLeft}>
+                  <TouchableOpacity
+                    style={styles.attachBtn}
+                    onPress={handleAttach}
+                    activeOpacity={0.7}
+                    disabled={isPDFLoading}
+                  >
+                    {isPDFLoading
+                      ? <ActivityIndicator size="small" color={TEAL} />
+                      : <Ionicons name="attach" size={19} color={TEAL} />
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.micBtn, isRecording && styles.micBtnActive]}
+                    onPress={toggleRecording}
+                    activeOpacity={0.7}
+                    disabled={isTranscribing}
+                  >
+                    {isTranscribing
+                      ? <ActivityIndicator size="small" color={TEAL} />
+                      : <Ionicons name={isRecording ? 'stop' : 'mic'} size={19} color={isRecording ? Colors.error : TEAL} />
+                    }
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.sendBtn,
+                    { backgroundColor: NAVY },
+                    ((!input.trim() && !imageUri) || isLoading) && { opacity: 0.35 },
+                  ]}
+                  onPress={sendMessage}
+                  disabled={(!input.trim() && !imageUri) || isLoading}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-up" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -911,7 +919,7 @@ export default function ChatScreen({ route }: any) {
       {/* Modal Chapitres + Résumé par chapitre */}
       <Modal visible={showChapters} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={[styles.summaryRoot, { backgroundColor: t.bg }]}>
-          <View style={[styles.summaryHeader, { backgroundColor: subjectStyle.bg }]}>
+          <View style={[styles.summaryHeader, { backgroundColor: NAVY }]}>
             <View style={styles.summaryHeaderLeft}>
               {chapterSummaryTitle ? (
                 <TouchableOpacity
@@ -947,7 +955,7 @@ export default function ChatScreen({ route }: any) {
             <ScrollView contentContainerStyle={styles.summaryBody} showsVerticalScrollIndicator={false}>
               {chapterSummaryLoading ? (
                 <View style={styles.summaryLoading}>
-                  <Ionicons name="hourglass-outline" size={36} color={subjectStyle.accent} style={{ marginBottom: 16 }} />
+                  <Ionicons name="hourglass-outline" size={36} color={TEAL} style={{ marginBottom: 16 }} />
                   <Text style={[styles.summaryLoadingText, { color: t.text }]}>
                     {tr.chat.aiReading}
                   </Text>
@@ -961,7 +969,7 @@ export default function ChatScreen({ route }: any) {
                   const isTitle = /^[🎯📌💡❓🔑🗺️⚠️🧠]/.test(line.trim());
                   return (
                     <Text key={i} style={isTitle
-                      ? [styles.summaryTitle, { color: subjectStyle.bg }]
+                      ? [styles.summaryTitle, { color: NAVY }]
                       : [styles.summaryLine, { color: t.text }]
                     }>{line}</Text>
                   );
@@ -979,8 +987,8 @@ export default function ChatScreen({ route }: any) {
                   key={i}
                   style={[styles.chapterItem, { backgroundColor: t.surface, borderColor: t.border }]}
                 >
-                  <View style={[styles.chapterNum, { backgroundColor: subjectStyle.light }]}>
-                    <Text style={[styles.chapterNumText, { color: subjectStyle.bg }]}>{i + 1}</Text>
+                  <View style={[styles.chapterNum, { backgroundColor: TEAL_BG }]}>
+                    <Text style={[styles.chapterNumText, { color: TEAL }]}>{i + 1}</Text>
                   </View>
                   <TouchableOpacity
                     style={{ flex: 1 }}
@@ -990,11 +998,11 @@ export default function ChatScreen({ route }: any) {
                     <Text style={[styles.chapterTitle, { color: t.text }]}>{chunk.title}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.chapterSummaryBtn, { backgroundColor: subjectStyle.light }]}
+                    style={[styles.chapterSummaryBtn, { backgroundColor: TEAL_BG }]}
                     onPress={() => handleChapterSummary(chunk)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="document-text-outline" size={17} color={subjectStyle.bg} />
+                    <Ionicons name="document-text-outline" size={17} color={TEAL} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -1016,32 +1024,8 @@ export default function ChatScreen({ route }: any) {
             <TouchableOpacity style={styles.previewBtnCancel} onPress={cancelImage}>
               <Text style={styles.previewBtnCancelText}>{tr.chat.retakePhoto}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.previewBtnConfirm, { backgroundColor: subjectStyle.bg }]} onPress={confirmImage}>
+            <TouchableOpacity style={[styles.previewBtnConfirm, { backgroundColor: NAVY }]} onPress={confirmImage}>
               <Text style={styles.previewBtnConfirmText}>{tr.chat.usePhoto}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal no course */}
-      <Modal visible={showNoCourseModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: t.surface }]}>
-            <Text style={styles.modalEmoji}>📚</Text>
-            <Text style={[styles.modalTitle, { color: t.text }]}>{tr.chat.noCourseModalTitle}</Text>
-            <Text style={[styles.modalSub, { color: t.textMuted }]}>
-              {tr.chat.noCourseModalSubPrefix}{' '}
-              <Text style={{ fontWeight: '700', color: Colors.blue }}>{tr.chat.coursesTabName}</Text>{' '}
-              {tr.chat.noCourseModalSubSuffix}
-            </Text>
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: Colors.blue }]}
-              onPress={() => { setShowNoCourseModal(false); navigation.navigate('Cours'); }}
-            >
-              <Text style={styles.modalBtnText}>{tr.chat.pickSubjectArrow}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowNoCourseModal(false)} style={{ paddingVertical: 8 }}>
-              <Text style={[{ fontSize: 14 }, { color: t.textMuted }]}>{tr.common.close}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1065,8 +1049,8 @@ export default function ChatScreen({ route }: any) {
                 onPress={() => { setShowAttachSheet(false); action(); }}
                 activeOpacity={0.7}
               >
-                <View style={[styles.sheetIconWrap, { backgroundColor: t.surfaceAlt }]}>
-                  <Ionicons name={icon} size={22} color={t.text} />
+                <View style={[styles.sheetIconWrap, { backgroundColor: TEAL_BG }]}>
+                  <Ionicons name={icon} size={22} color={TEAL} />
                 </View>
                 <Text style={[styles.sheetOptionText, { color: t.text }]}>{label}</Text>
                 <Ionicons name="chevron-forward" size={16} color={t.textMuted} />
@@ -1075,6 +1059,52 @@ export default function ChatScreen({ route }: any) {
             <TouchableOpacity style={[styles.sheetCancel, { backgroundColor: t.surfaceAlt }]} onPress={() => setShowAttachSheet(false)}>
               <Text style={[styles.sheetCancelText, { color: t.text }]}>{tr.common.cancel}</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ── Overlay enregistrement vocal ── */}
+      {(isRecording || isTranscribing) && (
+        <View style={StyleSheet.absoluteFill}>
+          <View style={styles.recOverlay}>
+            {isTranscribing ? (
+              <>
+                <ActivityIndicator size="large" color={TEAL} />
+                <Text style={styles.recLabel}>Transcription en cours…</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.recRingWrap}>
+                  <Animated.View style={[styles.recRing, {
+                    opacity: ring1.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+                    transform: [{ scale: ring1.interpolate({ inputRange: [0, 1], outputRange: [1, 2.3] }) }],
+                  }]} />
+                  <Animated.View style={[styles.recRing, {
+                    opacity: ring2.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+                    transform: [{ scale: ring2.interpolate({ inputRange: [0, 1], outputRange: [1, 2.3] }) }],
+                  }]} />
+                  <Animated.View style={[styles.recCore, {
+                    transform: [{ scale: micLevel.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) }],
+                  }]}>
+                    <Ionicons name="mic" size={30} color="#fff" />
+                  </Animated.View>
+                </View>
+
+                <Text style={styles.recTimer}>
+                  {`${Math.floor(recordingSeconds / 60)}:${String(recordingSeconds % 60).padStart(2, '0')}`}
+                </Text>
+                <Text style={styles.recLabel}>Je t'écoute…</Text>
+
+                <View style={styles.recActionsRow}>
+                  <TouchableOpacity style={styles.recCancelBtn} onPress={cancelRecording} activeOpacity={0.8}>
+                    <Ionicons name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.recConfirmBtn} onPress={stopRecording} activeOpacity={0.85}>
+                    <Ionicons name="checkmark" size={26} color={NAVY} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       )}
@@ -1087,43 +1117,42 @@ export default function ChatScreen({ route }: any) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* Header */
-  header: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+  /* Header — bandeau consultation */
+  headerWrap: {
+    overflow: 'hidden',
+  },
+  consultBar: {
+    backgroundColor: NAVY,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-  },
-  headerTop: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Spacing.sm,
-    marginBottom: Spacing.md,
+    overflow: 'hidden',
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  headerAvatarWrap: {
-    width: 72, height: 94,
-    justifyContent: 'flex-end', alignItems: 'center',
+  consultWatermark: {
+    position: 'absolute', top: -20, right: -24,
+  },
+  consultLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  consultAvatarWrap: {
+    position: 'relative', width: 46, height: 60,
+    borderRadius: 15, overflow: 'hidden',
+    backgroundColor: TEAL_BG,
+    borderWidth: 2, borderColor: TEAL,
+  },
+  consultAvatar: {
+    width: '100%', height: '100%',
   },
   headerProfName: {
-    fontSize: 18, fontWeight: '900', color: '#fff', letterSpacing: -0.4,
-    textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+    fontFamily: SERIF, fontSize: 19, color: '#fff', letterSpacing: -0.3,
   },
-  headerSubject: {
-    fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.75)',
-    letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 3,
-  },
-  headerCourseName: {
-    fontSize: 15, fontWeight: '700', color: '#fff', marginTop: 1,
-  },
-  newChatBtn: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-  },
-  newChatText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  consultStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  consultStatusDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: TEAL },
+  consultStatusText: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.65)', flexShrink: 1 },
+  consultCourseText: { fontSize: 11, fontWeight: '600', color: TEAL, marginTop: 2 },
+  consultActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
   /* Hors ligne */
   offlineBanner: {
@@ -1147,43 +1176,17 @@ const styles = StyleSheet.create({
   /* Quota — zone de blocage (remplace toute la barre de saisie) */
   quotaLockedZone: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 16, paddingVertical: 14,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 16, paddingTop: 14,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12 },
+      android: { elevation: 10 },
+    }),
   },
   quotaLockedTitle:   { fontSize: 13, fontWeight: '700', marginBottom: 2 },
   quotaLockedSub:     { fontSize: 11, lineHeight: 16 },
   quotaLockedBtn:     { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, flexShrink: 0 },
   quotaLockedBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-
-  /* Quota — ligne bloquée (une seule ligne, fond rouge) */
-  quotaBlockedBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 14, paddingVertical: 8,
-  },
-  quotaBlockedBarText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#fff' },
-  quotaBlockedPill:    { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  quotaBlockedPillText:{ color: '#fff', fontSize: 11, fontWeight: '700' },
-
-  /* Quota — ligne avertissement (une seule ligne, colorée) */
-  quotaWarnBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    borderTopWidth: 1, borderBottomWidth: 1,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
-  quotaWarnBarText: { flex: 1, fontSize: 12, fontWeight: '500' },
-  quotaWarnDots:    { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, flexShrink: 0 },
-  quotaWarnDotsText:{ color: '#fff', fontSize: 11, fontWeight: '800' },
-
-  /* Niveau */
-  niveauRow: { flexDirection: 'row', gap: 6 },
-  niveauChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: Radius.full,
-    paddingHorizontal: 14, paddingVertical: 6,
-  },
-
-  niveauText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
 
   /* Messages */
   listContent: { paddingVertical: Spacing.lg, paddingHorizontal: Spacing.md },
@@ -1199,6 +1202,10 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderBottomRightRadius: 4,
     paddingHorizontal: Spacing.md, paddingVertical: 10,
     maxWidth: '78%',
+    ...Platform.select({
+      ios:     { shadowColor: NAVY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 10 },
+      android: { elevation: 3 },
+    }),
   },
   bubbleUserText: { fontSize: 15, color: '#fff', lineHeight: 22 },
   bubblePDFBadge: {
@@ -1218,6 +1225,10 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     paddingHorizontal: Spacing.md, paddingVertical: 10,
     maxWidth: '78%', flex: 1,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 1 },
+    }),
   },
   bubbleAIText: { fontSize: 15, lineHeight: 22 },
 
@@ -1276,24 +1287,39 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyEmoji: { fontSize: 40 },
-  emptyTitle: { ...Typography.h3, textAlign: 'center' },
+  emptyTitle: { ...Typography.h3, fontFamily: SERIF, textAlign: 'center' },
   emptyCourse: { fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
-  emptySub: { fontSize: 14, textAlign: 'center', lineHeight: 20, fontWeight: '600' },
   emptyHint: { fontSize: 13, textAlign: 'center', lineHeight: 20, marginTop: 4 },
 
   /* Input */
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: Spacing.md, paddingVertical: 10,
-    borderTopWidth: 0.5, gap: 8,
+    paddingHorizontal: Spacing.md, paddingTop: 12,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.06, shadowRadius: 12 },
+      android: { elevation: 10 },
+    }),
+  },
+  inputCard: {
+    borderRadius: 22,
+    paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
+    backgroundColor: '#fff',
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 1 },
+    }),
   },
   input: {
-    flex: 1, borderRadius: 20, borderWidth: 0.5,
-    paddingHorizontal: 16, paddingVertical: 10,
-    fontSize: 15, maxHeight: 100, minHeight: 44,
+    fontSize: 15, lineHeight: 20, maxHeight: 90, minHeight: 22,
+    paddingHorizontal: 0, paddingVertical: 0,
   },
+  inputToolsRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  inputToolsLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center',
   },
   dismissBtn: {
@@ -1305,14 +1331,14 @@ const styles = StyleSheet.create({
 
   /* Bouton + */
   attachBtn: {
-    width: 40, height: 40, borderRadius: 12,
+    width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: TEAL_BG,
   },
   micBtn: {
-    width: 40, height: 40, borderRadius: 12,
+    width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: TEAL_BG,
   },
   micBtnActive: {
     backgroundColor: '#FEE2E2', borderWidth: 1.5, borderColor: Colors.error,
@@ -1365,14 +1391,37 @@ const styles = StyleSheet.create({
   previewBtnConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   /* Header buttons */
-  headerBtns: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   iconBtn: {
-    width: 36, height: 36, borderRadius: 12,
+    width: 34, height: 34, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  iconBtnText: { fontSize: 18 },
+  upgradeStrip: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: NAVY,
+    borderRadius: 18,
+    marginHorizontal: Spacing.lg, marginTop: 12,
+    padding: 14,
+    overflow: 'hidden',
+  },
+  upgradeHalo: {
+    position: 'absolute', width: 100, height: 100, borderRadius: 50,
+    backgroundColor: 'rgba(7,169,151,0.16)', top: -40, right: -30,
+  },
+  upgradeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+    alignSelf: 'flex-start', marginBottom: 6,
+  },
+  upgradeBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  upgradeStripTitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  upgradeStripBtn: {
+    backgroundColor: '#fff', borderRadius: Radius.full,
+    paddingHorizontal: 14, paddingVertical: 9,
+  },
+  upgradeStripBtnText: { fontSize: 12, fontWeight: '800', color: NAVY },
 
   /* Summary modal */
   summaryRoot: { flex: 1 },
@@ -1383,7 +1432,7 @@ const styles = StyleSheet.create({
   summaryHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   summaryHeaderEmoji: { fontSize: 28 },
   summaryHeaderLabel: {
-    fontSize: 18, fontWeight: '800', color: '#fff',
+    fontFamily: SERIF, fontSize: 19, color: '#fff',
     letterSpacing: -0.3,
   },
   summaryHeaderCourse: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 3 },
@@ -1416,33 +1465,57 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
 
-  /* Modal */
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center', padding: 32,
-  },
-  modalBox: {
-    borderRadius: 24, padding: 28, alignItems: 'center', width: '100%',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2, shadowRadius: 24, elevation: 12,
-  },
   /* Attach bottom sheet */
   sheetOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheetContainer:   { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12 },
   sheetHandle:      { width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB', alignSelf: 'center', marginBottom: 16 },
-  sheetTitle:       { fontSize: 16, fontWeight: '700', marginBottom: 16, letterSpacing: -0.2 },
+  sheetTitle:       { fontFamily: SERIF, fontSize: 17, marginBottom: 16, letterSpacing: -0.2 },
   sheetOption:      { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   sheetIconWrap:    { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   sheetOptionText:  { flex: 1, fontSize: 15, fontWeight: '500' },
   sheetCancel:      { marginTop: 14, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   sheetCancelText:  { fontSize: 15, fontWeight: '600' },
 
-  modalEmoji: { fontSize: 52, marginBottom: 16 },
-  modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8, letterSpacing: -0.3 },
-  modalSub: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  modalBtn: {
-    borderRadius: Radius.lg, paddingVertical: 14, paddingHorizontal: 28,
-    width: '100%', alignItems: 'center', marginBottom: 12,
+  /* Overlay enregistrement vocal */
+  recOverlay: {
+    flex: 1, backgroundColor: 'rgba(11,30,52,0.94)',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  modalBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  recRingWrap: {
+    width: 120, height: 120, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+  },
+  recRing: {
+    position: 'absolute', width: 80, height: 80, borderRadius: 40,
+    backgroundColor: TEAL,
+  },
+  recCore: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: TEAL,
+    alignItems: 'center', justifyContent: 'center',
+    ...Platform.select({
+      ios:     { shadowColor: TEAL, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 16 },
+      android: { elevation: 8 },
+    }),
+  },
+  recTimer: {
+    fontFamily: SERIF, fontSize: 24, color: '#fff', letterSpacing: 1,
+  },
+  recLabel: {
+    fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.6)', marginTop: 2,
+  },
+  recActionsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 28,
+    marginTop: 36,
+  },
+  recCancelBtn: {
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  recConfirmBtn: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

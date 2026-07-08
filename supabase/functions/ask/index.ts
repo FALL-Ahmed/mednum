@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const DEFAULT_MODEL     = 'claude-haiku-4-5-20251001'
-const MAX_TOKENS_CAP    = 2048
+const MAX_TOKENS_CAP    = 4096
 
 const corsHeaders = {
   'Access-Control-Allow-Origin':  '*',

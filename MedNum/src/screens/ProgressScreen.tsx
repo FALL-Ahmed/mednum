@@ -13,6 +13,10 @@ import { useT, useUiLang } from '../i18n';
 import type { TranslationShape } from '../i18n';
 import { getSubjectStyle, getProfessorName } from '../utils/subjectStyles';
 
+const NAVY  = '#0B1E34';
+const TEAL  = '#07A997';
+const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getWeekStart() {
@@ -33,49 +37,6 @@ function insightMessage(count: number, tr: TranslationShape): string {
   if (count <= 4) return `${count}× ${tr.progress.insight2}`;
   return `${count}× ${tr.progress.insight3}`;
 }
-
-// ── Calendrier scolaire mauritanien ──────────────────────────────────────────
-// Mois : 0=Jan … 11=Déc
-const SCHOOL_CALENDAR = [
-  { trimestre: 'T1', labelKey: 'devoir1' as const,     month: 10, type: 'devoir'      }, // Novembre
-  { trimestre: 'T1', labelKey: 'devoir2' as const,     month: 11, type: 'devoir'      }, // Décembre
-  { trimestre: 'T1', labelKey: 'composition' as const, month: 11, type: 'composition' }, // Fin Décembre
-  { trimestre: 'T2', labelKey: 'devoir1' as const,     month: 1,  type: 'devoir'      }, // Février
-  { trimestre: 'T2', labelKey: 'devoir2' as const,     month: 2,  type: 'devoir'      }, // Mars
-  { trimestre: 'T2', labelKey: 'composition' as const, month: 2,  type: 'composition' }, // Fin Mars
-  { trimestre: 'T3', labelKey: 'devoir1' as const,     month: 3,  type: 'devoir'      }, // Avril
-  { trimestre: 'T3', labelKey: 'devoir2' as const,     month: 4,  type: 'devoir'      }, // Mai
-  { trimestre: 'T3', labelKey: 'composition' as const, month: 5,  type: 'composition' }, // Juin
-];
-
-const MONTHS_FR = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
-const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-
-function getNextExam(tr: TranslationShape, lang: 'fr' | 'ar') {
-  const now = new Date();
-  let nearest: typeof SCHOOL_CALENDAR[0] | null = null;
-  let nearestDate: Date | null = null;
-
-  for (const ev of SCHOOL_CALENDAR) {
-    const day = ev.type === 'composition' ? 14 : 10;
-    for (const yearOffset of [0, 1]) {
-      const evDate = new Date(now.getFullYear() + yearOffset, ev.month, day);
-      if (evDate > now) {
-        if (!nearestDate || evDate < nearestDate) {
-          nearestDate = evDate;
-          nearest = ev;
-        }
-        break;
-      }
-    }
-  }
-
-  if (!nearest || !nearestDate) return null;
-  const daysLeft = Math.ceil((nearestDate.getTime() - now.getTime()) / 86400000);
-  const months = lang === 'ar' ? MONTHS_AR : MONTHS_FR;
-  return { ...nearest, label: tr.progress[nearest.labelKey], daysLeft, monthLabel: months[nearest.month] };
-}
-
 
 function chapterStatus(score: number, tr: TranslationShape): { label: string; color: string; bg: string } {
   if (score >= 70) return { label: tr.progress.statusMastered,   color: '#10B981', bg: '#10B98118' };
@@ -105,12 +66,11 @@ function PulseDot({ color }: { color: string }) {
 
 export default function ProgressScreen() {
   const navigation = useNavigation<any>();
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const t = useTheme();
   const tr = useT();
-  const uiLang = useUiLang();
   const {
-    studentName, courses, activeCourse, conceptHistory,
+    courses, activeCourse, conceptHistory,
     chapterMastery, streakCurrent, streakLastDate, xpToday, dailyGoal, activeChapterIndex, setActiveChapterIndex,
     quotaUsed, quotaLimit, plan, trialEndsAt,
   } = useAppStore();
@@ -162,8 +122,8 @@ export default function ProgressScreen() {
 
   const subjectStyle = getSubjectStyle(activeCourse?.subjectName ?? '');
   const profName     = getProfessorName(activeCourse?.subjectName ?? '');
-  const bg           = subjectStyle.bg;
-  const accent       = subjectStyle.accent;
+  const bg           = NAVY;
+  const accent       = TEAL;
   // RTL uniquement piloté par la langue de l'interface (pas par la langue du cours).
   const courseIsAr   = useUiLang() === 'ar';
 
@@ -203,32 +163,9 @@ export default function ProgressScreen() {
     const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
     if (days === 0) return { label: tr.progress.today, hint: null, color: subjectAccent };
     if (days === 1) return { label: tr.progress.yesterday, hint: null, color: subjectAccent };
-
-    // Calcule le prochain examen pour contextualiser le message
-    const nextExam = getNextExam(tr, uiLang);
-    let daysToExam: number | null = null;
-    let examLabel = '';
-    if (nextExam) {
-      const examDate = new Date(new Date().getFullYear(), nextExam.month, nextExam.type === 'composition' ? 14 : 10);
-      daysToExam = Math.ceil((examDate.getTime() - Date.now()) / 86400000);
-      examLabel = nextExam.type === 'composition' ? tr.progress.theComposition : nextExam.label.toLowerCase();
-    }
-
-    if (days <= 3) {
-      if (daysToExam !== null && daysToExam <= 5)
-        return { label: `${tr.progress.daysAgo} ${days} ${tr.progress.daysAgoSuffix}`, hint: `${examLabel} ${tr.progress.examSoonContinue} ${daysToExam} ${tr.progress.examSoonContinueSuffix}`, color: '#D97706' };
-      return { label: `${tr.progress.daysAgo} ${days} ${tr.progress.daysAgoSuffix}`, hint: null, color: '#9CA3AF' };
-    }
-    if (days <= 7) {
-      if (daysToExam !== null && daysToExam <= 7)
-        return { label: `${tr.progress.daysAgo} ${days} ${tr.progress.daysAgoSuffix}`, hint: `${examLabel} ${tr.progress.examSoonRevise} ${daysToExam} ${tr.progress.examSoonReviseSuffix}`, color: '#DC2626' };
-      return { label: `${tr.progress.daysAgo} ${days} ${tr.progress.daysAgoSuffix}`, hint: tr.progress.dontNeglect, color: '#D97706' };
-    }
-    if (days <= 14) {
-      if (daysToExam !== null && daysToExam <= 14)
-        return { label: tr.progress.oneWeekAgo, hint: `${examLabel} ${tr.progress.examApproaching}`, color: '#DC2626' };
-      return { label: tr.progress.oneWeekAgo, hint: tr.progress.fallingBehind, color: '#9CA3AF' };
-    }
+    if (days <= 3)  return { label: `${tr.progress.daysAgo} ${days} ${tr.progress.daysAgoSuffix}`, hint: null, color: '#9CA3AF' };
+    if (days <= 7)  return { label: `${tr.progress.daysAgo} ${days} ${tr.progress.daysAgoSuffix}`, hint: tr.progress.dontNeglect, color: '#D97706' };
+    if (days <= 14) return { label: tr.progress.oneWeekAgo, hint: tr.progress.fallingBehind, color: '#9CA3AF' };
     return { label: tr.progress.longAgo, hint: tr.progress.resumeRevisions, color: '#9CA3AF' };
   }
 
@@ -296,64 +233,50 @@ export default function ProgressScreen() {
         <View style={s.hBubble1} />
         <View style={s.hBubble2} />
         <View style={[s.headerRow, courseIsAr && { flexDirection: 'row-reverse' }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.headerLabel}>{activeCourse?.subjectName?.toUpperCase() || tr.progress.myProgressFallback}</Text>
-            <Text style={s.headerTitle}>{studentName || tr.settings.defaultStudentName}</Text>
-          </View>
-          <View style={s.streakBox}>
+          <Text style={s.headerTitle}>{tr.progress.headerTitle}</Text>
+          <View style={s.streakPill}>
+            <Animated.View style={{ opacity: effectiveStreak >= 7 ? flickerAnim : 1 }}>
+              <Ionicons name="flame" size={16} color={streakColor} />
+            </Animated.View>
             <Text style={[s.streakNum, { color: streakColor }]}>{effectiveStreak}</Text>
-            <View style={s.streakBottom}>
-              <Animated.View style={{ opacity: effectiveStreak >= 7 ? flickerAnim : 1 }}>
-                <Ionicons name="flame" size={effectiveStreak >= 14 ? 22 : 18} color={streakColor} />
-              </Animated.View>
-              <Text style={s.streakLabel}>{tr.progress.daysAgoSuffix}</Text>
-            </View>
+            <Text style={s.streakLabel}>{tr.progress.daysAgoSuffix}</Text>
           </View>
         </View>
       </View>
 
-<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: 110 }]}>
+<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingBottom: bottom + 100 }]}>
 
         {/* ── CARTE ABONNEMENT / QUOTA ────────────────────────────────────── */}
         {(plan === 'freemium' || plan === 'trial') && (
           <TouchableOpacity
             style={[s.quotaCard, {
-              backgroundColor: t.surface,
-              borderColor: quotaRemaining === 0 ? '#DC2626' : t.border,
+              backgroundColor: quotaRemaining === 0 ? '#7A1F1F' : NAVY,
             }]}
             onPress={() => navigation.navigate('Subscription')}
-            activeOpacity={0.88}
+            activeOpacity={0.9}
           >
-            <View style={s.quotaCardLeft}>
-              <View style={s.quotaPlanRow}>
-                <View style={[s.quotaPlanBadge, { backgroundColor: t.surfaceAlt }]}>
-                  <Text style={[s.quotaPlanBadgeText, { color: t.textMuted }]}>
-                    {plan === 'trial' ? tr.progress.freeTrial : tr.progress.freemium}
-                  </Text>
-                </View>
-                {plan === 'trial' && trialDaysLeft !== null && (
-                  <Text style={[s.quotaTrialDays, { color: trialDaysLeft <= 2 ? '#DC2626' : '#D97706' }]}>
-                    J-{trialDaysLeft}
-                  </Text>
-                )}
-              </View>
-              <Text style={[s.quotaLabel, { color: t.textMuted }]}>
-                {tr.progress.messagesToday}
-              </Text>
-              <View style={s.quotaBarWrap}>
-                <View style={[s.quotaBarBg, { backgroundColor: t.surfaceAlt }]}>
-                  <View style={[s.quotaBarFill, {
-                    width: `${Math.min(100, (quotaUsed / quotaLimit) * 100)}%`,
-                    backgroundColor: quotaRemaining === 0 ? '#DC2626' : quotaRemaining <= 3 ? '#D97706' : '#059669',
-                  }]} />
-                </View>
-                <Text style={[s.quotaCount, { color: quotaRemaining === 0 ? '#DC2626' : t.textMuted }]}>
-                  {quotaUsed} / {quotaLimit}
+            <View style={s.quotaHalo} />
+            <View style={s.quotaTopRow}>
+              <View style={s.quotaPlanBadge}>
+                <Ionicons name={plan === 'trial' ? 'gift-outline' : 'sparkles'} size={12} color={TEAL} />
+                <Text style={s.quotaPlanBadgeText}>
+                  {plan === 'trial' ? tr.progress.freeTrial : tr.progress.freemium}
                 </Text>
               </View>
+              {plan === 'trial' && trialDaysLeft !== null && (
+                <Text style={[s.quotaTrialDays, { color: trialDaysLeft <= 2 ? '#F87171' : '#FCD34D' }]}>
+                  J-{trialDaysLeft}
+                </Text>
+              )}
             </View>
-            <View style={[s.upgradeBtn, { backgroundColor: quotaRemaining === 0 ? '#DC2626' : accent }]}>
+
+            <Text style={[s.quotaHeadline, { marginBottom: 18 }]}>
+              {quotaRemaining === 0 ? 'Quota épuisé pour aujourd\'hui' : 'Débloque le chat illimité'}
+            </Text>
+
+            <View style={s.upgradeBtn}>
               <Text style={s.upgradeBtnText}>{tr.progress.subscribe}</Text>
+              <Ionicons name="arrow-forward" size={15} color={NAVY} />
             </View>
           </TouchableOpacity>
         )}
@@ -393,53 +316,7 @@ export default function ProgressScreen() {
           </View>
         )}
 
-        {!activeCourse && (
-          <View style={[s.card, { backgroundColor: t.surface, borderColor: t.border, alignItems: 'center', paddingVertical: 28 }]}>
-            <Ionicons name="book-outline" size={36} color={t.textMuted} />
-            <Text style={[s.cardTitle, { color: t.text, marginTop: 12, marginBottom: 4 }]}>{tr.progress.noActiveSubject}</Text>
-            <Text style={[s.cardSub, { color: t.textMuted, textAlign: 'center' }]}>
-              {tr.progress.pickCourseHint}
-            </Text>
-          </View>
-        )}
 
-        {/* ── PROCHAIN EXAMEN ─────────────────────────────────────────────── */}
-        {(() => {
-          const next = getNextExam(tr, uiLang);
-          if (!next) return null;
-          const color = accent;
-          return (
-            <View style={[s.card, { backgroundColor: t.surface, borderColor: color + '40' }]}>
-              <View style={s.cardHeader}>
-                <PulseDot color={color} />
-                <Text style={[s.cardChip, { color }]}>{tr.progress.nextExam} {next.trimestre}</Text>
-              </View>
-              <View style={s.examRow}>
-                <View style={[s.examIcon, { backgroundColor: color + '18' }]}>
-                  <Ionicons
-                    name={next.type === 'composition' ? 'document-text' : 'pencil'}
-                    size={22} color={color}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.examLabel, { color: t.text }]}>{next.label}</Text>
-                  <Text style={[s.examMonth, { color: t.textMuted }]}>{tr.progress.plannedFor} {next.monthLabel}</Text>
-                </View>
-                <View style={[s.examCountdown, { backgroundColor: color + '18', borderColor: color + '40' }]}>
-                  <Text style={[s.examDays, { color }]}>~{next.daysLeft}j</Text>
-                </View>
-              </View>
-              {next.daysLeft <= 14 && (
-                <View style={[s.examAlert, { backgroundColor: color + '12', borderColor: color + '30' }]}>
-                  <Ionicons name="warning-outline" size={14} color={color} />
-                  <Text style={[s.examAlertText, { color }]}>
-                    {next.daysLeft <= 7 ? tr.progress.veryUrgent : tr.progress.lessThan2Weeks}
-                  </Text>
-                </View>
-              )}
-            </View>
-          );
-        })()}
 
         {/* ── MES CHAPITRES ────────────────────────────────────────────────── */}
         {sortedChapters.length > 0 && (
@@ -610,22 +487,26 @@ const s = StyleSheet.create({
 
   /* Carte quota / abonnement */
   quotaCard: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderRadius: 16,
-    padding: 14, gap: 12,
+    borderRadius: 22, padding: 18, overflow: 'hidden',
+    ...Platform.select({
+      ios:     { shadowColor: NAVY, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 18 },
+      android: { elevation: 8 },
+    }),
   },
-  quotaCardLeft:    { flex: 1 },
-  quotaPlanRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  quotaPlanBadge:   { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  quotaPlanBadgeText: { fontSize: 12, fontWeight: '700' },
-  quotaTrialDays:   { fontSize: 12, fontWeight: '700' },
-  quotaLabel:       { fontSize: 11, marginBottom: 6 },
-  quotaBarWrap:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  quotaBarBg:       { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-  quotaBarFill:     { height: 6, borderRadius: 3 },
-  quotaCount:       { fontSize: 11, fontWeight: '600', minWidth: 36, textAlign: 'right' },
-  upgradeBtn:       { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, alignItems: 'center', minWidth: 88 },
-  upgradeBtnText:   { color: '#fff', fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  quotaHalo: {
+    position: 'absolute', width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(7,169,151,0.14)', top: -60, right: -40,
+  },
+  quotaTopRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  quotaPlanBadge:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  quotaPlanBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  quotaTrialDays:   { fontSize: 12, fontWeight: '800' },
+  quotaHeadline:    { fontFamily: SERIF, fontSize: 19, color: '#fff', letterSpacing: -0.3, marginBottom: 12 },
+  upgradeBtn:       {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#fff', borderRadius: Radius.full, paddingVertical: 13,
+  },
+  upgradeBtnText:   { color: NAVY, fontSize: 14, fontWeight: '800' },
 
   /* Header */
   header: {
@@ -635,12 +516,15 @@ const s = StyleSheet.create({
   hBubble1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.06)', top: -60, right: -40 },
   hBubble2: { position: 'absolute', width: 110, height: 110, borderRadius: 55,  backgroundColor: 'rgba(255,255,255,0.05)', bottom: 10, left: 20 },
   headerRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 1.4, marginBottom: 4 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  streakBox:   { alignItems: 'center' },
-  streakNum:   { fontSize: 52, fontWeight: '900', paddingHorizontal: 2 },
-  streakBottom:{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -2 },
-  streakLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
+  headerTitle: { fontFamily: SERIF, fontSize: 26, color: '#fff', letterSpacing: -0.5, flex: 1 },
+  streakPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  streakNum:   { fontSize: 16, fontWeight: '900' },
+  streakLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
 
   /* Scroll */
   scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: 14 },
@@ -666,16 +550,6 @@ const s = StyleSheet.create({
   subjectCount:  { fontSize: 12, fontWeight: '800' },
   subjectBarBg:  { height: 5, borderRadius: 3, overflow: 'hidden' },
   subjectBarFill:{ height: 5, borderRadius: 3 },
-
-  /* Exam */
-  examRow:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  examIcon:      { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  examLabel:     { fontSize: 16, fontWeight: '800', marginBottom: 3 },
-  examMonth:     { fontSize: 13, fontWeight: '500' },
-  examCountdown: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
-  examDays:      { fontSize: 16, fontWeight: '900', letterSpacing: -0.5 },
-  examAlert:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, borderRadius: 10, borderWidth: 1, padding: 10 },
-  examAlertText: { flex: 1, fontSize: 12, fontWeight: '700' },
 
   /* Chapters */
   chapterRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, borderWidth: 0.5, padding: 12 },

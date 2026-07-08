@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function LoginPage() {
@@ -20,7 +20,7 @@ export default function LoginPage() {
     <div className="login-container">
       <div className="login-card">
         <div className="login-logo">🎓</div>
-        <h1>ProfNum</h1>
+        <h1>MedNum</h1>
         <p className="login-subtitle">Panneau d'administration</p>
         <form onSubmit={handleLogin}>
           <div className="field">

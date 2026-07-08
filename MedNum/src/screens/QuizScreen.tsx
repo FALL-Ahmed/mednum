@@ -1,13 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Alert,
-  TouchableOpacity, ActivityIndicator, StatusBar,
+  TouchableOpacity, ActivityIndicator, StatusBar, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store';
-import { Colors, Spacing, Radius } from '../theme';
-import { getSubjectStyle } from '../utils/subjectStyles';
+import { Spacing, Radius } from '../theme';
+import { useTheme } from '../components';
 import { generateChapterQCM, QCMQuestion } from '../utils/rag';
+
+const NAVY = '#0B1E34';
+const TEAL = '#07A997';
+const TEAL_BG = '#EAF7F6';
+const SERIF = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 
 type Phase = 'loading' | 'answering' | 'results';
 type LetterKey = 'A' | 'B' | 'C' | 'D' | 'E';
@@ -36,19 +42,15 @@ function scoreQCM(
 }
 
 export default function QuizScreen({ navigation, route }: any) {
-  const { courseId, chapterIndex, chapterTitle } = route.params as {
-    courseId: string;
-    chapterIndex: number;
-    chapterTitle: string;
-  };
+  const { courseId } = route.params as { courseId: string };
 
   const { courses, activeCourse, chapterMastery, updateChapterMastery, addXP, niveau } = useAppStore();
+  const t = useTheme();
   const { top } = useSafeAreaInsets();
 
+  // QCM généré sur le document entier (plus de découpage par chapitre)
   const course     = courses.find(c => c.id === courseId) ?? activeCourse;
-  const chunk      = course?.chunks?.[chapterIndex];
-  const style      = getSubjectStyle(course?.subjectName ?? '');
-  const curMastery = chapterMastery[courseId]?.[chapterIndex] ?? 0;
+  const curMastery = chapterMastery[courseId]?.[0] ?? 0;
 
   const [phase, setPhase]             = useState<Phase>('loading');
   const [questions, setQuestions]     = useState<QCMQuestion[]>([]);
@@ -65,19 +67,13 @@ export default function QuizScreen({ navigation, route }: any) {
     setFinalScore(0);
     setError('');
 
-    if (!chunk) {
-      setError('Chapitre non trouvé.');
-      setPhase('answering');
-      return;
-    }
-    console.log('[Quiz] chunk:', chapterIndex, '| content length:', chunk?.content?.trim().length ?? 0);
-    if (!chunk.content || chunk.content.trim().length < 100) {
-      setError(`Contenu trop court (${chunk.content?.trim().length ?? 0} chars). Re-uploade le PDF.`);
+    if (!course || !course.content || course.content.trim().length < 100) {
+      setError(`Contenu du document trop court pour générer un QCM. Re-uploade le PDF.`);
       setPhase('answering');
       return;
     }
 
-    generateChapterQCM(chunk.content, chapterTitle, niveau)
+    generateChapterQCM(course.content, course.name, niveau)
       .then(qs => {
         setQuestions(qs);
         setAnswers(qs.map(() => ({ selected: [] })));
@@ -103,7 +99,8 @@ export default function QuizScreen({ navigation, route }: any) {
   }, []);
 
   const handleSubmit = useCallback(() => {
-    const masteryBefore = chapterMastery[courseId]?.[chapterIndex] ?? 0;
+    if (!course) return;
+    const masteryBefore = chapterMastery[courseId]?.[0] ?? 0;
     setPreQuizMastery(masteryBefore);
 
     const scored = answers.map((a, i) => ({
@@ -117,12 +114,12 @@ export default function QuizScreen({ navigation, route }: any) {
     const ratio       = maxPoints > 0 ? totalPoints / maxPoints : 0;
     const masteryGain = Math.round(ratio * 40);
 
-    updateChapterMastery(courseId, chapterIndex, masteryGain);
+    updateChapterMastery(courseId, 0, masteryGain);
     addXP(masteryGain);
 
     setFinalScore(Math.round(ratio * 100));
     setPhase('results');
-  }, [answers, questions, courseId, chapterIndex, chapterMastery, updateChapterMastery, addXP]);
+  }, [answers, questions, courseId, course, chapterMastery, updateChapterMastery, addXP]);
 
   const restartQuiz = useCallback(() => setQuizAttempt(prev => prev + 1), []);
 
@@ -130,9 +127,9 @@ export default function QuizScreen({ navigation, route }: any) {
 
   if (phase === 'loading') {
     return (
-      <View style={[styles.root, styles.center, { paddingTop: top }]}>
-        <ActivityIndicator color={style.accent} size="large" />
-        <Text style={[styles.loadingText, { color: style.accent }]}>
+      <View style={[styles.root, styles.center, { backgroundColor: t.bg, paddingTop: top }]}>
+        <ActivityIndicator color={TEAL} size="large" />
+        <Text style={[styles.loadingText, { color: TEAL }]}>
           Génération des QCM en cours…
         </Text>
       </View>
@@ -140,11 +137,11 @@ export default function QuizScreen({ navigation, route }: any) {
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={style.bg} />
+    <View style={[styles.root, { backgroundColor: t.bg }]}>
+      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: top + 12, backgroundColor: style.bg }]}>
+      <View style={[styles.header, { paddingTop: top + 12, backgroundColor: NAVY }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
@@ -162,13 +159,12 @@ export default function QuizScreen({ navigation, route }: any) {
             }
           }}
         >
-          <Text style={styles.backArrow}>←</Text>
+          <Ionicons name="arrow-back" size={20} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerSub}>QCM · {course?.subjectName}</Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
+          <Text style={styles.headerSub}>QCM</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{course?.name ?? ''}</Text>
         </View>
-        <Text style={styles.headerEmoji}>{style.emoji}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
@@ -177,25 +173,25 @@ export default function QuizScreen({ navigation, route }: any) {
         {phase === 'answering' && (
           <>
             {error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+              <View style={[styles.errorBox, { backgroundColor: '#FEF2F2' }]}>
+                <Text style={[styles.errorText, { color: '#DC2626' }]}>{error}</Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={restartQuiz}>
                   <Text style={styles.retryBtnText}>Réessayer</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <>
-                <Text style={styles.intro}>
+                <Text style={[styles.intro, { color: t.textMuted }]}>
                   Sélectionne une ou plusieurs bonnes réponses par question.
                 </Text>
 
                 {questions.map((q, qIdx) => (
-                  <View key={qIdx} style={styles.questionBlock}>
+                  <View key={qIdx} style={[styles.questionBlock, { backgroundColor: t.surface, borderColor: t.border }]}>
                     <View style={styles.qHeader}>
-                      <View style={[styles.qNumBadge, { backgroundColor: style.accent }]}>
+                      <View style={[styles.qNumBadge, { backgroundColor: TEAL }]}>
                         <Text style={styles.qNum}>{qIdx + 1}</Text>
                       </View>
-                      <Text style={styles.qText}>{q.question}</Text>
+                      <Text style={[styles.qText, { color: t.text }]}>{q.question}</Text>
                     </View>
 
                     {LETTERS.map(letter => {
@@ -205,9 +201,10 @@ export default function QuizScreen({ navigation, route }: any) {
                           key={letter}
                           style={[
                             styles.propositionBtn,
+                            { borderColor: t.border, backgroundColor: t.bg },
                             isSelected && {
-                              backgroundColor: style.accent + '22',
-                              borderColor: style.accent,
+                              backgroundColor: TEAL_BG,
+                              borderColor: TEAL,
                             },
                           ]}
                           onPress={() => toggleProposition(qIdx, letter)}
@@ -215,15 +212,17 @@ export default function QuizScreen({ navigation, route }: any) {
                         >
                           <View style={[
                             styles.letterBadge,
-                            isSelected && { backgroundColor: style.accent },
+                            { backgroundColor: t.surfaceAlt },
+                            isSelected && { backgroundColor: TEAL },
                           ]}>
-                            <Text style={[styles.letterText, isSelected && { color: '#fff' }]}>
+                            <Text style={[styles.letterText, { color: t.textMuted }, isSelected && { color: '#fff' }]}>
                               {letter}
                             </Text>
                           </View>
                           <Text style={[
                             styles.propositionText,
-                            isSelected && { color: '#E2E8F0' },
+                            { color: t.textMuted },
+                            isSelected && { color: t.text },
                           ]}>
                             {q.propositions[letter]}
                           </Text>
@@ -236,13 +235,13 @@ export default function QuizScreen({ navigation, route }: any) {
                 <TouchableOpacity
                   style={[
                     styles.submitBtn,
-                    { backgroundColor: style.accent },
+                    { backgroundColor: NAVY },
                     !canSubmit && { opacity: 0.4 },
                   ]}
                   onPress={handleSubmit}
                   disabled={!canSubmit}
                 >
-                  <Text style={styles.submitBtnText}>Valider mes réponses ✅</Text>
+                  <Text style={styles.submitBtnText}>Valider mes réponses</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -252,7 +251,7 @@ export default function QuizScreen({ navigation, route }: any) {
         {/* ── Phase : résultats ──────────────────────────────────────────── */}
         {phase === 'results' && (
           <>
-            <ScoreHeader score={finalScore} accent={style.accent} />
+            <ScoreHeader score={finalScore} textColor={t.text} mutedColor={t.textMuted} />
 
             {questions.map((q, qIdx) => (
               <ResultCard
@@ -264,41 +263,43 @@ export default function QuizScreen({ navigation, route }: any) {
                 selected={answers[qIdx]?.selected ?? []}
                 explication={q.explication}
                 result={answers[qIdx]?.result ?? 'FAUX'}
-                accent={style.accent}
+                surface={t.surface}
+                border={t.border}
+                text={t.text}
               />
             ))}
 
             <MasteryUpdate
               oldMastery={preQuizMastery}
               newMastery={Math.min(100, preQuizMastery + Math.round(finalScore / 100 * 40))}
-              accent={style.accent}
+              surface={t.surface}
+              border={t.border}
+              textMuted={t.textMuted}
             />
-
-            <UnlockBanner mastery={curMastery} accent={style.accent} />
 
             <View style={styles.resultActions}>
               {curMastery < 70 && (
                 <TouchableOpacity
-                  style={[styles.resultBtn, { backgroundColor: style.accent }]}
+                  style={[styles.resultBtn, { backgroundColor: NAVY }]}
                   onPress={restartQuiz}
                 >
                   <Text style={styles.resultBtnText}>Refaire le quiz</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[styles.resultBtnOutline, { borderColor: style.accent }]}
+                style={[styles.resultBtnOutline, { borderColor: TEAL }]}
                 onPress={() => navigation.getParent()?.navigate('Chat')}
               >
-                <Text style={[styles.resultBtnOutlineText, { color: style.accent }]}>
+                <Text style={[styles.resultBtnOutlineText, { color: TEAL }]}>
                   Continuer à étudier →
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.resultBtnOutline, { borderColor: '#374151' }]}
+                style={[styles.resultBtnOutline, { borderColor: t.border }]}
                 onPress={() => navigation.goBack()}
               >
-                <Text style={[styles.resultBtnOutlineText, { color: '#9CA3AF' }]}>
-                  Retour au parcours
+                <Text style={[styles.resultBtnOutlineText, { color: t.textMuted }]}>
+                  Retour
                 </Text>
               </TouchableOpacity>
             </View>
@@ -313,18 +314,18 @@ export default function QuizScreen({ navigation, route }: any) {
 
 // ── Score header ──────────────────────────────────────────────────────────────
 
-function ScoreHeader({ score, accent }: { score: number; accent: string }) {
+function ScoreHeader({ score, textColor, mutedColor }: { score: number; textColor: string; mutedColor: string }) {
   const emoji = score >= 80 ? '🏆' : score >= 50 ? '📖' : '💪';
   const msg   =
     score >= 80 ? 'Excellent travail !' :
     score >= 50 ? 'Continue comme ça !' :
-    'Reviens sur ce chapitre !';
+    'Reviens sur ce document !';
 
   return (
     <View style={styles.scoreHeader}>
       <Text style={styles.scoreEmoji}>{emoji}</Text>
-      <Text style={[styles.scoreNum, { color: accent }]}>{score}%</Text>
-      <Text style={styles.scoreMsg}>{msg}</Text>
+      <Text style={[styles.scoreNum, { color: NAVY }]}>{score}%</Text>
+      <Text style={[styles.scoreMsg, { color: mutedColor }]}>{msg}</Text>
     </View>
   );
 }
@@ -332,7 +333,7 @@ function ScoreHeader({ score, accent }: { score: number; accent: string }) {
 // ── Result card ───────────────────────────────────────────────────────────────
 
 function ResultCard({
-  idx, question, propositions, bonnesReponses, selected, explication, result, accent,
+  idx, question, propositions, bonnesReponses, selected, explication, result, surface, border, text,
 }: {
   idx: number;
   question: string;
@@ -341,7 +342,9 @@ function ResultCard({
   selected: LetterKey[];
   explication: QCMQuestion['explication'];
   result: QCMResult;
-  accent: string;
+  surface: string;
+  border: string;
+  text: string;
 }) {
   const headerColor =
     result === 'COMPLET' ? '#22C55E' :
@@ -353,10 +356,10 @@ function ResultCard({
     '❌';
 
   return (
-    <View style={[styles.resultCard, { borderLeftColor: headerColor }]}>
+    <View style={[styles.resultCard, { backgroundColor: surface, borderColor: border, borderLeftColor: headerColor }]}>
       <View style={styles.resultCardTop}>
         <Text style={styles.resultCardIcon}>{headerIcon}</Text>
-        <Text style={styles.resultCardQ}>Q{idx + 1} · {question}</Text>
+        <Text style={[styles.resultCardQ, { color: text }]}>Q{idx + 1} · {question}</Text>
       </View>
 
       {LETTERS.map(letter => {
@@ -364,15 +367,11 @@ function ResultCard({
         const isSelected = selected.includes(letter);
         const isNeutral  = !isCorrect && !isSelected;
 
-        // ✅ bonne + cochée → vert
-        // 🔶 bonne + non cochée → orange (manquée)
-        // ❌ fausse + cochée → rouge (erreur)
-        // ○  fausse + non cochée → gris (neutre)
         const color =
           isCorrect && isSelected  ? '#22C55E' :
           isCorrect && !isSelected ? '#F59E0B' :
           !isCorrect && isSelected ? '#EF4444' :
-          '#374151';
+          '#9CA3AF';
         const icon =
           isCorrect && isSelected  ? '✅' :
           isCorrect && !isSelected ? '🔶' :
@@ -385,21 +384,21 @@ function ResultCard({
             style={[
               styles.propResult,
               {
-                borderColor:     isNeutral ? '#1E2030' : color + '50',
+                borderColor:     isNeutral ? border : color + '50',
                 backgroundColor: isNeutral ? 'transparent' : color + '12',
               },
             ]}
           >
             <View style={styles.propResultRow}>
               <Text style={styles.propIcon}>{icon}</Text>
-              <View style={[styles.letterBadgeSmall, { backgroundColor: isNeutral ? '#374151' : color }]}>
+              <View style={[styles.letterBadgeSmall, { backgroundColor: isNeutral ? '#9CA3AF' : color }]}>
                 <Text style={styles.letterTextSmall}>{letter}</Text>
               </View>
-              <Text style={[styles.propText, { color: isNeutral ? '#6B7280' : '#E2E8F0' }]}>
+              <Text style={[styles.propText, { color: isNeutral ? '#9CA3AF' : text }]}>
                 {propositions[letter]}
               </Text>
             </View>
-            <Text style={[styles.propExplication, { color: isNeutral ? '#4B5563' : color }]}>
+            <Text style={[styles.propExplication, { color: isNeutral ? '#9CA3AF' : color }]}>
               {explication[letter]}
             </Text>
           </View>
@@ -411,48 +410,22 @@ function ResultCard({
 
 // ── Mastery update ────────────────────────────────────────────────────────────
 
-function MasteryUpdate({ oldMastery, newMastery, accent }: {
-  oldMastery: number; newMastery: number; accent: string;
+function MasteryUpdate({ oldMastery, newMastery, surface, border, textMuted }: {
+  oldMastery: number; newMastery: number; surface: string; border: string; textMuted: string;
 }) {
   const gain = newMastery - oldMastery;
   return (
-    <View style={styles.masteryUpdate}>
-      <Text style={styles.masteryUpdateTitle}>Progression du chapitre</Text>
+    <View style={[styles.masteryUpdate, { backgroundColor: surface, borderColor: border }]}>
+      <Text style={[styles.masteryUpdateTitle, { color: textMuted }]}>Progression sur ce document</Text>
       <View style={styles.masteryBarWrap}>
         <View style={[styles.masteryFillOld, { width: `${oldMastery}%` as any }]} />
-        <View style={[styles.masteryFillNew, { width: `${gain}%` as any, backgroundColor: accent }]} />
+        <View style={[styles.masteryFillNew, { width: `${gain}%` as any, backgroundColor: TEAL }]} />
       </View>
       <View style={styles.masteryNums}>
-        <Text style={styles.masteryOldNum}>{oldMastery}%</Text>
-        {gain > 0 && <Text style={[styles.masteryGain, { color: accent }]}>+{gain}% 🎉</Text>}
-        <Text style={[styles.masteryNewNum, { color: accent }]}>{newMastery}%</Text>
+        <Text style={[styles.masteryOldNum, { color: textMuted }]}>{oldMastery}%</Text>
+        {gain > 0 && <Text style={[styles.masteryGain, { color: TEAL }]}>+{gain}%</Text>}
+        <Text style={[styles.masteryNewNum, { color: TEAL }]}>{newMastery}%</Text>
       </View>
-    </View>
-  );
-}
-
-// ── Unlock banner ─────────────────────────────────────────────────────────────
-
-const MASTERY_UNLOCK = 70;
-
-function UnlockBanner({ mastery, accent }: { mastery: number; accent: string }) {
-  if (mastery >= MASTERY_UNLOCK) {
-    return (
-      <View style={[styles.unlockBanner, { backgroundColor: accent + '20', borderColor: accent + '60' }]}>
-        <Text style={[styles.unlockBannerTitle, { color: accent }]}>🔓 Chapitre suivant débloqué !</Text>
-        <Text style={styles.unlockBannerSub}>Tu peux continuer ton parcours.</Text>
-      </View>
-    );
-  }
-  const remaining = MASTERY_UNLOCK - mastery;
-  return (
-    <View style={styles.unlockBanner}>
-      <Text style={styles.unlockBannerTitle}>
-        Tu es à {mastery}% — encore {remaining}% pour débloquer
-      </Text>
-      <Text style={styles.unlockBannerSub}>
-        Chaque quiz te rapporte jusqu'à +40%. Refais-en un pour progresser.
-      </Text>
     </View>
   );
 }
@@ -460,7 +433,7 @@ function UnlockBanner({ mastery, accent }: { mastery: number; accent: string }) 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root:   { flex: 1, backgroundColor: '#09090F' },
+  root:   { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
 
   loadingText: { marginTop: Spacing.lg, fontSize: 15, fontWeight: '600' },
@@ -469,41 +442,40 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg,
+    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 34, height: 34, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  backArrow:   { fontSize: 18, color: '#fff', fontWeight: '700' },
   headerSub:   { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginTop: 2 },
-  headerEmoji: { fontSize: 26 },
+  headerTitle: { fontFamily: SERIF, fontSize: 17, color: '#fff', marginTop: 2 },
 
   /* Body */
   body: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl },
 
   /* Error */
   errorBox: {
-    backgroundColor: '#3B0000', borderRadius: Radius.md,
+    borderRadius: Radius.md,
     padding: Spacing.lg, marginBottom: Spacing.xl,
   },
-  errorText: { color: '#EF4444', fontSize: 13, lineHeight: 20, marginBottom: Spacing.md },
+  errorText: { fontSize: 13, lineHeight: 20, marginBottom: Spacing.md },
   retryBtn: {
-    backgroundColor: '#EF4444', borderRadius: Radius.sm,
+    backgroundColor: '#DC2626', borderRadius: Radius.sm,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
     alignSelf: 'flex-start',
   },
   retryBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   /* Intro */
-  intro: { fontSize: 13, color: '#9CA3AF', lineHeight: 20, marginBottom: Spacing.xl },
+  intro: { fontSize: 13, lineHeight: 20, marginBottom: Spacing.xl },
 
   /* Question block */
   questionBlock: {
-    backgroundColor: '#13131F', borderRadius: Radius.lg,
+    borderRadius: Radius.lg,
     padding: Spacing.lg, marginBottom: Spacing.xl,
-    borderWidth: 1, borderColor: '#1E2030',
+    borderWidth: 1,
   },
   qHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: Spacing.lg },
   qNumBadge: {
@@ -511,23 +483,22 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginTop: 2, flexShrink: 0,
   },
   qNum:  { fontSize: 12, fontWeight: '800', color: '#fff' },
-  qText: { fontSize: 14, fontWeight: '700', color: '#E2E8F0', flex: 1, lineHeight: 21 },
+  qText: { fontSize: 14, fontWeight: '700', flex: 1, lineHeight: 21 },
 
   /* Proposition button (phase answering) */
   propositionBtn: {
     flexDirection: 'row', alignItems: 'flex-start',
     gap: 10, paddingVertical: Spacing.md, paddingHorizontal: Spacing.sm,
     borderRadius: Radius.md, marginBottom: 8,
-    borderWidth: 1.5, borderColor: '#2A2D3A',
-    backgroundColor: '#0D0D18',
+    borderWidth: 1.5,
   },
   letterBadge: {
     width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#2A2D3A', flexShrink: 0, marginTop: 1,
+    flexShrink: 0, marginTop: 1,
   },
-  letterText:      { fontSize: 12, fontWeight: '800', color: '#9CA3AF' },
-  propositionText: { fontSize: 13, color: '#9CA3AF', flex: 1, lineHeight: 20 },
+  letterText:      { fontSize: 12, fontWeight: '800' },
+  propositionText: { fontSize: 13, flex: 1, lineHeight: 20 },
 
   /* Submit */
   submitBtn: {
@@ -539,18 +510,18 @@ const styles = StyleSheet.create({
   /* Score header */
   scoreHeader:  { alignItems: 'center', paddingVertical: Spacing.xxxl },
   scoreEmoji:   { fontSize: 52, marginBottom: Spacing.md },
-  scoreNum:     { fontSize: 42, fontWeight: '900', marginBottom: Spacing.sm },
-  scoreMsg:     { fontSize: 16, fontWeight: '600', color: '#9CA3AF' },
+  scoreNum:     { fontFamily: SERIF, fontSize: 42, marginBottom: Spacing.sm },
+  scoreMsg:     { fontSize: 16, fontWeight: '600' },
 
   /* Result card */
   resultCard: {
-    backgroundColor: '#13131F', borderRadius: Radius.lg,
+    borderRadius: Radius.lg,
     padding: Spacing.lg, marginBottom: Spacing.lg,
-    borderWidth: 1, borderColor: '#1E2030', borderLeftWidth: 4,
+    borderWidth: 1, borderLeftWidth: 4,
   },
   resultCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: Spacing.lg },
   resultCardIcon: { fontSize: 16, marginTop: 2 },
-  resultCardQ:    { fontSize: 13, fontWeight: '700', color: '#E2E8F0', flex: 1, lineHeight: 20 },
+  resultCardQ:    { fontSize: 13, fontWeight: '700', flex: 1, lineHeight: 20 },
 
   /* Proposition row (phase results) */
   propResult: {
@@ -569,30 +540,21 @@ const styles = StyleSheet.create({
 
   /* Mastery update */
   masteryUpdate: {
-    backgroundColor: '#13131F', borderRadius: Radius.lg,
+    borderRadius: Radius.lg,
     padding: Spacing.lg, marginBottom: Spacing.xl,
-    borderWidth: 1, borderColor: '#1E2030',
+    borderWidth: 1,
   },
-  masteryUpdateTitle: { fontSize: 12, fontWeight: '700', color: '#6B7280', letterSpacing: 0.5, marginBottom: Spacing.md },
+  masteryUpdateTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginBottom: Spacing.md },
   masteryBarWrap: {
-    height: 10, borderRadius: 5, backgroundColor: '#1E2030',
+    height: 10, borderRadius: 5, backgroundColor: '#E5E7EB',
     overflow: 'hidden', flexDirection: 'row',
   },
-  masteryFillOld: { height: 10, backgroundColor: '#374151' },
+  masteryFillOld: { height: 10, backgroundColor: '#CBD5E1' },
   masteryFillNew: { height: 10 },
   masteryNums:    { flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.sm },
-  masteryOldNum:  { fontSize: 12, color: '#4B5563', fontWeight: '600' },
+  masteryOldNum:  { fontSize: 12, fontWeight: '600' },
   masteryGain:    { fontSize: 12, fontWeight: '800' },
   masteryNewNum:  { fontSize: 13, fontWeight: '800' },
-
-  /* Unlock banner */
-  unlockBanner: {
-    backgroundColor: '#13131F', borderRadius: Radius.lg,
-    padding: Spacing.lg, marginBottom: Spacing.xl,
-    borderWidth: 1, borderColor: '#2A2D3A', alignItems: 'center',
-  },
-  unlockBannerTitle: { fontSize: 15, fontWeight: '800', color: '#E2E8F0', textAlign: 'center', marginBottom: 4 },
-  unlockBannerSub:   { fontSize: 12, color: '#6B7280', textAlign: 'center', lineHeight: 18 },
 
   /* Result actions */
   resultActions: { gap: Spacing.md, marginTop: Spacing.xl },

@@ -1,4 +1,4 @@
-# ProfNum — Product Requirements Document
+﻿# MedNum — Product Requirements Document
 **Version 1.0 — Mai 2026**
 **Tagline :** Le prof particulier dans la poche de chaque élève mauritanien
 **Statut :** Confidentiel — usage interne uniquement
@@ -36,7 +36,7 @@
 | Dimension | Synthèse |
 |---|---|
 | **Vision** | Rendre accessible à chaque élève mauritanien — du primaire au lycée, arabophone, francophone ou locuteur de langue nationale — un soutien pédagogique IA personnalisé, disponible 24h/24, adapté à son contexte linguistique et culturel. |
-| **Problème résolu (double)** | **(1) SCOLAIRE :** cours particuliers à 1 200–1 300 MRU/mois inaccessibles, classes surchargées (50–80 élèves), aucun outil adaptatif sur les manuels officiels MEN. **(2) LINGUISTIQUE :** la politique d'arabisation et la diversité linguistique (pulaar, soninké, wolof, hassaniya) créent une fracture éducative que ProfNum peut combler — architecture multilingue prévue dès la conception. |
+| **Problème résolu (double)** | **(1) SCOLAIRE :** cours particuliers à 1 200–1 300 MRU/mois inaccessibles, classes surchargées (50–80 élèves), aucun outil adaptatif sur les manuels officiels MEN. **(2) LINGUISTIQUE :** la politique d'arabisation et la diversité linguistique (pulaar, soninké, wolof, hassaniya) créent une fracture éducative que MedNum peut combler — architecture multilingue prévue dès la conception. |
 | **Marché cible** | **SEGMENT 1 (lancement) :** Classes stratégiques secondaire francophone — 1ère AS Sciences, 3ème (prépa BEPC), Terminale (prépa BAC). Zones urbaines : Nouakchott, Nouadhibou. **SEGMENT 2 (Phase 3) :** Primaire CM1–CM2 avec interface langues nationales. ~600 000 élèves adressables au total. |
 | **Business model** | Abonnement mensuel SaaS par matière (freemium → payant) via mobile money mauritanien **(Bankily, Masrivi, Sedad)** ou cash agents. ARPU cible : 500–900 MRU/mois. |
 | **North Star Metric** | Questions résolues par élève actif par semaine (objectif : ≥ 15/semaine à M+3). |
@@ -44,7 +44,7 @@
 | **Stack technique** | React Native + Expo / React (admin web) / Supabase / LLM chain : Claude Haiku → Mistral → Gemini → Groq. Architecture i18n multilingue (FR/AR/langues nationales) prévue dès Phase 1. |
 | **Avantage compétitif** | Seule solution IA construite sur les manuels officiels du MEN mauritanien, multilingue (FR/AR/langues nationales en Phase 3), adaptée au réseau instable, avec méthode socratique, gamification culturellement ancrée (Prof Moctar) et contrôle parental. |
 
-> **🎯 Positionnement clé :** ProfNum ne concurrence pas Google ni Wikipedia. ProfNum concurrence le **professeur particulier à domicile**. La promesse : *"Ton prof 24h/24, 7j/7, pour le prix d'une heure de cours particulier par mois"* — disponible en français, en arabe, et demain dans ta langue maternelle.
+> **🎯 Positionnement clé :** MedNum ne concurrence pas Google ni Wikipedia. MedNum concurrence le **professeur particulier à domicile**. La promesse : *"Ton prof 24h/24, 7j/7, pour le prix d'une heure de cours particulier par mois"* — disponible en français, en arabe, et demain dans ta langue maternelle.
 
 ---
 
@@ -75,10 +75,10 @@
 
 ### 2.4 Le problème linguistique & politique — contexte mauritanien ⚠️ À approfondir
 
-| Dimension | Réalité mauritanienne | Impact sur ProfNum |
+| Dimension | Réalité mauritanienne | Impact sur MedNum |
 |---|---|---|
-| **Politique d'arabisation** | L'État pousse à faire de l'arabe standard la langue principale d'enseignement — mais les lycées scientifiques fonctionnent encore en français. | ProfNum doit être neutre : interface FR et AR, sans prendre parti. Architecture bilingue obligatoire dès Phase 2. |
-| **Communauté noire (≈30% population)** | Halpulaar, Soninké, Wolof, Bambara — sous-représentés dans tous les outils numériques existants. | Marché inexploré à fort potentiel. Différenciateur majeur si ProfNum est le premier à les adresser. |
+| **Politique d'arabisation** | L'État pousse à faire de l'arabe standard la langue principale d'enseignement — mais les lycées scientifiques fonctionnent encore en français. | MedNum doit être neutre : interface FR et AR, sans prendre parti. Architecture bilingue obligatoire dès Phase 2. |
+| **Communauté noire (≈30% population)** | Halpulaar, Soninké, Wolof, Bambara — sous-représentés dans tous les outils numériques existants. | Marché inexploré à fort potentiel. Différenciateur majeur si MedNum est le premier à les adresser. |
 | **Deux filières secondaires** | Filière française (lycées scientifiques) et filière arabe (enseignement général en arabe standard). | Phase 1 = filière française. Phase 2 = filière arabe (interface RTL complète). |
 | **Diaspora et mobilité** | Beaucoup de familles mauritaniennes ont des membres au Sénégal, en France ou dans le Golfe. | Abonnement souscriptible depuis l'étranger (paiement international en Phase 4). |
 
@@ -89,7 +89,7 @@
 - La distribution des manuels numériques est fragmentée et non monétisable directement.
 - L'admin doit pouvoir gérer deux filières (française / arabe) avec des contenus et des langues d'interface différents, depuis un seul dashboard.
 
-> **💡 Insight stratégique — Les 2 marchés de ProfNum :** **MARCHÉ 1 (urgent, lancement) :** Secondaire francophone — fort enjeu examens (BEPC/BAC), parents qui paient déjà des cours particuliers, décision d'achat rapide. **MARCHÉ 2 (différenciateur, Phase 3) :** Primaire multilingue — communautés noires, langues nationales, potentiel unique sur le continent. L'architecture produit doit prévoir le Marché 2 dès maintenant, même si le lancement se concentre sur le Marché 1.
+> **💡 Insight stratégique — Les 2 marchés de MedNum :** **MARCHÉ 1 (urgent, lancement) :** Secondaire francophone — fort enjeu examens (BEPC/BAC), parents qui paient déjà des cours particuliers, décision d'achat rapide. **MARCHÉ 2 (différenciateur, Phase 3) :** Primaire multilingue — communautés noires, langues nationales, potentiel unique sur le continent. L'architecture produit doit prévoir le Marché 2 dès maintenant, même si le lancement se concentre sur le Marché 1.
 
 ---
 
@@ -154,7 +154,7 @@
 | **Situation** | Fonctionnaire, téléphone Tecno. Utilise **Bankily** (salaire versé via BCM). Parfois Masrivi ou Sedad. |
 | **Douleur principale** | Paye 1 250 MRU/mois de cours particuliers sans savoir si son enfant progresse. |
 | **Motivation** | Investir intelligemment dans l'éducation, avoir des preuves de progression, économiser. |
-| **Rapport à ProfNum** | Décideur d'achat. Ne télécharge pas l'app — reçoit un rapport WhatsApp hebdomadaire. |
+| **Rapport à MedNum** | Décideur d'achat. Ne télécharge pas l'app — reçoit un rapport WhatsApp hebdomadaire. |
 | **Paiement préféré** | Bankily (dominant chez les fonctionnaires mauritaniens — salaires versés via BCM). |
 | **Critères de confiance** | (1) Programme officiel MEN, (2) rapport chiffré clair, (3) prix < cours particuliers, (4) témoignage parent. |
 | **Canal acquisition** | Bouche-à-oreille, groupes WhatsApp de parents d'élèves, SMS ciblés. |
@@ -167,7 +167,7 @@
 
 | Attribut | Détail |
 |---|---|
-| **Rôle** | Partenaire commercial de ProfNum. Intermédiaire entre la plateforme et les établissements scolaires. |
+| **Rôle** | Partenaire commercial de MedNum. Intermédiaire entre la plateforme et les établissements scolaires. |
 | **Objectif** | Développer le réseau d'abonnés, gérer les contenus, suivre les KPIs de son portefeuille d'écoles. |
 | **Outils** | Interface web admin React, WhatsApp Business, visites terrain lycées. |
 | **Douleur principale** | Besoin de données de rétention pour convaincre proviseurs et parents. Argument contre les cours particuliers. |
@@ -183,7 +183,7 @@
 
 ### 4.1 Vision ⚠️ À valider avec client (étendue primaire)
 
-ProfNum sera, d'ici 2027, la référence nationale en matière d'assistant pédagogique IA pour le primaire **ET** le secondaire mauritaniens — présente dans 10% des foyers ayant un élève scolarisé dans les zones urbaines, disponible en français, en arabe et dans au moins 2 langues nationales (pulaar, soninké), et reconnue officiellement par le Ministère de l'Éducation Nationale.
+MedNum sera, d'ici 2027, la référence nationale en matière d'assistant pédagogique IA pour le primaire **ET** le secondaire mauritaniens — présente dans 10% des foyers ayant un élève scolarisé dans les zones urbaines, disponible en français, en arabe et dans au moins 2 langues nationales (pulaar, soninké), et reconnue officiellement par le Ministère de l'Éducation Nationale.
 
 ### 4.2 Mission
 
@@ -364,7 +364,7 @@ ProfNum sera, d'ici 2027, la référence nationale en matière d'assistant péda
 2. Le rapport hebdomadaire WhatsApp contient : (1) jours actifs cette semaine, (2) questions posées, (3) streak actuel, (4) chapitres travaillés, (5) score de maîtrise par chapitre, (6) lien vers le dashboard web.
 3. Le dashboard web parent est accessible via un **lien tokenisé** (pas de compte à créer) pendant 30 jours avant expiration.
 4. Le parent **ne voit PAS** le contenu des conversations — uniquement les métriques agrégées.
-5. Alerte automatique WhatsApp si l'élève n'a pas ouvert l'app depuis **5 jours** : *"Aminata n'a pas étudié avec ProfNum depuis 5 jours. Encouragez-la !"*
+5. Alerte automatique WhatsApp si l'élève n'a pas ouvert l'app depuis **5 jours** : *"Aminata n'a pas étudié avec MedNum depuis 5 jours. Encouragez-la !"*
 6. L'admin peut désactiver les alertes pour un élève spécifique.
 
 ---
@@ -472,7 +472,7 @@ ProfNum sera, d'ici 2027, la référence nationale en matière d'assistant péda
 | 🚀 Décollage | 500 questions posées (cumulatif) | Milestone | Oui |
 | 👑 Top classe | Classé 1er du leaderboard de sa classe pendant 1 semaine | Compétition | Oui |
 
-Les badges partageables génèrent une image PNG 400×400 avec le nom de l'élève, le badge, et le logo ProfNum. Partageable directement sur WhatsApp via le Share API de React Native.
+Les badges partageables génèrent une image PNG 400×400 avec le nom de l'élève, le badge, et le logo MedNum. Partageable directement sur WhatsApp via le Share API de React Native.
 
 ### 7.5 Daily Challenge ✅
 
@@ -540,7 +540,7 @@ Les badges partageables génèrent une image PNG 400×400 avec le nom de l'élè
 | Pack Complet (niveau) | **1 100 MRU** | 9 900 MRU | 3 300 MRU (-25%) | Élève très motivé / parents exigeants |
 | Abonnement école (B2B) | Sur devis | Sur devis | — | Partenariats lycées (Phase 4) |
 
-> **📊 Comparaison vs cours particuliers :** Le cours particulier standard (2h/semaine) coûte 1 200–1 300 MRU/mois pour **UNE seule matière**. ProfNum Pack Complet (toutes matières, 24h/24) = **1 100 MRU/mois** — soit MOINS cher pour TOUTES les matières.
+> **📊 Comparaison vs cours particuliers :** Le cours particulier standard (2h/semaine) coûte 1 200–1 300 MRU/mois pour **UNE seule matière**. MedNum Pack Complet (toutes matières, 24h/24) = **1 100 MRU/mois** — soit MOINS cher pour TOUTES les matières.
 
 ### 9.2 Période d'essai ✅
 
@@ -573,7 +573,7 @@ Les badges partageables génèrent une image PNG 400×400 avec le nom de l'élè
 | Remise renouvellement fidélité | -10% si renouvellement avant expiration (code automatique) |
 | Upgrade | Possible à tout moment. Remise proratisée sur le mois en cours. |
 | Downgrade | Possible à la prochaine facturation uniquement. |
-| Remboursement | Non applicable (mobile money non remboursable). Crédit sur compte ProfNum possible via admin. |
+| Remboursement | Non applicable (mobile money non remboursable). Crédit sur compte MedNum possible via admin. |
 
 ### 9.5 Projections financières — Scénario conservateur 🔴 Hypothèses à valider
 
@@ -590,7 +590,7 @@ Les badges partageables génèrent une image PNG 400×400 avec le nom de l'élè
 
 ### 10.1 Vue d'ensemble des composants
 
-L'architecture de ProfNum repose sur 4 couches :
+L'architecture de MedNum repose sur 4 couches :
 1. **Couche cliente :** App React Native (Expo) + Interface web admin (React)
 2. **Couche API/BFF :** Supabase Edge Functions (Deno) — authentification, quotas, webhooks paiement
 3. **Couche données :** Supabase (PostgreSQL + pgvector + Storage)
@@ -646,26 +646,26 @@ L'architecture de ProfNum repose sur 4 couches :
 
 ### 11.1 Dashboard parent — Wireframe textuel
 
-> **URL d'accès :** `https://parent.profnum.mr/[token-unique-32-chars]` — Lien tokenisé, valable 30 jours, envoyé par WhatsApp chaque semaine. Pas de compte à créer.
+> **URL d'accès :** `https://parent.mednum.mr/[token-unique-32-chars]` — Lien tokenisé, valable 30 jours, envoyé par WhatsApp chaque semaine. Pas de compte à créer.
 
 Structure de la page (mobile-first, une seule page scrollable) :
 
 | Zone | Contenu affiché |
 |---|---|
-| **En-tête** | Logo ProfNum + "Suivi de [Prénom] — Semaine du [date]" |
+| **En-tête** | Logo MedNum + "Suivi de [Prénom] — Semaine du [date]" |
 | **Bandeau résumé** | 4 cartes : (1) Jours actifs cette semaine / 7, (2) Questions posées, (3) Streak actuel 🔥, (4) Niveau actuel |
 | **Progression par matière** | Pour chaque matière abonnée : barre de progression (%), chapitres validés / total, dernier quiz passé |
 | **Activité de la semaine** | Graphique en barres : XP par jour (Lu–Di). Simple, lisible sur mobile. |
 | **Chapitres travaillés** | Liste des chapitres travaillés cette semaine avec score de maîtrise |
 | **Alertes éventuelles** | Si score en baisse : *"⚠️ [Prénom] semble avoir des difficultés en [concept]."* / Si inactivité : *"📵 Aucune activité depuis X jours."* |
-| **Pied de page** | Contact WhatsApp ProfNum |
+| **Pied de page** | Contact WhatsApp MedNum |
 
 ### 11.2 Rapport WhatsApp hebdomadaire — Format texte
 
 Envoyé chaque dimanche soir à 20h00 (heure locale) :
 
 ```
-📚 Rapport ProfNum — Semaine du 12 au 18 mai 2026
+📚 Rapport MedNum — Semaine du 12 au 18 mai 2026
 Élève : Aminata Ba — 1ère AS Sciences
 ─────────────────────────────
 ✅ Jours actifs : 5 / 7
@@ -678,7 +678,7 @@ Envoyé chaque dimanche soir à 20h00 (heure locale) :
   Maths — Chap. 5 (Trigo) : 61% 🔄
 
 👉 Voir le rapport complet :
-https://parent.profnum.mr/abc123...
+https://parent.mednum.mr/abc123...
 ```
 
 ### 11.3 Interface admin — Structure des écrans ✅
@@ -779,7 +779,7 @@ https://parent.profnum.mr/abc123...
 | Feature | Description |
 |---|---|
 | Leaderboard national | Classement anonymisé par niveau, national (opt-in) |
-| Contenu propre ProfNum | Production de fiches de révision originales (droits propres, no copyright MEN) |
+| Contenu propre MedNum | Production de fiches de révision originales (droits propres, no copyright MEN) |
 | Interface wolof | Langue nationale supplémentaire (communauté wolof du Sénégal + Mauritanie) |
 | Partenariats lycées B2B | Offre institutionnelle, facturation annuelle par établissement |
 | Mode prépa examens | Entraînement spécial BEPC / BAC : sujets corrigés, annales IA |
@@ -846,7 +846,7 @@ https://parent.profnum.mr/abc123...
 |---|---|---|---|---|
 | **A — Autorisation MEN** | Lettre officielle au Ministère de l'Éducation Nationale mauritanien demandant l'autorisation d'utiliser les manuels à des fins d'assistance pédagogique numérique. | 3–6 mois | Refus possible, délai long | À initier en Phase 1 |
 | **B — Reformulation IA (déjà active)** | Tous les chunks du RAG sont reformulés par Claude Haiku avant stockage — jamais de reproduction verbatim. Audit juridique du processus recommandé. | Immédiat | Faible si reformulation suffisamment transformative | P0 — Déjà en place |
-| **C — Contenu propre** | Production de fiches de révision originales rédigées par des enseignants mauritaniens contractuels, droits cédés à ProfNum. | Phase 4 (M+9) | Nul (droits propres) | Phase 4 |
+| **C — Contenu propre** | Production de fiches de révision originales rédigées par des enseignants mauritaniens contractuels, droits cédés à MedNum. | Phase 4 (M+9) | Nul (droits propres) | Phase 4 |
 
 > **⚠️ Action immédiate requise :** Faire valider par un avocat mauritanien spécialisé en droit de la propriété intellectuelle que la reformulation IA constitue une transformation suffisante pour écarter tout risque de violation du droit d'auteur. Budget estimé : 50 000–100 000 MRU pour consultation.
 
@@ -862,9 +862,9 @@ https://parent.profnum.mr/abc123...
 ### 15.3 CGU — Points clés
 
 - Rédigées en français simple, niveau lycée. Version arabe en Phase 2. Versions audio en pulaar/soninké en Phase 3.
-- ProfNum est un outil d'aide à l'apprentissage, **pas un substitut à l'enseignant**.
+- MedNum est un outil d'aide à l'apprentissage, **pas un substitut à l'enseignant**.
 - Utilisation réservée aux élèves inscrits dans un établissement du secondaire mauritanien. ⚠️ *À étendre au primaire en Phase 3.*
-- Interdiction d'utiliser ProfNum pour tricher lors d'examens officiels. Clause de suspension en cas de violation.
+- Interdiction d'utiliser MedNum pour tricher lors d'examens officiels. Clause de suspension en cas de violation.
 - Le contenu des conversations est confidentiel et n'est pas partagé avec des tiers — sauf métriques agrégées accessibles au parent.
 
 ---
@@ -874,20 +874,20 @@ https://parent.profnum.mr/abc123...
 | Terme | Définition |
 |---|---|
 | **1ère AS Sciences** | 1ère année du lycée, filière Sciences (équivalent Terminale S en France). Classe cible du lancement. |
-| **Admin** | Utilisateur ayant le rôle "admin" dans Supabase — accès à l'interface web ProfNum. |
+| **Admin** | Utilisateur ayant le rôle "admin" dans Supabase — accès à l'interface web MedNum. |
 | **ARPU** | Average Revenue Per User — revenu moyen par utilisateur payant. |
 | **AsyncStorage** | Mécanisme de persistance locale dans React Native — utilisé pour les données offline. |
 | **Arabisation** | Politique éducative de l'État mauritanien visant à faire de l'arabe standard la langue principale d'enseignement, créant une tension avec la tradition francophone des lycées scientifiques. |
-| **Bankily** | Application de mobile money de la Banque Centrale de Mauritanie (BCM) / Mauritel. Dominant chez les fonctionnaires mauritaniens (salaires versés via BCM). **Mode de paiement principal de ProfNum.** |
+| **Bankily** | Application de mobile money de la Banque Centrale de Mauritanie (BCM) / Mauritel. Dominant chez les fonctionnaires mauritaniens (salaires versés via BCM). **Mode de paiement principal de MedNum.** |
 | **BEPC** | Brevet d'Études du Premier Cycle — examen de fin de collège en Mauritanie (équivalent du Brevet en France). |
 | **Chunk** | Fragment de texte (~500 tokens) extrait d'un manuel pédagogique. Unité de base du RAG. |
 | **Daily challenge** | Défi quotidien généré par Prof Moctar, basé sur le chapitre le moins maîtrisé. Expire à minuit. |
 | **difficultyScore** | Score de 0 à 10 représentant le niveau de difficulté adapté à l'élève (IRT 2-up/1-down). |
 | **Edge Function** | Fonction serverless hébergée chez Supabase (Deno), utilisée pour la logique métier. |
-| **Filière française** | Filière du secondaire mauritanien où l'enseignement scientifique se fait en français. Principal marché de ProfNum au lancement. |
-| **Filière arabe** | Filière du secondaire mauritanien où l'enseignement se fait en arabe standard. Marché Phase 2 de ProfNum. |
-| **Freemium** | Plan gratuit de ProfNum — 3 questions/jour, fonctionnalités limitées. |
-| **Halpulaar / Pulaar** | Langue et communauté nationale mauritanienne (aussi appelée peul). ≈20–25% de la population. Langue cible Phase 3 ProfNum. |
+| **Filière française** | Filière du secondaire mauritanien où l'enseignement scientifique se fait en français. Principal marché de MedNum au lancement. |
+| **Filière arabe** | Filière du secondaire mauritanien où l'enseignement se fait en arabe standard. Marché Phase 2 de MedNum. |
+| **Freemium** | Plan gratuit de MedNum — 3 questions/jour, fonctionnalités limitées. |
+| **Halpulaar / Pulaar** | Langue et communauté nationale mauritanienne (aussi appelée peul). ≈20–25% de la population. Langue cible Phase 3 MedNum. |
 | **Hassaniya** | Dialecte arabe parlé par la communauté maure en Mauritanie. Distinct de l'arabe standard utilisé dans l'enseignement. |
 | **hybridSearch** | Méthode de recherche combinant les embeddings vectoriels (pgvector) et le TF-IDF local pour retrouver les chunks les plus pertinents. |
 | **IRT** | Item Response Theory — modèle psychométrique utilisé pour adapter la difficulté des questions (2-up/1-down). |
@@ -898,18 +898,18 @@ https://parent.profnum.mr/abc123...
 | **MRU** | Ouguiya mauritanien — devise nationale. Taux de référence : 1 EUR ≈ 40 MRU (2026). |
 | **NSM** | North Star Metric — questions résolues / élève actif / semaine. |
 | **pgvector** | Extension PostgreSQL pour le stockage et la recherche de vecteurs d'embeddings. |
-| **Prof Moctar** | ⚠️ **Nom immuable** de l'IA de ProfNum. Ce nom ne doit JAMAIS être changé. Ancré culturellement (prénom mauritanien répandu). |
+| **Prof Moctar** | ⚠️ **Nom immuable** de l'IA de MedNum. Ce nom ne doit JAMAIS être changé. Ancré culturellement (prénom mauritanien répandu). |
 | **RAG** | Retrieval Augmented Generation — architecture IA où le LLM génère ses réponses en s'appuyant uniquement sur des chunks pertinents récupérés dans la base vectorielle. |
 | **RLS** | Row-Level Security — fonctionnalité Supabase/PostgreSQL contrôlant l'accès aux données par utilisateur. |
-| **RTL** | Right-To-Left — sens d'écriture de l'arabe. L'interface arabe de ProfNum nécessite une adaptation RTL complète (layout, typographie, sens du scroll React Native). |
+| **RTL** | Right-To-Left — sens d'écriture de l'arabe. L'interface arabe de MedNum nécessite une adaptation RTL complète (layout, typographie, sens du scroll React Native). |
 | **Sedad** | Plateforme de paiement électronique mauritanienne acceptant les cartes CCP et virements bancaires locaux. |
 | **Skill tree** | Représentation visuelle des chapitres d'une matière sous forme d'arbre. Nœuds verrouillés/déverrouillés selon le score de maîtrise. |
-| **Soninké** | Langue nationale mauritanienne (aussi appelée sarakollé). Communauté présente dans le sud de la Mauritanie. Langue cible Phase 3 ProfNum. |
+| **Soninké** | Langue nationale mauritanienne (aussi appelée sarakollé). Communauté présente dans le sud de la Mauritanie. Langue cible Phase 3 MedNum. |
 | **Streak** | Nombre de jours consécutifs d'utilisation de l'app. |
 | **TF-IDF** | Term Frequency-Inverse Document Frequency — algorithme de recherche textuelle classique, utilisé en complément des vecteurs dans hybridSearch. |
 | **XP** | Points d'expérience — système de récompense gamification. |
 
 ---
 
-*ProfNum PRD v1.0 — Mai 2026 — Confidentiel*
+*MedNum PRD v1.0 — Mai 2026 — Confidentiel*
 *Dernière mise à jour : Mai 2026*

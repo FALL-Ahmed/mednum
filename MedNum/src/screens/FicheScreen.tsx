@@ -9,7 +9,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppStore } from '../store';
+import { useAppStore, CourseChunk } from '../store';
 import { supabase } from '../lib/supabase';
 import { generateFiche } from '../utils/rag';
 import { Colors, Spacing, Radius, Shadows } from '../theme';
@@ -28,21 +28,67 @@ function hashContent(str: string): string {
 
 type FicheSection = { title: string; emoji: string; body: string };
 
+// Ionicons par numéro de section médicale
+type SectionIcon = { name: React.ComponentProps<typeof Ionicons>['name']; color: string };
+
+const SECTION_ICONS: Record<string, SectionIcon> = {
+  'I':   { name: 'document-text-outline',    color: '#2563EB' },
+  'II':  { name: 'pulse-outline',            color: '#7C3AED' },
+  'III': { name: 'search-outline',           color: '#059669' },
+  'IV':  { name: 'medkit-outline',           color: '#DC2626' },
+  'V':   { name: 'star-outline',             color: '#F59E0B' },
+};
+
 const SECTION_COLORS: Record<string, string> = {
-  '💡': '#F59E0B',
-  '📖': '#2563EB',
-  '📐': '#7C3AED',
-  '🔧': '#059669',
-  '📅': '#DC2626',
-  '👤': '#DB2777',
-  '📝': '#0891B2',
-  '✍️': '#0891B2',
-  '🎯': '#16A34A',
-  '🚨': '#EA580C',
-  '⚠️': '#D97706',
+  '📋': '#2563EB',
+  '🔬': '#7C3AED',
+  '🩺': '#059669',
+  '💊': '#DC2626',
+  '⭐': '#F59E0B',
+  '★':  '#F59E0B',
+  '📄': '#6B7280',
+  '📌': '#6B7280',
 };
 
 function parseFiche(raw: string): FicheSection[] {
+  // Format médical MedNum : séparateurs ═══ et sections numérotées (I. II. III. IV. V.)
+  const medicalPattern = /═{3,}\n((?:I{1,3}V?|VI?|V)\.?\s+[^\n]+)\n═{3,}/g;
+  const hasMedicalFormat = medicalPattern.test(raw);
+
+  if (hasMedicalFormat) {
+    // Parse le format médical avec séparateurs ═══
+    const sections: FicheSection[] = [];
+    // Extraire l'en-tête (avant le premier ═══)
+    const beforeFirst = raw.split(/═{3,}/)[0].trim();
+    if (beforeFirst) {
+      sections.push({ title: beforeFirst, emoji: '📄', body: '' });
+    }
+    // Découper par les blocs ═══ TITRE ═══ ... ═══
+    const blocks = raw.split(/═{15,}/);
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i].trim();
+      if (!block) continue;
+      const lines = block.split('\n');
+      const titleLine = lines[0].trim();
+      // Detect section number (I., II., III., IV., V.)
+      const numMatch = titleLine.match(/^(I{1,3}V?|VI?|V)\.?\s+(.+)/);
+      if (numMatch) {
+        const num = numMatch[1];
+        const title = numMatch[2].trim();
+        const body = lines.slice(1).join('\n').trim();
+        sections.push({ title, emoji: num, body });
+      } else if (titleLine && i > 0) {
+        // Bloc sans numéro romain — inclure dans la section précédente ou comme section orpheline
+        const body = lines.join('\n').trim();
+        if (body && sections.length > 0) {
+          sections[sections.length - 1].body += '\n' + body;
+        }
+      }
+    }
+    return sections.filter(s => s.title || s.body);
+  }
+
+  // Fallback : ancien format ProfNum avec ## emoji TITRE
   const parts = raw.split(/^## /m).filter(Boolean);
   return parts.map(part => {
     const lines = part.trim().split('\n');
@@ -93,6 +139,19 @@ function BodyText({ text, accent, rtl }: { text: string; accent: string; rtl?: b
                 <Text style={[styles.numTxt, { color: accent }]}>{num}</Text>
               </View>
               <Text style={[styles.bodyLine, { color: t.text, flex: 1, textAlign: align, writingDirection: dir }]}>
+                {renderInline(content, accent, t.textMuted, rtl)}
+              </Text>
+            </View>
+          );
+        }
+
+        // Ligne ★ (points clés concours médical)
+        if (/^★/.test(trimmed)) {
+          const content = trimmed.replace(/^★\s*/, '');
+          return (
+            <View key={i} style={[styles.bulletLine, rtl && { flexDirection: 'row-reverse' }]}>
+              <Text style={{ fontSize: 14, color: '#F59E0B', marginTop: 2 }}>★</Text>
+              <Text style={[styles.bodyLine, { color: t.text, flex: 1, textAlign: align, writingDirection: dir, fontWeight: '600' }]}>
                 {renderInline(content, accent, t.textMuted, rtl)}
               </Text>
             </View>
@@ -160,9 +219,7 @@ function buildFicheHTML(
   isArabic?: boolean,
 ): string {
   const sectionColors: Record<string, string> = {
-    '💡': '#F59E0B', '📖': '#2563EB', '📐': '#7C3AED', '🔧': '#059669',
-    '📅': '#DC2626', '👤': '#DB2777', '📝': '#0891B2', '✍️': '#0891B2',
-    '🎯': '#16A34A', '🚨': '#EA580C', '⚠️': '#D97706',
+    'I': '#2563EB', 'II': '#7C3AED', 'III': '#059669', 'IV': '#DC2626', 'V': '#F59E0B',
   };
 
   const sectionsHTML = sections.map(sec => {
@@ -242,27 +299,26 @@ function buildFicheHTML(
   <div class="header">
     <div class="header-label">${subjectName.toUpperCase()} · ${isArabic ? 'بطاقة مراجعة' : 'FICHE DE RÉVISION'}</div>
     <div class="header-title">${chapterTitle}</div>
-    <div class="header-sub">ProfNum — ${isArabic ? 'أُنشئت في' : 'Généré le'} ${new Date().toLocaleDateString(isArabic ? 'ar' : 'fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    <div class="header-sub">MedNum — Dr. Ahmed — ${isArabic ? 'أُنشئت في' : 'Généré le'} ${new Date().toLocaleDateString(isArabic ? 'ar' : 'fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
   </div>
   <div class="content">${sectionsHTML}</div>
-  <div class="footer">ProfNum · Mauritanie</div>
+  <div class="footer">MedNum · Mauritanie</div>
 </body>
 </html>`;
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-export default function FicheScreen({ route, navigation }: any) {
-  const { chapterIndex, chapterTitle } = route.params as {
-    chapterIndex: number;
-    chapterTitle: string;
-  };
-
+export default function FicheScreen({ navigation }: any) {
   const t = useTheme();
   const tr = useT();
   const { top } = useSafeAreaInsets();
   const { activeCourse, fiches, ficheContentHash, saveFiche, decrementQuota, syncQuota } = useAppStore();
-  const chunk = activeCourse?.chunks?.[chapterIndex];
+  // Fiche générée sur le document entier (plus de découpage par chapitre)
+  const chunk: CourseChunk | undefined = activeCourse
+    ? { title: activeCourse.name, content: activeCourse.content, index: 0 }
+    : undefined;
+  const chapterTitle = activeCourse?.name ?? '';
   const subjectStyle = getSubjectStyle(activeCourse?.subjectName ?? '');
   const accent = subjectStyle.accent;
   const bg = subjectStyle.bg;
@@ -276,29 +332,23 @@ export default function FicheScreen({ route, navigation }: any) {
 
   const loadFiche = async () => {
     if (!chunk || !activeCourse) { setError(tr.fiche.chapterNotFound); setLoading(false); return; }
-    if (chapterIndex === 0 && /^(introduction|intro|préambule|présentation|avant[- ]propos|généralités|sommaire|table|تقديم|مقدمة|توطئة|المحتويات)/i.test((chunk.title ?? '').trim())) {
-      setError(tr.fiche.noFicheForIntro);
-      setLoading(false);
-      return;
-    }
 
     // 1. Cache local
-    const cacheKey = `${activeCourse.id}_${chapterIndex}`;
+    const cacheKey = `${activeCourse.id}_0`;
     const currentHash = hashContent(chunk.content);
     if (fiches[cacheKey]) {
       // Met à jour le hash si manquant
-      if (!ficheContentHash[cacheKey]) saveFiche(activeCourse.id, chapterIndex, fiches[cacheKey], currentHash);
+      if (!ficheContentHash[cacheKey]) saveFiche(activeCourse.id, 0, fiches[cacheKey], currentHash);
       setRaw(fiches[cacheKey]); setLoading(false); return;
     }
 
-    // 2. Supabase (partagé entre tous les élèves de la classe)
+    // 2. Supabase (persistée sur le compte de l'élève, survit à une réinstallation)
     try {
       const { data } = await supabase
-        .from('courses').select('fiches').eq('id', activeCourse.id).single();
-      const sbFiche = (data?.fiches as Record<string, string> | null)?.[String(chapterIndex)];
-      if (sbFiche) {
-        saveFiche(activeCourse.id, chapterIndex, sbFiche, currentHash);
-        setRaw(sbFiche); setLoading(false); return;
+        .from('documents').select('fiche').eq('id', activeCourse.id).maybeSingle();
+      if (data?.fiche) {
+        saveFiche(activeCourse.id, 0, data.fiche, currentHash);
+        setRaw(data.fiche); setLoading(false); return;
       }
     } catch {}
 
@@ -316,20 +366,18 @@ export default function FicheScreen({ route, navigation }: any) {
     if (!chunk || !activeCourse) return;
     setLoading(true); setError('');
     try {
-      const result = await generateFiche(chunk, activeCourse.subjectName, activeCourse.name, activeCourse.language === 'ar' ? 'ar' : 'fr');
+      const result = await generateFiche(chunk, activeCourse.subjectName, activeCourse.name);
       decrementQuota();
       const hash = hashContent(chunk.content);
       // Affichage + cache local immédiatement
       setRaw(result);
-      saveFiche(activeCourse.id, chapterIndex, result, hash);
-      // Sauvegarde Supabase en arrière-plan (silencieuse si échec)
-      supabase.from('courses').select('fiches').eq('id', activeCourse.id).single()
-        .then(({ data }) => {
-          const existing = (data?.fiches as Record<string, string>) || {};
-          supabase.from('courses').update({
-            fiches: { ...existing, [String(chapterIndex)]: result },
-          }).eq('id', activeCourse.id).then(() => {});
-        });
+      saveFiche(activeCourse.id, 0, result, hash);
+      // Sauvegarde Supabase en arrière-plan (silencieuse si échec) — évite de
+      // regénérer (coût + temps) si l'élève revient sur ce document plus tard.
+      supabase.from('documents')
+        .update({ fiche: result, fiche_hash: hash, updated_at: new Date().toISOString() })
+        .eq('id', activeCourse.id)
+        .then(({ error }) => { if (error) console.log('[Fiche] sauvegarde Supabase échouée:', error.message); });
     } catch (e: any) {
       if (e?.isQuotaExceeded) {
         syncQuota();
@@ -395,7 +443,7 @@ export default function FicheScreen({ route, navigation }: any) {
                 activeOpacity={0.75}
                 onPress={() => {
                   if (!chunk) return;
-                  const key = `${activeCourse?.id}_${chapterIndex}`;
+                  const key = `${activeCourse?.id}_0`;
                   const storedHash = ficheContentHash[key];
                   const currentHash = hashContent(chunk.content);
                   if (storedHash && storedHash === currentHash) {
@@ -464,7 +512,18 @@ export default function FicheScreen({ route, navigation }: any) {
           contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 60, gap: 12 }}
         >
           {sections.map((sec, i) => {
-            const sectionAccent = SECTION_COLORS[sec.emoji] ?? accent;
+            // Pour les sections médicales numérotées (I–V), utilise Ionicons
+            const medIcon = SECTION_ICONS[sec.emoji];
+            const sectionAccent = medIcon?.color ?? SECTION_COLORS[sec.emoji] ?? accent;
+            // Section d'en-tête (titre du cours) — affichage différent
+            if (sec.emoji === '📄') {
+              return (
+                <View key={i} style={[styles.card, { backgroundColor: t.surfaceAlt }, Shadows.sm]}>
+                  <Text style={[styles.cardTitle, { color: t.text, fontWeight: '700', fontSize: 15 }]}>{sec.title}</Text>
+                  {sec.body ? <BodyText text={sec.body} accent={accent} rtl={isArabic} /> : null}
+                </View>
+              );
+            }
             return (
               <View
                 key={i}
@@ -479,11 +538,14 @@ export default function FicheScreen({ route, navigation }: any) {
               >
                 <View style={[styles.cardHeader, isArabic && { flexDirection: 'row-reverse' }]}>
                   <View style={[styles.emojiBox, { backgroundColor: sectionAccent + '18' }]}>
-                    <Text style={styles.emoji}>{sec.emoji}</Text>
+                    {medIcon
+                      ? <Ionicons name={medIcon.name} size={18} color={sectionAccent} />
+                      : <Text style={styles.emoji}>{sec.emoji}</Text>
+                    }
                   </View>
                   <Text style={[styles.cardTitle, { color: sectionAccent, textAlign: isArabic ? 'right' : 'left' }]}>{sec.title}</Text>
                 </View>
-                <BodyText text={sec.body} accent={sectionAccent} rtl={isArabic} />
+                {sec.body ? <BodyText text={sec.body} accent={sectionAccent} rtl={isArabic} /> : null}
               </View>
             );
           })}
@@ -497,7 +559,7 @@ export default function FicheScreen({ route, navigation }: any) {
             </View>
             <TouchableOpacity
               style={[styles.quizBannerBtn, { backgroundColor: accent }]}
-              onPress={() => navigation.replace('Quiz', { courseId: activeCourse?.id, chapterIndex, chapterTitle })}
+              onPress={() => navigation.replace('Quiz', { courseId: activeCourse?.id })}
               activeOpacity={0.8}
             >
               <Text style={styles.quizBannerBtnText}>{tr.fiche.quizArrow}</Text>

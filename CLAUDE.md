@@ -1,4 +1,4 @@
-# ProfNum — Instructions Claude
+﻿# MedNum — Instructions Claude
 
 ## Règle absolue : GIT PUSH
 

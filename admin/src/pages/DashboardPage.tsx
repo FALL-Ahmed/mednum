@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, Fragment } from 'react'
+﻿import React, { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import * as pdfjsLib from 'pdfjs-dist'
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -209,7 +209,7 @@ function Sidebar({ page, setPage, email }: { page:Page; setPage:(p:Page)=>void; 
     <aside className="sb">
       <div className="sb-brand">
         <div className="sb-mark">PN</div>
-        <div><div className="sb-name">ProfNum</div><div className="sb-role">Administration</div></div>
+        <div><div className="sb-name">MedNum</div><div className="sb-role">Administration</div></div>
       </div>
       <nav className="sb-nav">
         {NAV.map(sec=>(

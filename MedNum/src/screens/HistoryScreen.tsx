@@ -102,7 +102,7 @@ export default function HistoryScreen() {
   const { chatHistory, clearHistory, activeCourse, plan } = useAppStore();
   const t = useTheme();
   const tr = useT();
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const [selected, setSelected] = useState<ChatSession | null>(null);
   const isFreemium = plan === 'freemium';
@@ -231,7 +231,7 @@ export default function HistoryScreen() {
           data={isFreemium ? grouped.slice(0, 3) : grouped}
           keyExtractor={(g) => g.date}
           renderItem={renderGroup}
-          contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 110 }}
+          contentContainerStyle={{ padding: Spacing.lg, paddingBottom: bottom + 100 }}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
             <TouchableOpacity

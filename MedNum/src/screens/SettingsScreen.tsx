@@ -37,7 +37,7 @@ function Avatar({ name, size = 80 }: { name: string; size?: number }) {
 export default function SettingsScreen() {
   const t = useTheme();
   const tr = useT();
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const {
     studentName, studentClassName, studentSchoolName,
     darkMode, toggleDarkMode,
@@ -167,7 +167,7 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom + 100 }}>
 
         {/* ── SECTION : PROFIL ───────────────────────────────────── */}
         <SectionLabel label={tr.settings.sectionProfile} />

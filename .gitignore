@@ -26,3 +26,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Supabase CLI cache local
+**/supabase/.temp/
