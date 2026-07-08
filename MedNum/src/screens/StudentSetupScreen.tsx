@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,40 +8,51 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { supabase, SBClass } from '../lib/supabase';
+import { supabase, SBPromotion } from '../lib/supabase';
 import { useAppStore } from '../store';
 import { Colors, Spacing, Radius, Shadows } from '../theme';
 import { useTheme, Text, TextInput } from '../components';
-import { useT } from '../i18n';
 
 export default function StudentSetupScreen() {
   const { setStudentInfo, userId } = useAppStore();
   const t = useTheme();
-  const tr = useT();
   const { top, bottom } = useSafeAreaInsets();
   const [name, setName] = useState('');
-  const [school, setSchool] = useState('');
-  const [classes, setClasses] = useState<SBClass[]>([]);
-  const [selected, setSelected] = useState<SBClass | null>(null);
+  const [promotions, setPromotions] = useState<SBPromotion[]>([]);
+  const [selected, setSelected] = useState<SBPromotion | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase
-      .from('classes')
-      .select('*')
-      .order('name')
+      .from('promotions')
+      .select('id, name, description, sort_order')
+      .order('sort_order')
       .then(({ data }) => {
-        if (data) setClasses(data as SBClass[]);
+        if (data) setPromotions(data as SBPromotion[]);
         setLoading(false);
       });
   }, []);
 
-  const ready = name.trim().length > 0 && school.trim().length > 0 && selected !== null;
+  const ready = name.trim().length > 0 && selected !== null;
+
+  const handleStart = async () => {
+    if (!ready) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user?.id || userId;
+    supabase.from('students').upsert({
+      user_id: uid,
+      name: name.trim(),
+      promotion_id: selected!.id,
+      promotion_name: selected!.name,
+      school_name: 'FMPOS UNAM',
+    }, { onConflict: 'user_id' }).then(() => {});
+    setStudentInfo(name.trim(), selected!.id, selected!.name);
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: t.bg, paddingTop: top }]}>
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 24 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 32 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -49,31 +60,27 @@ export default function StudentSetupScreen() {
         <View style={[styles.hero, { backgroundColor: Colors.blue }]}>
           <View style={styles.heroBubble1} />
           <View style={styles.heroBubble2} />
-          <Text style={styles.heroTitle}>{tr.studentSetup.heroTitle}</Text>
+          <Text style={styles.heroTitle}>Bienvenue</Text>
           <Text style={styles.heroSub}>
-            {tr.studentSetup.heroSub}
+            Dr. Ahmed va personnaliser votre revision selon votre promotion
           </Text>
-
-          {/* Progress steps */}
           <View style={styles.stepsRow}>
-            <View style={[styles.stepDot, name.trim() && styles.stepDotDone]} />
+            <View style={[styles.stepDot, name.trim() ? styles.stepDotDone : {}]} />
             <View style={styles.stepLine} />
-            <View style={[styles.stepDot, school.trim() && styles.stepDotDone]} />
-            <View style={styles.stepLine} />
-            <View style={[styles.stepDot, selected && styles.stepDotDone]} />
+            <View style={[styles.stepDot, selected ? styles.stepDotDone : {}]} />
           </View>
         </View>
 
-        {/* Nom */}
+        {/* Prenom */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>{tr.studentSetup.firstNameLabel}</Text>
+          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>VOTRE PRENOM</Text>
           <View style={[
             styles.inputCard,
             { backgroundColor: t.surface, borderColor: name ? Colors.blue : t.border },
           ]}>
             <TextInput
               style={[styles.nameInput, { color: t.text }]}
-              placeholder={tr.studentSetup.firstNamePlaceholder}
+              placeholder="Ahmed, Fatima..."
               placeholderTextColor={t.textMuted}
               value={name}
               onChangeText={setName}
@@ -84,55 +91,39 @@ export default function StudentSetupScreen() {
           </View>
         </View>
 
-        {/* École */}
+        {/* Promotion */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>{tr.studentSetup.schoolLabel}</Text>
-          <View style={[
-            styles.inputCard,
-            { backgroundColor: t.surface, borderColor: school ? Colors.blue : t.border },
-          ]}>
-            <TextInput
-              style={[styles.nameInput, { color: t.text }]}
-              placeholder={tr.studentSetup.schoolPlaceholder}
-              placeholderTextColor={t.textMuted}
-              value={school}
-              onChangeText={setSchool}
-              autoCapitalize="words"
-              selectionColor={Colors.blue}
-            />
-          </View>
-        </View>
-
-        {/* Classe */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>{tr.studentSetup.classLabel}</Text>
+          <Text style={[styles.sectionLabel, { color: t.textMuted }]}>VOTRE PROMOTION</Text>
 
           {loading ? (
             <ActivityIndicator color={Colors.blue} style={{ marginTop: 20 }} />
-          ) : classes.length === 0 ? (
+          ) : promotions.length === 0 ? (
             <Text style={[styles.emptyText, { color: t.textMuted }]}>
-              {tr.studentSetup.noClass}
+              Aucune promotion disponible
             </Text>
           ) : (
-            <View style={styles.chipsWrap}>
-              {classes.map(item => {
+            <View style={styles.promoGrid}>
+              {promotions.map(item => {
                 const active = selected?.id === item.id;
                 return (
                   <TouchableOpacity
                     key={item.id}
                     style={[
-                      styles.chip,
-                      active
-                        ? styles.chipActive
-                        : { backgroundColor: t.surface, borderColor: t.border },
+                      styles.promoCard,
+                      { backgroundColor: t.surface, borderColor: t.border },
+                      active ? styles.promoCardActive : {},
                     ]}
                     onPress={() => setSelected(item)}
                     activeOpacity={0.75}
                   >
-                    {active && <Text style={styles.chipCheck}>✓</Text>}
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    <Text style={[styles.promoLabel, active ? styles.promoLabelActive : {}]}>
                       {item.name}
                     </Text>
+                    {item.description ? (
+                      <Text style={[styles.promoDesc, { color: active ? 'rgba(255,255,255,0.75)' : t.textMuted }]}>
+                        {item.description}
+                      </Text>
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
@@ -143,34 +134,14 @@ export default function StudentSetupScreen() {
         {/* Bouton */}
         <View style={styles.btnWrap}>
           <TouchableOpacity
-            onPress={async () => {
-              if (!ready) return;
-              // Lire l'UID depuis la session en cours, pas depuis le store (qui peut être '' si auth pas encore finie)
-              const { data: { session } } = await supabase.auth.getSession();
-              const uid = session?.user?.id || userId;
-              supabase.from('students').upsert({
-                user_id: uid,
-                name: name.trim(),
-                class_id: selected!.id,
-                class_name: selected!.name,
-                school_name: school.trim(),
-              }, { onConflict: 'user_id' }).then(() => {});
-              setStudentInfo(name.trim(), selected!.id, selected!.name, school.trim());
-            }}
+            onPress={handleStart}
             disabled={!ready}
             activeOpacity={0.85}
           >
-            {ready ? (
-              <View style={styles.btn}>
-                <Text style={styles.btnText}>{tr.studentSetup.start}</Text>
-                <Text style={styles.btnArrow}>→</Text>
-              </View>
-            ) : (
-              <View style={[styles.btn, styles.btnDisabled]}>
-                <Text style={styles.btnText}>{tr.studentSetup.start}</Text>
-                <Text style={styles.btnArrow}>→</Text>
-              </View>
-            )}
+            <View style={[styles.btn, !ready ? styles.btnDisabled : {}]}>
+              <Text style={styles.btnText}>Commencer</Text>
+              <Text style={styles.btnArrow}>{'->'}</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -182,7 +153,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scroll: { paddingTop: 0, paddingHorizontal: 0 },
 
-  /* Hero */
   hero: {
     alignItems: 'center',
     paddingTop: Spacing.xxxl,
@@ -225,16 +195,13 @@ const styles = StyleSheet.create({
     width: 10, height: 10, borderRadius: 5,
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
-  stepDotDone: {
-    backgroundColor: '#fff',
-  },
+  stepDotDone: { backgroundColor: '#fff' },
   stepLine: {
-    width: 28, height: 2,
+    width: 40, height: 2,
     backgroundColor: 'rgba(255,255,255,0.3)',
     marginHorizontal: 6,
   },
 
-  /* Section */
   section: { marginBottom: Spacing.xxxl, paddingHorizontal: Spacing.xxl },
   sectionLabel: {
     fontSize: 11,
@@ -243,7 +210,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
 
-  /* Name input */
   inputCard: {
     borderRadius: Radius.lg,
     borderWidth: 1.5,
@@ -257,41 +223,43 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
 
-  /* Chips */
-  chipsWrap: {
+  promoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: Radius.full,
+  promoCard: {
+    width: '46%',
+    flexGrow: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    borderRadius: Radius.lg,
     borderWidth: 1.5,
-  },
-  chipActive: {
-    backgroundColor: Colors.blue,
-    borderColor: Colors.blue,
+    alignItems: 'center',
+    justifyContent: 'center',
     ...Shadows.sm,
   },
-  chipCheck: {
-    fontSize: 13,
+  promoCardActive: {
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue,
+  },
+  promoLabel: {
+    fontSize: 16,
     fontWeight: '800',
-    color: '#fff',
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
     color: Colors.textSecondary,
+    letterSpacing: -0.2,
+    textAlign: 'center',
   },
-  chipTextActive: {
+  promoLabelActive: {
     color: '#fff',
+  },
+  promoDesc: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 3,
+    textAlign: 'center',
   },
 
-  /* Empty */
   emptyText: {
     fontSize: 14,
     lineHeight: 22,
@@ -299,7 +267,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
 
-  /* Button */
   btn: {
     backgroundColor: Colors.blue,
     borderRadius: Radius.lg,

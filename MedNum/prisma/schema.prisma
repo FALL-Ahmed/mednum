@@ -16,10 +16,12 @@ datasource db {
 // Remplace les "classes" de ProfNum par les promotions UNAM (P1 à P5+)
 
 model Promotion {
-  id        String   @id @default(uuid())
-  name      String                         // "P1", "P2", "P3", "P4", "P5", "Résidanat"
-  year      Int?                           // Année académique (ex: 2025)
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid())
+  name        String                         // "P1", "P2", "P3", "P4", "P5", "Résidanat"
+  description String?                        // "1ère année de médecine", "Résidanat — Post-graduée"
+  year        Int?                           // Année académique (ex: 2025)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   students Student[]
   courses  Course[]

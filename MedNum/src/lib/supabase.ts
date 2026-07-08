@@ -14,6 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 })
 
 export type SBClass = { id: string; name: string }
+export type SBPromotion = { id: string; name: string; description: string | null; sort_order: number }
 export type SBSubject = { id: string; name: string }
 export type SBCourse = {
   id: string
