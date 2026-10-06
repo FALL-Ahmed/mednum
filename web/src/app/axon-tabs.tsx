@@ -1,53 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SITE, type Lang } from "@/lib/site-i18n";
 import { CaseDemo, ChatDemo, FicheDemo, FlashcardDemo, QcmDemo } from "./demos";
 
 /*
   Un axone myélinisé sert de navigation : chaque gaine de myéline est une
   fonction de l'app. Les nœuds entre les gaines sont les espaces de conduction.
 */
-const stops = [
-  {
-    id: "questions",
-    label: "Questions",
-    title: "Une notion bloque ? Demande à Dr. Ahmed.",
-    text: "Écris, parle ou envoie une photo. La réponse est courte, elle vient de ton cours, et finit par ce qu'il faut retenir.",
-    demo: <ChatDemo />,
-  },
-  {
-    id: "fiches",
-    label: "Fiches",
-    title: "Ton cours, en une page.",
-    text: "Chaque chapitre devient une fiche avec ce qui tombe en compo. Tu l'exportes en PDF ou tu la partages avec ta promo.",
-    demo: <FicheDemo />,
-  },
-  {
-    id: "qcm",
-    label: "QCM",
-    title: "Des QCM comme en faculté.",
-    text: "Plusieurs propositions exactes, notation complète, partielle ou fausse. Tu vois ce que tu as oublié, avec la correction.",
-    demo: <QcmDemo />,
-  },
-  {
-    id: "flashcards",
-    label: "Flashcards",
-    title: "Ce qui résiste revient plus vite.",
-    text: "Tu te notes carte par carte. La répétition espacée te représente chaque notion au bon moment.",
-    demo: <FlashcardDemo />,
-  },
-  {
-    id: "cas",
-    label: "Cas cliniques",
-    title: "Raisonne comme en stage.",
-    text: "Histoire, hypothèses, examen, examens complémentaires, diagnostic. Tu réponds à chaque étape avant de voir la suite.",
-    demo: <CaseDemo />,
-  },
-];
-
 const ADVANCE_MS = 6500;
 
-export function AxonTabs() {
+export function AxonTabs({ lang = "fr" }: { lang?: Lang }) {
+  const t = SITE[lang];
+  const demos = [
+    <ChatDemo key="q" lang={lang} />,
+    <FicheDemo key="f" lang={lang} />,
+    <QcmDemo key="c" lang={lang} />,
+    <FlashcardDemo key="fl" lang={lang} />,
+    <CaseDemo key="cs" lang={lang} />,
+  ];
+  const stops = t.tabs.map((x, i) => ({ ...x, demo: demos[i] }));
   const [active, setActive] = useState(0);
   const [auto, setAuto] = useState(true);
 
@@ -56,11 +28,11 @@ export function AxonTabs() {
     if (!auto) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const id = window.setInterval(
-      () => setActive((a) => (a + 1) % stops.length),
+      () => setActive((a) => (a + 1) % t.tabs.length),
       ADVANCE_MS,
     );
     return () => window.clearInterval(id);
-  }, [auto]);
+  }, [auto, t.tabs.length]);
 
   const current = stops[active];
 
@@ -68,7 +40,7 @@ export function AxonTabs() {
     <div>
       <div
         role="tablist"
-        aria-label="Fonctions d'Axone"
+        aria-label={t.features.ariaTabs}
         className="relative grid grid-cols-2 gap-3 md:flex md:items-center md:gap-0"
       >
         <span

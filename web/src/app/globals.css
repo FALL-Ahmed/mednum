@@ -112,3 +112,14 @@ details[open] .faq-plus {
 .eq.idle i { animation: none; transform: scaleY(0.3); }
 @keyframes eq-bar { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
 @media (prefers-reduced-motion: reduce) { .eq i { animation: none; transform: scaleY(0.6); } }
+
+/* Arabe : pas d'espacement entre les lettres (il casserait la liaison), interligne plus généreux. */
+:lang(ar) .display,
+:lang(ar) .label {
+  letter-spacing: 0 !important;
+  line-height: 1.3 !important;
+  text-transform: none;
+}
+:lang(ar) h1.display {
+  line-height: 1.2 !important;
+}

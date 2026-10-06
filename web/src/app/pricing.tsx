@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PublicLimits, PublicOffers } from "@/lib/offers";
+import { SITE, type Lang } from "@/lib/site-i18n";
 
 /*
   Prix par pays. Mauritanie : PRD v2.0 (à valider).
@@ -9,89 +10,43 @@ import type { PublicLimits, PublicOffers } from "@/lib/offers";
   arrondie. À remplacer par les vrais tarifs choisis pour chaque marché.
 */
 const countries = [
-  {
-    id: "mr",
-    label: "Mauritanie",
-    unit: "MRU",
-    prices: { standard: 800, premium: 1500 },
-    pay: "Paiement par Bankily, Masrivi, Sedad ou Click.",
-  },
-  {
-    id: "sn",
-    label: "Sénégal",
-    unit: "FCFA",
-    prices: { standard: 13000, premium: 25000 },
-    pay: "Paiement par mobile money (Wave, Orange Money…) ou carte bancaire, bientôt disponible.",
-  },
-  {
-    id: "ma",
-    label: "Maroc",
-    unit: "MAD",
-    prices: { standard: 220, premium: 400 },
-    pay: "Paiement par carte bancaire, bientôt disponible.",
-  },
+  { id: "mr", unit: "MRU", prices: { standard: 800, premium: 1500 } },
+  { id: "sn", unit: "FCFA", prices: { standard: 13000, premium: 25000 } },
+  { id: "ma", unit: "MAD", prices: { standard: 220, premium: 400 } },
 ] as const;
 
 const plans = [
-  {
-    key: "free",
-    name: "Gratuit",
-    text: "Pour découvrir Axone.",
-    items: [
-      "1 document actif",
-      "5 questions par jour à Dr. Ahmed",
-      "1 fiche, flashcards ou cas clinique par jour",
-      "5 QCM par jour",
-      "Historique de 7 jours",
-    ],
-  },
-  {
-    key: "standard",
-    name: "Standard",
-    text: "Pour réviser toute l'année.",
-    main: true,
-    items: [
-      "5 documents actifs",
-      "30 questions par jour",
-      "5 fiches, flashcards ou cas cliniques par jour",
-      "10 QCM par jour",
-      "Export des fiches en PDF",
-      "Historique de 30 jours",
-    ],
-  },
-  {
-    key: "premium",
-    name: "Duo",
-    text: "Pour la préparation intensive, à deux.",
-    items: [
-      "Révision à deux : QCM partagés avec un ami, invité gratuit",
-      "Documents illimités",
-      "100 questions par jour",
-      "20 fiches, flashcards ou cas cliniques par jour",
-      "30 QCM par jour",
-      "Export des fiches en PDF",
-      "Historique illimité",
-    ],
-  },
+  { key: "free" },
+  { key: "standard", main: true },
+  { key: "premium" },
 ] as const;
+
+/** Liste de secours (si les offres du panneau d'administration ne sont pas lisibles). */
+const FALLBACK: Record<"freemium" | "standard" | "premium", PublicLimits> = {
+  freemium: { max_documents: 1, daily_questions: 5, daily_contents: 1, daily_qcm: 5, pdf_export: false, history_days: 7 },
+  standard: { max_documents: 5, daily_questions: 30, daily_contents: 5, daily_qcm: 10, pdf_export: true, history_days: 30 },
+  premium: { max_documents: null, daily_questions: 100, daily_contents: 20, daily_qcm: 30, pdf_export: true, history_days: null },
+};
 
 const fmt = (n: number) => n.toLocaleString("fr-FR").replace(/ /g, " ");
 
-const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 /** Liste des avantages d'une offre, construite à partir de ses limites réelles. */
-function itemsFor(l: PublicLimits, duo = false): string[] {
-  const out: string[] = duo ? ["Révision à deux : QCM partagés avec un ami, invité gratuit"] : [];
-  out.push(l.max_documents === null ? "Documents illimités" : plural(l.max_documents, "document actif", "documents actifs"));
-  out.push(`${plural(l.daily_questions, "question", "questions")} par jour à Dr. Ahmed`);
-  out.push(`${l.daily_contents} ${l.daily_contents > 1 ? "fiches, flashcards ou cas cliniques" : "fiche, flashcards ou cas clinique"} par jour`);
-  out.push(`${l.daily_qcm} QCM par jour`);
-  if (l.pdf_export) out.push("Export des fiches en PDF");
-  out.push(l.history_days === null ? "Historique illimité" : `Historique de ${l.history_days} jours`);
+function itemsFor(l: PublicLimits, lang: Lang, duo = false): string[] {
+  const t = SITE[lang].pricing.items;
+  const out: string[] = duo ? [t.duo] : [];
+  out.push(t.docs(l.max_documents));
+  out.push(t.questions(l.daily_questions));
+  out.push(t.contents(l.daily_contents));
+  out.push(t.qcm(l.daily_qcm));
+  if (l.pdf_export) out.push(t.pdf);
+  out.push(t.history(l.history_days));
   return out;
 }
 
-export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
+export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers | null; lang?: Lang }) {
+  const T = SITE[lang].pricing;
+  const prefix = lang === "ar" ? "/ar" : "";
   const [id, setId] = useState<(typeof countries)[number]["id"]>("mr");
   const base = countries.find((x) => x.id === id)!;
   // Prix du panneau d'administration quand ils sont disponibles, sinon valeurs de secours du site
@@ -110,7 +65,7 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
     <div>
       <div
         role="tablist"
-        aria-label="Pays"
+        aria-label={T.aria}
         className="mt-10 inline-flex rounded-full border border-line bg-slide p-1"
       >
         {countries.map((x) => (
@@ -123,7 +78,7 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
               x.id === id ? "bg-ink text-white" : "text-ink/70 hover:text-ink"
             }`}
           >
-            {x.label}
+            {T.countries.find((k) => k.id === x.id)?.label}
           </button>
         ))}
       </div>
@@ -132,6 +87,9 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
         {plans.map((p) => {
           const main = "main" in p && p.main;
           const price = p.key === "free" ? 0 : c.prices[p.key];
+          const name = p.key === "free" ? T.free.name : p.key === "standard" ? "Standard" : "Duo";
+          const text = p.key === "free" ? T.free.text : p.key === "standard" ? T.standardText : T.duoText;
+          const limits = offers ? offers.limits[keyOf[p.key]] : FALLBACK[keyOf[p.key]];
           return (
             <div
               key={p.key}
@@ -139,18 +97,18 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
                 main ? "bg-ink text-white" : "border border-line bg-slide text-ink"
               }`}
             >
-              <p className={`label ${main ? "text-white/60" : "text-muted"}`}>{p.name}</p>
+              <p className={`label ${main ? "text-white/60" : "text-muted"}`}>{name}</p>
               <p className="display mt-5 text-5xl">{fmt(price)}</p>
               <p className={`mt-1 h-5 text-sm ${main ? "text-white/60" : "text-muted"}`}>
-                {price > 0 ? `${c.unit} / mois` : ""}
+                {price > 0 ? `${c.unit} ${T.perMonth}` : ""}
               </p>
-              <p className={`mt-6 font-semibold ${main ? "text-white" : "text-ink"}`}>{p.text}</p>
+              <p className={`mt-6 font-semibold ${main ? "text-white" : "text-ink"}`}>{text}</p>
               <ul
                 className={`mt-5 flex-1 divide-y border-t ${
                   main ? "divide-white/15 border-white/15" : "divide-line border-line"
                 }`}
               >
-                {(offers ? itemsFor(offers.limits[keyOf[p.key]], p.key === "premium") : p.items).map((i) => (
+                {itemsFor(limits, lang, p.key === "premium").map((i) => (
                   <li
                     key={i}
                     className={`flex items-center gap-3 py-3 text-[15px] ${
@@ -164,10 +122,10 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
               </ul>
               {p.key === "free" && (
                 <a
-                  href="/connexion"
+                  href={`${prefix}/connexion`}
                   className="mt-6 rounded-full bg-ink px-6 py-3.5 text-center font-semibold text-white transition hover:bg-eosin"
                 >
-                  Commencer gratuitement
+                  {T.free.cta}
                 </a>
               )}
             </div>
@@ -176,8 +134,8 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
       </div>
 
       <p className="mt-6 text-sm text-muted">
-        {c.pay}
-        {c.id !== "mr" && " Prix indicatifs, ils peuvent changer à l'ouverture du marché."}
+        {T.countries.find((k) => k.id === c.id)?.pay}
+        {c.id !== "mr" && T.indicative}
       </p>
     </div>
   );
