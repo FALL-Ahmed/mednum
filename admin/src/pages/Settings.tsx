@@ -12,7 +12,7 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 type PlanKey = 'freemium' | 'standard' | 'premium'
-const PLAN_NAME: Record<PlanKey, string> = { freemium: 'Gratuit', standard: 'Standard', premium: 'Premium' }
+const PLAN_NAME: Record<PlanKey, string> = { freemium: 'Gratuit', standard: 'Standard', premium: 'Duo' }
 
 const num = (v: string): number | null => {
   const n = Number(v.replace(',', '.').trim())

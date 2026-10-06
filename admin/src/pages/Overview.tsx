@@ -29,7 +29,7 @@ export default function Overview({ ov, settings, days, go, reportsNew }: PagePro
       <KpiRow>
         <Kpi label="Élèves inscrits" value={fmt(t.students)} sub={`+${fmt(t.students_today)} aujourd'hui · +${fmt(t.students_period)} sur ${days} j`} />
         <Kpi label="Actifs aujourd'hui" value={fmt(t.active_today)} sub={`${fmt(t.active_7d)} sur les 7 derniers jours`} />
-        <Kpi label="Abonnés payants" value={fmt(t.paying_now)} sub={`${fmt(t.paying_standard)} Standard · ${fmt(t.paying_premium)} Premium`} tone={t.paying_now > 0 ? 'good' : undefined} />
+        <Kpi label="Abonnés payants" value={fmt(t.paying_now)} sub={`${fmt(t.paying_standard)} Standard · ${fmt(t.paying_premium)} Duo`} tone={t.paying_now > 0 ? 'good' : undefined} />
         <Kpi label="Conversion gratuit → payant" value={pct(t.paying_now, t.students)} sub={`${fmt(d.free)} élèves en offre gratuite`} />
       </KpiRow>
       <KpiRow>
@@ -66,7 +66,7 @@ export default function Overview({ ov, settings, days, go, reportsNew }: PagePro
             rows={[
               { label: 'Gratuit', value: d.free },
               { label: 'Standard', value: t.paying_standard },
-              { label: 'Premium', value: t.paying_premium },
+              { label: 'Duo', value: t.paying_premium },
             ]}
           />
         </Panel>

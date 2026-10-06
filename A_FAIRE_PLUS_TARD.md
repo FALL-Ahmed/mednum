@@ -37,8 +37,9 @@ Liste de ce qui reste, pour ne rien oublier. Dernière mise à jour : 30 septemb
 - [ ] **Prix réels du Sénégal et du Maroc** (aujourd'hui : conversion indicative) dans `web/src/app/pricing.tsx`.
 - [ ] **Ajouter un document depuis le site** est fait ; le **paiement depuis le site** ne l'est pas (le paiement
   se fait dans l'app).
-- [ ] Le **Duo** (révision à deux, invité gratuit le temps d'une session) : d'abord interroger quelques étudiants
-  sur leur façon de réviser à plusieurs et sur le prix. Affiché « bientôt » sur la carte Premium.
+- [x] Le **Duo** (révision à deux) est fait sur le site : QCM partagés, invité gratuit, progression en direct, comparaison,
+  petite discussion (migration `20261006000000_duo.sql`). Reste : l'ajouter à l'**app mobile**, et des **flashcards à deux**.
+  À demander à quelques étudiants : le prix du plan Duo et l'usage réel.
 - [ ] Version **arabe** du site (l'app existe déjà en arabe).
 
 ## 4. Base de données et facturation

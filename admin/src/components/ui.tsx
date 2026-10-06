@@ -56,6 +56,6 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'warn' | '
 export const Loading = () => <div className="ld">Chargement…</div>
 
 export function PlanBadge({ plan }: { plan: string }) {
-  const label = plan === 'premium' ? 'Premium' : plan === 'standard' ? 'Standard' : 'Gratuit'
+  const label = plan === 'premium' ? 'Duo' : plan === 'standard' ? 'Standard' : 'Gratuit'
   return <span className={`badge ${plan === 'premium' ? 'bg-pu' : plan === 'standard' ? 'bg-gr' : 'bg-gy'}`}>{label}</span>
 }

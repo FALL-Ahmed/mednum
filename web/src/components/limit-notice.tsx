@@ -9,7 +9,7 @@ type Kind = "content" | "qcm" | "chat";
 const NEXT_PLAN: Record<string, { name: string; content: number; qcm: number; chat: number } | undefined> = {
   freemium: { name: "Standard", content: 5, qcm: 10, chat: 30 },
   trial: { name: "Standard", content: 5, qcm: 10, chat: 30 },
-  standard: { name: "Premium", content: 20, qcm: 30, chat: 100 },
+  standard: { name: "Duo", content: 20, qcm: 30, chat: 100 },
 };
 
 const WHAT: Record<Kind, { title: string; unit: (n: number) => string }> = {

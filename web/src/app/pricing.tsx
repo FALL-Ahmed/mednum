@@ -61,9 +61,10 @@ const plans = [
   },
   {
     key: "premium",
-    name: "Premium",
-    text: "Pour la préparation intensive.",
+    name: "Duo",
+    text: "Pour la préparation intensive, à deux.",
     items: [
+      "Révision à deux : QCM partagés avec un ami, invité gratuit",
       "Documents illimités",
       "100 questions par jour",
       "20 fiches, flashcards ou cas cliniques par jour",
@@ -71,7 +72,6 @@ const plans = [
       "Export des fiches en PDF",
       "Historique illimité",
     ],
-    soon: "Révision à deux · bientôt",
   },
 ] as const;
 
@@ -80,8 +80,8 @@ const fmt = (n: number) => n.toLocaleString("fr-FR").replace(/ /g, " ");
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
 /** Liste des avantages d'une offre, construite à partir de ses limites réelles. */
-function itemsFor(l: PublicLimits): string[] {
-  const out: string[] = [];
+function itemsFor(l: PublicLimits, duo = false): string[] {
+  const out: string[] = duo ? ["Révision à deux : QCM partagés avec un ami, invité gratuit"] : [];
   out.push(l.max_documents === null ? "Documents illimités" : plural(l.max_documents, "document actif", "documents actifs"));
   out.push(`${plural(l.daily_questions, "question", "questions")} par jour à Dr. Ahmed`);
   out.push(`${l.daily_contents} ${l.daily_contents > 1 ? "fiches, flashcards ou cas cliniques" : "fiche, flashcards ou cas clinique"} par jour`);
@@ -150,7 +150,7 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
                   main ? "divide-white/15 border-white/15" : "divide-line border-line"
                 }`}
               >
-                {(offers ? itemsFor(offers.limits[keyOf[p.key]]) : p.items).map((i) => (
+                {(offers ? itemsFor(offers.limits[keyOf[p.key]], p.key === "premium") : p.items).map((i) => (
                   <li
                     key={i}
                     className={`flex items-center gap-3 py-3 text-[15px] ${
@@ -169,14 +169,6 @@ export function Pricing({ offers = null }: { offers?: PublicOffers | null }) {
                 >
                   Commencer gratuitement
                 </a>
-              )}
-              {"soon" in p && (
-                <p
-                  className="label mt-5 w-fit rounded-full bg-eosin-soft px-3 py-1.5"
-                  style={{ color: "var(--eosin-text)" }}
-                >
-                  {p.soon}
-                </p>
               )}
             </div>
           );

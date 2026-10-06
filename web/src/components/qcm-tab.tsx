@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { askAI, QuotaError } from "@/lib/ai";
 import { KEYS, parseQcm, qcmPrompt, scoreQcm, type DocumentRow, type Key, type Qcm } from "@/lib/course";
+import { createDuo } from "@/lib/duo";
 import { setFlag } from "@/lib/flags";
 import {
   createQcmSet,
@@ -37,7 +40,12 @@ const btnLine =
   "rounded-full border border-ink/25 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-40";
 
 export function QcmTab({ doc }: { doc: DocumentRow }) {
-  const { user, refreshQuota } = useApp();
+  const { user, profile, quota, refreshQuota } = useApp();
+  const router = useRouter();
+  const isDuo = quota?.plan === "premium";
+  const [duoBusy, setDuoBusy] = useState(false);
+  const [duoMsg, setDuoMsg] = useState<string | null>(null);
+  const [duoUpsell, setDuoUpsell] = useState(false);
   const chapters = (doc.chunks ?? []).filter((c) => c.content && c.content.length > 300);
   const [chapter, setChapter] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -116,6 +124,23 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
     setActive({ id: row.id, chapter: row.chapter_title, questions: row.questions, answers, finished: row.finished });
     setIdx(0);
     setShowResult(false);
+  }
+
+  /** Réviser à deux : copie les questions dans une nouvelle session, puis ouvre-la. */
+  async function startDuo(title: string, questions: Qcm[]) {
+    setDuoMsg(null);
+    if (!isDuo) {
+      setDuoUpsell(true);
+      return;
+    }
+    setDuoBusy(true);
+    const r = await createDuo(title, questions, profile.name);
+    if (r.error || !r.data) {
+      setDuoMsg(r.error);
+      setDuoBusy(false);
+      return;
+    }
+    router.push(`/app/duo/${r.data}`);
   }
 
   function persist(next: Active) {
@@ -255,12 +280,39 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
                     <button onClick={() => open(h)} className={`mt-4 w-full ${h.finished ? btnLine : btnDark}`}>
                       {h.finished ? "Revoir la correction" : "Reprendre"}
                     </button>
+                    <button
+                      onClick={() => startDuo(h.chapter_title, h.questions)}
+                      disabled={duoBusy}
+                      className="mt-2 w-full rounded-full px-6 py-2.5 text-sm font-semibold text-ink/80 transition hover:bg-eosin-soft hover:text-ink disabled:opacity-40"
+                    >
+                      {duoBusy ? "Création de la session…" : "Réviser à deux"}
+                    </button>
                   </li>
                 );
               })}
             </ul>
           )}
         </div>
+
+        {duoMsg && (
+          <p role="alert" className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
+            {duoMsg}
+          </p>
+        )}
+        {duoUpsell && (
+          <div className="rounded-2xl bg-eosin-soft p-5">
+            <p className="font-semibold text-ink">Réviser à deux est réservé au plan Duo.</p>
+            <p className="mt-1 text-ink/80">Tu invites un ami, qui participe gratuitement, et vous comparez vos réponses.</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Link href="/app/abonnement" className={btnDark}>
+                Voir le plan Duo
+              </Link>
+              <button onClick={() => setDuoUpsell(false)} className={btnLine}>
+                Plus tard
+              </button>
+            </div>
+          </div>
+        )}
 
         {toDelete && (
           <ConfirmDialog
@@ -347,8 +399,30 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
         <button onClick={leave} className="text-sm font-semibold text-ink/70 transition hover:text-ink">
           ← Mes séries
         </button>
-        <p className="label text-muted">{active.chapter}</p>
+        <div className="flex items-center gap-3">
+          <p className="label text-muted">{active.chapter}</p>
+          <button
+            onClick={() => startDuo(active.chapter, active.questions)}
+            disabled={duoBusy}
+            className="rounded-full border border-ink/25 px-4 py-1.5 text-sm font-semibold text-ink transition hover:border-ink disabled:opacity-40"
+          >
+            {duoBusy ? "Création…" : "Réviser à deux"}
+          </button>
+        </div>
       </div>
+      {duoMsg && (
+        <p role="alert" className="mt-3 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
+          {duoMsg}
+        </p>
+      )}
+      {duoUpsell && (
+        <p className="mt-3 rounded-2xl bg-eosin-soft px-4 py-3 text-ink">
+          Réviser à deux est réservé au plan Duo.{" "}
+          <Link href="/app/abonnement" className="font-semibold underline">
+            Voir le plan Duo
+          </Link>
+        </p>
+      )}
 
       {/* Navigation libre entre les questions */}
       <nav aria-label="Questions" className="mt-4 flex flex-wrap gap-2">

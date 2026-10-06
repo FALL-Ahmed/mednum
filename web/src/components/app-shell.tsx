@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { PENDING_KEY } from "@/lib/duo";
 import { useAuth } from "@/lib/useAuth";
 import {
   AppContext,
@@ -26,6 +27,7 @@ import {
   IconMenu,
   IconTimer,
   IconUser,
+  IconUsers,
 } from "./icons";
 
 type NavItem = {
@@ -42,6 +44,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/app", label: "Accueil", icon: IconHome, exact: true },
       { href: "/app/chat", label: "Discussion", icon: IconChat },
       { href: "/app/cours", label: "Mes cours", icon: IconBook },
+      { href: "/app/duo", label: "Révision à deux", icon: IconUsers },
     ],
   },
   {
@@ -149,6 +152,16 @@ function Guarded({ children }: { children: React.ReactNode }) {
     }, 0); // chargement initial, hors du rendu
     return () => window.clearTimeout(t);
   }, [uid, refreshProfile, refreshQuota, refreshDocs]);
+
+  // Invitation Duo reçue avant la connexion : une fois le profil prêt, on va rejoindre la session.
+  useEffect(() => {
+    if (!profile || pathname.startsWith("/app/duo")) return;
+    try {
+      if (localStorage.getItem(PENDING_KEY)) router.replace("/app/duo");
+    } catch {
+      /* stockage indisponible */
+    }
+  }, [profile, pathname, router]);
 
   async function signOut() {
     await getSupabase()?.auth.signOut();

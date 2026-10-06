@@ -96,3 +96,12 @@ export const IconSpark = ({ className }: P) => (
     <path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z" />
   </svg>
 );
+
+export const IconUsers = ({ className }: P) => (
+  <svg {...base} className={className}>
+    <circle cx="9" cy="8" r="3.6" />
+    <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+    <path d="M16 4.6a3.6 3.6 0 0 1 0 6.8" />
+    <path d="M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
+  </svg>
+);
