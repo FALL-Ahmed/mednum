@@ -285,7 +285,6 @@ export default async function Home() {
                   </div>
                 ))}
               </div>
-              <p className="mt-4 text-sm text-muted">L&apos;application mobile existe aussi en arabe, y compris en lecture de droite à gauche.</p>
             </div>
           </div>
         </section>
