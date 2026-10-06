@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* Palette de l'app mobile : navy #0B1E34 + teal #07A997.
+   Les noms hema/eosin sont conservés : hema = couleur principale (navy), eosin = accent/signal (teal). */
+:root {
+  --slide: #f2f6f8;
+  --white: #ffffff;
+  --ink: #0b1e34;
+  --muted: #55657a;
+  --line: #d9e2ea;
+  --hema: #0b1e34;
+  --hema-deep: #0b1e34;
+  --hema-soft: #e1eaf1;
+  --eosin: #07a997;
+  --eosin-soft: #eaf7f6;
+  --eosin-text: #058a7b;
+  --warn: #ffb74d;
+  --background: var(--slide);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-slide: var(--slide);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-hema: var(--hema);
+  --color-hema-deep: var(--hema-deep);
+  --color-hema-soft: var(--hema-soft);
+  --color-eosin: var(--eosin);
+  --color-eosin-soft: var(--eosin-soft);
+  --font-display: var(--font-display), system-ui, sans-serif;
+  --font-sans: var(--font-body), system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  font-stretch: 92%;
+}
+
+.label {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Anneau de focus clavier par défaut. Dans la couche « base » pour que les classes Tailwind
+   (par ex. focus:outline-none sur un champ de saisie qui a déjà sa propre bordure) puissent le remplacer. */
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--eosin);
+    outline-offset: 3px;
+  }
+}
+
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] .faq-plus {
+  transform: rotate(45deg);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.panel-in {
+  animation: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .panel-in {
+    animation: none;
+  }
+}
+
+
+/* Petit égaliseur animé (ambiance sonore) */
+.eq { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; }
+.eq i { display: block; width: 3px; height: 100%; border-radius: 2px; background: currentColor; transform-origin: bottom; animation: eq-bar 0.9s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -0.3s; animation-duration: 0.7s; }
+.eq i:nth-child(3) { animation-delay: -0.6s; animation-duration: 1.1s; }
+.eq i:nth-child(4) { animation-delay: -0.15s; animation-duration: 0.8s; }
+.eq.idle i { animation: none; transform: scaleY(0.3); }
+@keyframes eq-bar { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .eq i { animation: none; transform: scaleY(0.6); } }

@@ -1,0 +1,158 @@
+{
+  "musique": {
+    "lofi": [
+      {
+        "id": "lofi-1",
+        "title": "Lo-fi 1",
+        "file": "lofi-1.mp3",
+        "seconds": 112
+      },
+      {
+        "id": "lofi-2",
+        "title": "Lo-fi 2",
+        "file": "lofi-2.mp3",
+        "seconds": 172
+      },
+      {
+        "id": "lofi-3",
+        "title": "Lo-fi 3",
+        "file": "lofi-3.mp3",
+        "seconds": 123
+      },
+      {
+        "id": "lofi-4",
+        "title": "Lo-fi 4",
+        "file": "lofi-4.mp3",
+        "seconds": 212
+      },
+      {
+        "id": "lofi-5",
+        "title": "Lo-fi 5",
+        "file": "lofi-5.mp3",
+        "seconds": 184
+      },
+      {
+        "id": "lofi-6",
+        "title": "Lo-fi 6",
+        "file": "lofi-6.mp3",
+        "seconds": 217
+      },
+      {
+        "id": "lofi-7",
+        "title": "Lo-fi 7",
+        "file": "lofi-7.mp3",
+        "seconds": 137
+      }
+    ],
+    "nappes": [
+      {
+        "id": "nappes-1",
+        "title": "Nappes calmes 1",
+        "file": "nappes-1.mp3",
+        "seconds": 172
+      },
+      {
+        "id": "nappes-2",
+        "title": "Nappes calmes 2",
+        "file": "nappes-2.mp3",
+        "seconds": 176
+      },
+      {
+        "id": "nappes-3",
+        "title": "Nappes calmes 3",
+        "file": "nappes-3.mp3",
+        "seconds": 252
+      }
+    ]
+  },
+  "ambiance": [
+    {
+      "id": "pluie-1",
+      "label": "Pluie 1",
+      "hint": "4:02 · Enregistrement",
+      "file": "pluie-1.mp3",
+      "seconds": 242,
+      "group": "nature"
+    },
+    {
+      "id": "pluie-2",
+      "label": "Pluie 2",
+      "hint": "4:13 · Enregistrement",
+      "file": "pluie-2.mp3",
+      "seconds": 253,
+      "group": "nature"
+    },
+    {
+      "id": "ruisseau-1",
+      "label": "Ruisseau 1",
+      "hint": "3:28 · Enregistrement",
+      "file": "ruisseau-1.mp3",
+      "seconds": 208,
+      "group": "nature"
+    },
+    {
+      "id": "ruisseau-2",
+      "label": "Ruisseau 2",
+      "hint": "14:35 · Enregistrement",
+      "file": "ruisseau-2.mp3",
+      "seconds": 875,
+      "group": "nature"
+    },
+    {
+      "id": "ruisseau-3",
+      "label": "Ruisseau 3",
+      "hint": "0:24 · Enregistrement",
+      "file": "ruisseau-3.mp3",
+      "seconds": 24,
+      "group": "nature"
+    },
+    {
+      "id": "vent-1",
+      "label": "Vent",
+      "hint": "9:58 · Enregistrement",
+      "file": "vent-1.mp3",
+      "seconds": 598,
+      "group": "nature"
+    },
+    {
+      "id": "nature-1",
+      "label": "Nature 1",
+      "hint": "1:03 · Enregistrement",
+      "file": "nature-1.mp3",
+      "seconds": 63,
+      "group": "nature"
+    },
+    {
+      "id": "nature-2",
+      "label": "Nature 2",
+      "hint": "5:48 · Enregistrement",
+      "file": "nature-2.mp3",
+      "seconds": 348,
+      "group": "nature"
+    },
+    {
+      "id": "nature-3",
+      "label": "Nature 3",
+      "hint": "0:37 · Enregistrement",
+      "file": "nature-3.mp3",
+      "seconds": 37,
+      "group": "nature"
+    },
+    {
+      "id": "nature-4",
+      "label": "Nature 4",
+      "hint": "9:55 · Enregistrement",
+      "file": "nature-4.mp3",
+      "seconds": 595,
+      "group": "nature"
+    },
+    {
+      "id": "nature-5",
+      "label": "Nature 5",
+      "hint": "2:52 · Enregistrement",
+      "file": "nature-5.mp3",
+      "seconds": 172,
+      "group": "nature"
+    }
+  ]
+}

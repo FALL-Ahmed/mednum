@@ -95,7 +95,14 @@ Deno.serve(async (req: Request) => {
     copiedPages.forEach((p) => batchDoc.addPage(p))
     const batchBytes = await batchDoc.save()
     const batchBase64 = base64Encode(batchBytes)
-    text = await extractBatchWithGemini(batchBase64)
+    const r = await extractBatchWithGemini(batchBase64)
+    text = r.text
+    // Suivi du coût (panneau d'administration) : tokens facturés par Gemini pour ce lot de pages
+    try {
+      await supabase.from('api_usage').insert({
+        user_id: userId, input_tokens: r.promptTokens, output_tokens: r.outputTokens, model: 'gemini-2.5-flash', kind: 'ocr',
+      })
+    } catch { /* le suivi ne doit jamais bloquer la lecture du PDF */ }
     console.log(`[extract-pdf] lot ${startPage + 1}-${endPage}/${totalPages} : ${text.length} chars`)
   } catch (e) {
     console.error(`[extract-pdf] lot ${startPage + 1}-${endPage} erreur :`, (e as Error).message)
@@ -121,7 +128,7 @@ Deno.serve(async (req: Request) => {
 
 // ── Extraction OCR d'un lot de pages via Gemini ───────────────────────────────
 
-async function extractBatchWithGemini(base64: string): Promise<string> {
+async function extractBatchWithGemini(base64: string): Promise<{ text: string; promptTokens: number; outputTokens: number }> {
   const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -150,7 +157,8 @@ async function extractBatchWithGemini(base64: string): Promise<string> {
   const data = await res.json()
   const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim()
   if (text.length < 20) throw new Error('Texte extrait insuffisant pour ce lot')
-  return text
+  const um = data.usageMetadata
+  return { text, promptTokens: um?.promptTokenCount ?? 0, outputTokens: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0) }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
