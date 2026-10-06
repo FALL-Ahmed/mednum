@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { AxonTabs } from "./axon-tabs";
-import { IconBook, IconCalendar, IconChat, IconFile, IconSpark, IconTimer, IconUsers } from "@/components/icons";
 import { Pricing } from "./pricing";
 import { HeroDemo } from "./hero-demo";
 import { getPublicOffers } from "@/lib/offers";
@@ -45,17 +44,6 @@ const DEV_SAMPLE_REVIEWS: Review[] = [
     role: "Médecine · Dakar",
   },
 ];
-
-const included = [
-  { t: "Réviser à deux", d: "Invite un ami (gratuit pour lui), faites la même série de QCM et comparez vos réponses.", icon: IconUsers, wide: true },
-  { t: "Tes PDF en chapitres", d: "Dépose ton cours : il est découpé tout seul. Le texte doit être sélectionnable.", icon: IconFile },
-  { t: "Voix et photo", d: "Pose ta question à l'oral ou photographie la page.", icon: IconChat },
-  { t: "Lecture à voix haute", d: "Dr. Ahmed lit ses réponses : utile dans le bus.", icon: IconSpark },
-  { t: "Pomodoro et sons", d: "Séances chronométrées, avec musique et bruits de nature.", icon: IconTimer },
-  { t: "Planning et série", d: "Planifie tes sessions et garde ta série de jours.", icon: IconCalendar },
-  { t: "Historique", d: "Retrouve tes conversations et tes séries de QCM.", icon: IconBook },
-];
-
 
 const faqs = [
   {
@@ -260,32 +248,6 @@ export default async function Home() {
             </h2>
             <div className="mt-12">
               <AxonTabs />
-            </div>
-            <div className="mt-16 border-t border-line pt-10 sm:mt-24 sm:pt-14">
-              <p className="label text-muted">Et tout autour</p>
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                {included.map((i) => (
-                  <div
-                    key={i.t}
-                    className={`rounded-2xl border p-4 sm:p-5 ${
-                      i.wide ? "col-span-2 border-transparent bg-ink text-white" : "border-line bg-slide"
-                    }`}
-                  >
-                    <span
-                      className={`grid h-9 w-9 place-items-center rounded-full ${
-                        i.wide ? "bg-eosin text-ink" : "bg-white text-ink ring-1 ring-line"
-                      }`}
-                    >
-                      <i.icon />
-                    </span>
-                    <p className={`mt-3 font-semibold leading-snug ${i.wide ? "text-lg" : "text-[15px] sm:text-base"} ${i.wide ? "text-white" : "text-ink"}`}>
-                      {i.t}
-                    </p>
-                    <p className={`mt-1 text-sm leading-snug ${i.wide ? "text-white/75" : "text-muted"}`}>{i.d}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-4 text-sm text-muted">L&apos;application mobile existe aussi en arabe, y compris en lecture de droite à gauche.</p>
             </div>
           </div>
         </section>
