@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PublicLimits, PublicOffers } from "@/lib/offers";
 import { SITE, type Lang } from "@/lib/site-i18n";
+import { discounted, promoFor, type PromoCountry } from "@/lib/promos";
 
 /*
   Prix par pays. Mauritanie : PRD v2.0 (à valider).
@@ -87,6 +88,9 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
         {plans.map((p) => {
           const main = "main" in p && p.main;
           const price = p.key === "free" ? 0 : c.prices[p.key];
+          // Promotion en cours (lancée depuis l'administration) : le prix mensuel est barré et remplacé.
+          const promo = p.key === "free" ? null : promoFor(offers?.promos ?? [], p.key, "monthly", id as PromoCountry);
+          const shown = promo ? discounted(price, promo.discount_percent) : price;
           const name = p.key === "free" ? T.free.name : p.key === "standard" ? "Standard" : "Premium";
           const text = p.key === "free" ? T.free.text : p.key === "standard" ? T.standardText : T.duoText;
           const limits = offers ? offers.limits[keyOf[p.key]] : FALLBACK[keyOf[p.key]];
@@ -114,10 +118,24 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
                 </span>
               )}
               <p className={`label ${main ? "text-eosin" : "text-muted"}`}>{name}</p>
-              <p className="display mt-5 text-5xl">{fmt(price)}</p>
+              <p className="display mt-5 flex flex-wrap items-baseline gap-x-3 text-5xl">
+                {fmt(shown)}
+                {promo && (
+                  <span className={`text-2xl font-normal line-through ${main ? "text-white/50" : "text-muted"}`}>{fmt(price)}</span>
+                )}
+              </p>
               <p className={`mt-1 h-5 text-sm ${main ? "text-white/70" : "text-muted"}`}>
                 {price > 0 ? `${c.unit} ${T.perMonth}` : ""}
               </p>
+              {promo && (
+                <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  <span className="rounded-full bg-[#ffb74d] px-2.5 py-1 text-ink">−{promo.discount_percent} %</span>
+                  <span className={main ? "text-white/85" : "text-ink/80"}>
+                    {promo.label ? `${promo.label} · ` : ""}
+                    {T.promoUntil(new Date(promo.ends_at).toLocaleDateString(lang === "ar" ? "ar-u-nu-latn" : "fr-FR", { day: "numeric", month: "long", timeZone: "UTC" }))}
+                  </span>
+                </p>
+              )}
               <p className={`mt-6 font-semibold ${main ? "text-white" : "text-ink"}`}>{text}</p>
               {main && (
                 <p className="mt-4 rounded-2xl bg-eosin px-4 py-3 text-[15px] font-semibold leading-snug text-ink">{items[0]}</p>

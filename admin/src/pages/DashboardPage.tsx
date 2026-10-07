@@ -11,6 +11,7 @@ import Finance from './Finance'
 import Growth from './Growth'
 import OverviewPage from './Overview'
 import Payments from './Payments'
+import Promotions from './Promotions'
 import Reports from './Reports'
 import SettingsPage from './Settings'
 import Students from './Students'
@@ -32,6 +33,10 @@ const NAV: { title: string; items: Item[] }[] = [
       { id: 'payments', label: 'Abonnements', Icon: Icons.Card },
       { id: 'activity', label: 'Activité', Icon: Icons.Pulse },
     ],
+  },
+  {
+    title: 'Marketing',
+    items: [{ id: 'promotions', label: 'Promotions', Icon: Icons.Tag }],
   },
   {
     title: 'Contenu',
@@ -160,6 +165,7 @@ export default function DashboardPage({ session }: { session: Session }) {
               {page === 'activity' && ov && <Activity ov={ov} settings={settings} days={days} go={setPage} reportsNew={reportsNew} />}
               {page === 'students' && <Students />}
               {page === 'payments' && <Payments />}
+              {page === 'promotions' && <Promotions />}
               {page === 'documents' && <Documents />}
               {page === 'reports' && <Reports />}
               {page === 'settings' && <SettingsPage settings={settings} onSaved={refresh} email={email} />}

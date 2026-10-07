@@ -21,6 +21,7 @@ import {
 } from "@/lib/payments";
 import { getSupabase } from "@/lib/supabase";
 import { formatDate, useT } from "@/lib/app-i18n";
+import { discounted, fetchPromos, promoFor, type Promo, type PromoCountry } from "@/lib/promos";
 
 type PlanRow = { plan: string; label: string; price_monthly: number; price_yearly: number | null };
 type Account = { method: string; account_number: string };
@@ -57,6 +58,7 @@ const LOGOS: Record<string, string> = {
 const MR_METHODS = ["bankily", "masrivi", "sedad", "click"];
 
 const DEFAULT_WHATSAPP = "22241513211";
+const promoEnd = (iso: string) => formatDate(new Date(iso), { day: "numeric", month: "long" });
 const fmt = (n: number) => n.toLocaleString("fr-FR").replace(/ /g, " ");
 const nice = (m: string) => m.charAt(0).toUpperCase() + m.slice(1);
 
@@ -186,6 +188,7 @@ function Abonnement() {
   const [kit, setKit] = useState<"unknown" | "on" | "off">("unknown");
   const [pdun, setPdun] = useState<"unknown" | "on" | "off">("unknown");
   const [prices, setPrices] = useState<Price[]>([]);
+  const [promos, setPromos] = useState<Promo[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,6 +210,7 @@ function Abonnement() {
     sb.from("plan_prices")
       .select("plan,currency,monthly,yearly")
       .then(({ data }) => !cancelled && setPrices((data ?? []) as Price[]));
+    fetchPromos().then((list) => !cancelled && setPromos(list));
     sb.from("payment_accounts")
       .select("method,account_number")
       .then(({ data }) => !cancelled && setAccounts((data ?? []) as Account[]));
@@ -246,12 +250,19 @@ function Abonnement() {
   // Prix dans la devise du pays (FCFA, MAD) quand il est défini, sinon en ouguiyas.
   const localPrice = (p: PlanRow) => prices.find((x) => x.plan === p.plan && x.currency === CURRENCY[ck].code);
   const unit = ck !== "mr" && ck !== "other" && plans && plans.every((p) => localPrice(p)) ? CURRENCY[ck].label : "MRU";
-  const priceOf = (p: PlanRow) => {
+  const baseOf = (p: PlanRow) => {
     const lp = unit === "MRU" ? undefined : localPrice(p);
     if (lp) return Number(duration === "yearly" ? lp.yearly : lp.monthly);
     return duration === "yearly" ? (p.price_yearly ?? p.price_monthly * 10) : p.price_monthly;
   };
+  // Promotion en cours : même calcul que le serveur, qui recalcule de toute façon le montant à payer.
+  const promoOf = (p: PlanRow) => promoFor(promos, p.plan, duration, unit === "MRU" ? "mr" : (ck as PromoCountry));
+  const priceOf = (p: PlanRow) => {
+    const pr = promoOf(p);
+    return pr ? discounted(baseOf(p), pr.discount_percent) : baseOf(p);
+  };
   const amount = plan ? priceOf(plan) : 0;
+  const planPromo = plan ? promoOf(plan) : null;
   const account = accounts?.find((a) => a.method === method) ?? null;
   const wa = (text: string) => `https://wa.me/${whatsapp}?text=${encodeURIComponent(text)}`;
   const durationLabel = duration === "yearly" ? "Annuel" : "Mensuel";
@@ -639,8 +650,15 @@ function Abonnement() {
             <p className="mt-0.5 text-muted">{durationLabel}</p>
             <p className="mt-4 border-t border-line pt-4">
               <span className="display text-3xl text-ink">{fmt(amount)}</span>{" "}
+              {planPromo && <span className="me-2 text-muted line-through">{fmt(baseOf(plan))}</span>}
               <span className="text-muted">{unit} / {duration === "yearly" ? "an" : "mois"}</span>
             </p>
+            {planPromo && (
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                <span className="rounded-full bg-[#ffb74d] px-2.5 py-1">{`−${planPromo.discount_percent} %`}</span>
+                {t("{a} jusqu'au {b}", { a: planPromo.label || t("Promotion"), b: promoEnd(planPromo.ends_at) })}
+              </p>
+            )}
             <ul className="mt-4 space-y-2 border-t border-line pt-4 text-sm text-ink/80">
               {(FEATURES[plan.plan] ?? []).slice(0, 4).map((f) => (
                 <li key={f} className="flex gap-2.5">
@@ -704,8 +722,17 @@ function Abonnement() {
                     <span className="rounded-full bg-eosin-soft px-3 py-1 text-xs font-bold" style={{ color: "var(--eosin-text)" }}>{t("Le plus choisi")}</span>
                   )}
                 </div>
-                <p className="display mt-3 text-5xl text-ink">{fmt(priceOf(p))}</p>
+                <p className="display mt-3 flex flex-wrap items-baseline gap-x-3 text-5xl text-ink">
+                  {fmt(priceOf(p))}
+                  {promoOf(p) && <span className="text-2xl font-normal text-muted line-through">{fmt(baseOf(p))}</span>}
+                </p>
                 <p className="text-sm text-muted">{unit} / {duration === "yearly" ? "an" : "mois"}</p>
+                {promoOf(p) && (
+                  <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                    <span className="rounded-full bg-[#ffb74d] px-2.5 py-1">{`−${promoOf(p)!.discount_percent} %`}</span>
+                    {t("{a} jusqu'au {b}", { a: promoOf(p)!.label || t("Promotion"), b: promoEnd(promoOf(p)!.ends_at) })}
+                  </p>
+                )}
                 <ul className="mt-5 flex-1 divide-y divide-line border-t border-line">
                   {(FEATURES[p.plan] ?? []).map((f) => (
                     <li key={f} className="flex items-center gap-3 py-2.5 text-[15px] text-ink/80">

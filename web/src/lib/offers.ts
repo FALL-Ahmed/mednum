@@ -1,3 +1,5 @@
+import type { Promo } from "./promos"
+
 export type PublicLimits = {
   daily_questions: number
   daily_qcm: number
@@ -9,6 +11,8 @@ export type PublicLimits = {
 export type PublicOffers = {
   limits: Record<"freemium" | "standard" | "premium", PublicLimits>
   prices: Record<"standard" | "premium", { mr: number; sn: number; ma: number }>
+  /** Promotions en cours (réductions lancées depuis l'administration) ; vide s'il n'y en a pas. */
+  promos: Promo[]
 }
 
 /**
@@ -29,6 +33,15 @@ export async function getPublicOffers(): Promise<PublicOffers | null> {
     return (await res.json()) as Record<string, unknown>[];
   };
   try {
+    const promosPromise: Promise<Promo[]> = fetch(`${url}/rest/v1/rpc/public_promotions`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: "{}",
+      next: { revalidate: 60 },
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((j) => (Array.isArray(j) ? (j as Promo[]).filter((p) => +new Date(p.ends_at) > Date.now()) : []))
+      .catch(() => [])
     const [plans, fx, lim] = await Promise.all([
       get("plans?select=plan,price_monthly&plan=in.(standard,premium)"),
       get("plan_prices?select=plan,currency,monthly"),
@@ -61,7 +74,7 @@ export async function getPublicOffers(): Promise<PublicOffers | null> {
     for (const p of ["standard", "premium"] as const) {
       if (!(prices[p].mr > 0 && prices[p].sn > 0 && prices[p].ma > 0)) return null;
     }
-    return { limits, prices };
+    return { limits, prices, promos: await promosPromise };
   } catch {
     return null;
   }

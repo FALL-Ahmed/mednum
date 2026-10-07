@@ -73,11 +73,10 @@ Deno.serve(async (req: Request) => {
     .eq('plan', plan)
     .maybeSingle()
   if (!planRow) return json({ error: 'invalid_plan' }, 400)
-  const amount = Math.round(
-    duration === 'yearly'
-      ? Number(planRow.price_yearly ?? planRow.price_monthly * 10)
-      : Number(planRow.price_monthly)
-  )
+  // plan_price() applique la promotion en cours : ce que l'étudiant voit est ce qu'il paie.
+  const { data: price } = await supabase.rpc('plan_price', { p_plan: plan, p_duration: duration, p_currency: 'MRU' })
+  const amount = Math.round(Number(price?.final ?? 0))
+  if (!(amount > 0)) return json({ error: 'invalid_plan' }, 400)
 
   // ── Clé sous laquelle vit l'abonnement (appareil relié au compte, sinon uid) ───
   const { data: link } = await supabase.from('device_links').select('device_id').eq('user_id', uid).maybeSingle()

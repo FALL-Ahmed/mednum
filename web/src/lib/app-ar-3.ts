@@ -305,6 +305,8 @@ export const AR3: Record<string, string> = {
   "Tu es repassé en gratuit. Tes cours, tes fiches, tes flashcards et ton historique sont gardés. Pour retrouver tes limites, réactive ton plan.": "عدتَ إلى الخطة المجانية. دروسك وملخّصاتك وبطاقاتك وسجلّك محفوظة. لاستعادة حدودك، فعّل اشتراكك من جديد.",
   "Réactiver mon plan": "تفعيل اشتراكي من جديد",
   "Plus tard": "لاحقًا",
+  "{a} jusqu'au {b}": "{a} حتى {b}",
+  "Promotion": "عرض خاص",
   "Mauritanie": "موريتانيا",
   "Maroc": "المغرب",
 }

@@ -66,10 +66,10 @@ Deno.serve(async (req: Request) => {
   if (duration !== 'monthly' && duration !== 'yearly') return json({ error: 'invalid_duration' }, 400)
 
   // ── Montant en FCFA ────────────────────────────────────────────────────────────
-  const { data: price } = await supabase
-    .from('plan_prices').select('monthly, yearly').eq('plan', plan).eq('currency', 'XOF').maybeSingle()
-  if (!price) return json({ error: 'invalid_plan' }, 400)
-  const amount = Math.round(Number(duration === 'yearly' ? price.yearly : price.monthly))
+  // plan_price() applique la promotion en cours (si l'admin en a lancé une) : ce que l'étudiant voit est ce qu'il paie.
+  const { data: price, error: priceErr } = await supabase.rpc('plan_price', { p_plan: plan, p_duration: duration, p_currency: 'XOF' })
+  if (priceErr || !price) return json({ error: 'invalid_plan' }, 400)
+  const amount = Math.round(Number(price.final))
   if (!(amount > 0)) return json({ error: 'invalid_plan' }, 400)
   const { data: planRow } = await supabase.from('plans').select('label').eq('plan', plan).maybeSingle()
   const label = planRow?.label ?? plan
@@ -136,6 +136,9 @@ Deno.serve(async (req: Request) => {
     method: 'paydunya',
     duration,
     amount,
+    list_price: Number(price.base),
+    discount_percent: Number(price.discount_percent) || 0,
+    promo_id: price.promo_id ?? null,
     currency: 'XOF',
     reference_code: out.token,
     student_name: student?.name ?? null,
