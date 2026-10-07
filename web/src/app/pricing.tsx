@@ -168,7 +168,7 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
                 ))}
               </ul>
               <a
-                href={`${prefix}/connexion`}
+                href={`${prefix}/connexion`} data-track={`pricing_${p.key}`}
                 className={`mt-6 rounded-full px-6 py-3.5 text-center font-semibold transition ${
                   main
                     ? "bg-eosin text-ink hover:bg-white"

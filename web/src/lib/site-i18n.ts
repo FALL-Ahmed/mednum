@@ -18,7 +18,7 @@ const FR = {
     line1: "Dépose ton cours.",
     line2: "Retiens-le.",
     text: "Axone transforme tes cours en fiches, QCM, flashcards et cas cliniques. Dr. Ahmed répond à tes questions : il part de ton cours, puis va plus loin quand il le faut.",
-    cta: "Essayer gratuitement",
+    cta: "Je commence gratuitement",
     countries: "Pour les étudiants de Mauritanie, du Sénégal et du Maroc",
     alt: "Dr. Ahmed, ton prof virtuel",
     chip: "Dr. Ahmed · ton prof virtuel",
@@ -65,7 +65,7 @@ const FR = {
     other: "Une autre question ?",
     whatsapp: "Écris-nous sur WhatsApp",
   },
-  cta: { title: "La rentrée est là. Révise dès la première semaine.", button: "Essayer gratuitement", whatsapp: "WhatsApp" },
+  cta: { title: "La rentrée est là. Révise dès la première semaine.", button: "Je commence gratuitement", whatsapp: "WhatsApp" },
   footer: { rights: "Axone · Mauritanie, Sénégal, Maroc", privacy: "Confidentialité", terms: "Conditions", whatsapp: "WhatsApp" },
   pricing: {
     countries: [
@@ -77,9 +77,9 @@ const FR = {
     perMonth: "/ mois",
     recommended: "Recommandé",
     promoUntil: (d: string) => `jusqu'au ${d}`,
-    choose: "Choisir",
+    choose: "Je choisis",
     indicative: " Prix indicatifs, ils peuvent changer à l'ouverture du marché.",
-    free: { name: "Gratuit", text: "Pour découvrir Axone.", cta: "Commencer gratuitement" },
+    free: { name: "Gratuit", text: "Pour découvrir Axone.", cta: "Je commence gratuitement" },
     standardText: "Pour réviser toute l'année.",
     duoText: "Pour la préparation intensive, à deux.",
     items: {
@@ -163,7 +163,7 @@ const AR: SiteDict = {
     line1: "ارفع درسك.",
     line2: "واحفظه.",
     text: "يحوّل أكسون دروسك إلى ملخّصات وأسئلة QCM وبطاقات مراجعة وحالات سريرية. ويجيب الدكتور أحمد عن أسئلتك: ينطلق من درسك، ثم يتوسّع عند الحاجة.",
-    cta: "جرّب مجانًا",
+    cta: "أبدأ مجانًا",
     countries: "لطلبة موريتانيا والسنغال والمغرب",
     alt: "الدكتور أحمد، أستاذك الافتراضي",
     chip: "الدكتور أحمد · أستاذك الافتراضي",
@@ -210,7 +210,7 @@ const AR: SiteDict = {
     other: "سؤال آخر؟",
     whatsapp: "راسلنا على واتساب",
   },
-  cta: { title: "حان وقت الدخول الجامعي. راجع منذ الأسبوع الأول.", button: "جرّب مجانًا", whatsapp: "واتساب" },
+  cta: { title: "حان وقت الدخول الجامعي. راجع منذ الأسبوع الأول.", button: "أبدأ مجانًا", whatsapp: "واتساب" },
   footer: { rights: "أكسون · موريتانيا، السنغال، المغرب", privacy: "الخصوصية", terms: "الشروط", whatsapp: "واتساب" },
   pricing: {
     countries: [
@@ -222,9 +222,9 @@ const AR: SiteDict = {
     perMonth: "/ شهريًا",
     recommended: "موصى به",
     promoUntil: (d: string) => `حتى ${d}`,
-    choose: "اختر",
+    choose: "أختار",
     indicative: " الأسعار إرشادية وقد تتغير عند افتتاح السوق.",
-    free: { name: "مجاني", text: "لاكتشاف أكسون.", cta: "ابدأ مجانًا" },
+    free: { name: "مجاني", text: "لاكتشاف أكسون.", cta: "أبدأ مجانًا" },
     standardText: "للمراجعة طوال السنة.",
     duoText: "للتحضير المكثّف، مع صديق.",
     items: {

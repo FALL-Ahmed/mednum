@@ -182,7 +182,7 @@ export async function Landing({ lang }: { lang: Lang }) {
             <a href="#faq" className="hidden hover:text-ink sm:block">{t.nav.faq}</a>
             <a href={t.switchHref} hrefLang={lang === "fr" ? "ar" : "fr"} className="hover:text-ink">{t.switchLabel}</a>
             <a
-              href={APP_URL}
+              href={APP_URL} data-track="nav_login"
               className="rounded-full bg-ink px-4 py-2 font-semibold sm:px-5 sm:py-2.5 text-white transition hover:bg-eosin"
             >
               {t.nav.login}
@@ -208,7 +208,7 @@ export async function Landing({ lang }: { lang: Lang }) {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-5">
               <a
-                href={APP_URL}
+                href={APP_URL} data-track="hero_cta"
                 className="rounded-full bg-ink px-8 py-4 text-base font-semibold text-white transition hover:bg-eosin"
               >
                 {t.hero.cta}
@@ -360,7 +360,7 @@ export async function Landing({ lang }: { lang: Lang }) {
             </h2>
             <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
               <a
-                href={APP_URL}
+                href={APP_URL} data-track="final_cta"
                 className="rounded-full bg-eosin px-8 py-4 text-center font-semibold text-ink transition hover:bg-white"
               >
                 {t.cta.button}
@@ -382,8 +382,8 @@ export async function Landing({ lang }: { lang: Lang }) {
         <Logo />
         <p>© {new Date().getFullYear()} {t.footer.rights}</p>
         <div className="flex gap-6">
-          <a href="#" className="hover:text-ink">{t.footer.privacy}</a>
-          <a href="#" className="hover:text-ink">{t.footer.terms}</a>
+          <a href={`${P}/confidentialite`} className="hover:text-ink">{t.footer.privacy}</a>
+          <a href={`${P}/conditions`} className="hover:text-ink">{t.footer.terms}</a>
           <a href={WHATSAPP_URL} className="hover:text-ink" target="_blank" rel="noopener noreferrer">{t.footer.whatsapp} <bdi dir="ltr">+222 41 51 32 11</bdi></a>
         </div>
       </footer>
