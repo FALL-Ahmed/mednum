@@ -291,6 +291,8 @@ export const AR3: Record<string, string> = {
   "Vos messages ne s'envoient qu'à votre partenaire.": "تُرسل رسائلكما إلى صديقكما فقط.",
   "Écris un message…": "اكتب رسالة…",
   "Vous voyez tous les deux ses réponses. Pour parler seulement entre vous, mets Dr. Ahmed en pause.": "يرى كلاكما إجاباته. للحديث بينكما فقط، أوقف الدكتور أحمد مؤقتًا.",
+  "Envoie-lui le code ou le lien. Il pourra rejoindre gratuitement. Tu peux déjà commencer.": "أرسل إليه الرمز أو الرابط. يمكنه الانضمام مجانًا. ويمكنك البدء من الآن.",
+  "Lien": "الرابط",
   "Mauritanie": "موريتانيا",
   "Maroc": "المغرب",
 }

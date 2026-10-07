@@ -48,21 +48,21 @@ export function DuoShell({
   children: React.ReactNode;
 }) {
   const t = useT();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
   const other = st.members.find((m) => m.user_id !== st.me) ?? null;
   const me = st.members.find((m) => m.user_id === st.me);
   const otherName = other?.name.trim() || t("Ton partenaire");
 
-  async function copy() {
+  async function copy(what: "code" | "link", value: string) {
     try {
-      await navigator.clipboard.writeText(st.code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopied(what);
+      window.setTimeout(() => setCopied(null), 2000);
     } catch {
-      /* copie refusée : le lien reste affiché */
+      /* copie refusée : le code et le lien restent affichés */
     }
   }
-  const wa = `https://wa.me/?text=${encodeURIComponent(`Révise avec moi sur Axone : ${duoLink(st.code)} (code ${st.code})`)}`;
+  const wa = `https://wa.me/?text=${encodeURIComponent(`Révise avec moi sur Axone ! Mon code : ${st.code}. Lien : ${duoLink(st.code)}`)}`;
 
   return (
     <div className={wide ? "" : "max-w-3xl"}>
@@ -78,12 +78,24 @@ export function DuoShell({
       {!other && (
         <section className="mt-5 rounded-2xl border border-line bg-eosin-soft p-5">
           <p className="font-semibold text-ink">{t("En attente de ton partenaire")}</p>
-          <p className="mt-1 text-ink/80">{t("Envoie-lui ce code. Il pourra rejoindre gratuitement. Tu peux déjà commencer.")}</p>
-          <p className="mt-3 w-fit rounded-xl bg-white px-5 py-3 font-mono text-3xl font-semibold tracking-[0.3em] text-ink" dir="ltr">{st.code}</p>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <button onClick={copy} className={btnLine}>{copied ? t("Code copié") : t("Copier le code")}</button>
-            <a href={wa} target="_blank" rel="noreferrer" className={btnDark}>{t("Envoyer sur WhatsApp")}</a>
+          <p className="mt-1 text-ink/80">{t("Envoie-lui le code ou le lien. Il pourra rejoindre gratuitement. Tu peux déjà commencer.")}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[auto_1fr]">
+            <div className="rounded-xl bg-white px-4 py-3">
+              <p className="label text-muted">{t("Code")}</p>
+              <p className="font-mono text-3xl font-semibold tracking-[0.3em] text-ink" dir="ltr">{st.code}</p>
+              <button onClick={() => copy("code", st.code)} className="mt-2 text-sm font-semibold text-ink underline">
+                {copied === "code" ? t("Code copié") : t("Copier le code")}
+              </button>
+            </div>
+            <div className="min-w-0 rounded-xl bg-white px-4 py-3">
+              <p className="label text-muted">{t("Lien")}</p>
+              <p className="break-all font-mono text-sm text-ink" dir="ltr">{duoLink(st.code)}</p>
+              <button onClick={() => copy("link", duoLink(st.code))} className="mt-2 text-sm font-semibold text-ink underline">
+                {copied === "link" ? t("Lien copié") : t("Copier le lien")}
+              </button>
+            </div>
           </div>
+          <a href={wa} target="_blank" rel="noreferrer" className={`mt-4 inline-block ${btnDark}`}>{t("Envoyer sur WhatsApp")}</a>
         </section>
       )}
 

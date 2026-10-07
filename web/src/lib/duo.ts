@@ -51,9 +51,11 @@ export const PENDING_KEY = "axone.duo.pending";
 
 export const cleanCode = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
 
+/** Adresse publique du site : le lien d'invitation doit marcher chez l'ami, même si tu testes en local. */
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.axonerevision.com").replace(/\/+$/, "");
+
 export function duoLink(code: string): string {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/rejoindre/${code}`;
+  return `${SITE_URL}/rejoindre/${code}`;
 }
 
 const MESSAGES: Record<string, string> = {
