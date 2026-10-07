@@ -169,6 +169,20 @@ export function ConnexionView({ lang = "fr" }: { lang?: Lang }) {
         </p>
       )}
 
+      <p className="mt-4 text-xs leading-relaxed text-muted">
+        {lang === "ar" ? (
+          <>
+            بمتابعتك فإنك توافق على <Link href="/ar/conditions" className="underline underline-offset-2 hover:text-ink">شروط الاستخدام</Link> و
+            <Link href="/ar/confidentialite" className="underline underline-offset-2 hover:text-ink">سياسة الخصوصية</Link>.
+          </>
+        ) : (
+          <>
+            En continuant, tu acceptes les <Link href="/conditions" className="underline underline-offset-2 hover:text-ink">conditions d&apos;utilisation</Link> et la{" "}
+            <Link href="/confidentialite" className="underline underline-offset-2 hover:text-ink">politique de confidentialité</Link>.
+          </>
+        )}
+      </p>
+
       <ul className="mt-10 space-y-3 border-t border-line pt-8 text-[15px] text-ink/80">
         {t.bullets.map((b) => (
           <li key={b} className="flex gap-3">
