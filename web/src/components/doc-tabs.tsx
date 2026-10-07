@@ -140,7 +140,7 @@ export function Flashcards({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) 
     return (
       <GenerateCard
         title="Génère les flashcards de ce cours."
-        text="Des cartes question / réponse qui couvrent tout ton cours, chapitre par chapitre. Elles sont enregistrées : tu les génères une seule fois."
+        text="Jusqu'à 30 cartes question / réponse sur l'essentiel de ton cours, dans l'ordre des chapitres. Elles sont enregistrées : tu les génères une seule fois."
         button="Générer les flashcards"
         busy="Dr. Ahmed prépare tes cartes…"
         run={async (progress) => {

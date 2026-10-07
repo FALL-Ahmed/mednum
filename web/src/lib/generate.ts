@@ -117,27 +117,37 @@ function jsonArray(text: string): unknown[] {
 
 type CardOut = { front: string; back: string; chapter?: string };
 
+/** Un jeu de flashcards reste court : l'essentiel à mémoriser, pas tout le cours (c'est le rôle de la fiche). */
+export const MAX_CARDS = 30;
+const MAX_GROUPS = 10;
+
+const wordCount = (t: string) => t.split(/\s+/).filter(Boolean).length;
+
+/** Nombre de cartes visé pour un cours : environ 1 carte pour 330 mots, entre 8 et 30. */
+export const cardBudget = (words: number) => Math.min(MAX_CARDS, Math.max(8, Math.round(words / 330)));
+
 async function cardsForChunk(
   name: string,
   chapter: string,
   content: string,
   c: StudentCtx,
   part: number,
+  count: number,
 ): Promise<CardOut[]> {
   const prompt = `${intro(c)}
 
-Génère les flashcards de révision de CE CHAPITRE du cours, recto / verso, pour la mémorisation active.
+Génère les flashcards de révision de CE CHAPITRE du cours, recto / verso, pour la mémorisation active. Ce sont les cartes de l'ESSENTIEL : ce qu'il faut absolument retenir, pas le détail.
 
 CONTEXTE : niveau : ${c.niveau} · cours : ${name} · chapitre : ${chapter}.
 
-OBJECTIF : couvrir TOUT le chapitre, dans l'ordre du cours. Aucune définition, valeur, classification, critère, mécanisme ni exemple important ne doit être oublié.
+OBJECTIF : retenir l'essentiel de ce chapitre, dans l'ordre du cours : les définitions, valeurs seuils, classifications, critères et mécanismes les plus importants, ceux qui tombent à l'examen.
 
 RÈGLES ABSOLUES :
 1. N'invente RIEN : chaque carte vient du texte ci-dessous. Chiffres, seuils, définitions : exacts.
 2. Une carte = UNE notion précise. Jamais une question vague.
 3. Recto (front) court : une question, un terme à définir ou un « complète la phrase ». Une phrase maximum.
 4. Verso (back) : la réponse exacte et complète, 1 à 3 phrases, ou une liste courte. Garde le niveau de détail du cours.
-5. Nombre de cartes : environ une carte pour 80 à 120 mots du chapitre, au minimum 8. Pas de plafond artificiel, pas de carte redondante.
+5. Nombre de cartes : EXACTEMENT ${count} cartes, ni plus ni moins. Choisis les ${count} notions les plus importantes. Aucune carte redondante.
 6. Varie les formes : définition → terme, terme → définition, cause → conséquence, valeur seuil, comparaison, « cite les… ».
 
 Réponds UNIQUEMENT avec le JSON valide, sans balise markdown, sans texte avant ou après :
@@ -177,11 +187,31 @@ export async function generateFlashcards(
   onProgress?: (done: number, total: number) => void,
 ): Promise<string> {
   const parts = chunks.filter((k) => k.content && k.content.length > 300);
-  const jobs = parts.length > 0 ? parts : [{ title: name, content }];
+  const base = parts.length > 0 ? parts : [{ title: name, content }];
+
+  // Au plus MAX_GROUPS lots : on regroupe les chapitres voisins pour que chaque lot donne au moins quelques cartes.
+  const totalWords = base.reduce((n, k) => n + wordCount(k.content), 0);
+  const target = cardBudget(totalWords);
+  const jobs: { title: string; content: string }[] = [];
+  const perGroup = totalWords / Math.min(MAX_GROUPS, base.length);
+  let cur: { title: string; content: string; words: number } | null = null;
+  for (const k of base) {
+    if (!cur) cur = { title: k.title, content: k.content, words: wordCount(k.content) };
+    else {
+      cur = { title: `${cur.title} · ${k.title}`, content: `${cur.content}\n\n${k.content}`, words: cur.words + wordCount(k.content) };
+    }
+    if (cur.words >= perGroup || base.length <= MAX_GROUPS) {
+      jobs.push({ title: cur.title, content: cur.content });
+      cur = null;
+    }
+  }
+  if (cur) jobs.push({ title: cur.title, content: cur.content });
+  const jobWords = jobs.map((j) => wordCount(j.content));
+  const counts = jobWords.map((w) => Math.max(2, Math.round((target * w) / Math.max(1, totalWords))));
   const results: (CardOut[] | null)[] = jobs.map(() => null);
 
   // Le premier chapitre part seul : c'est lui qui compte dans le quota (et qui échoue si le quota est atteint).
-  results[0] = await cardsForChunk(name, jobs[0].title, jobs[0].content, c, 1);
+  results[0] = await cardsForChunk(name, jobs[0].title, jobs[0].content, c, 1, counts[0]);
   let done = 1;
   onProgress?.(done, jobs.length);
 
@@ -191,7 +221,7 @@ export async function generateFlashcards(
     while (next < jobs.length) {
       const i = next++;
       try {
-        results[i] = await cardsForChunk(name, jobs[i].title, jobs[i].content, c, i + 1);
+        results[i] = await cardsForChunk(name, jobs[i].title, jobs[i].content, c, i + 1, counts[i]);
       } catch {
         results[i] = null;
       }
@@ -200,16 +230,22 @@ export async function generateFlashcards(
   }
   await Promise.all([worker(), worker(), worker()]);
 
+  // Doublons retirés, puis plafond global : on prend les cartes à tour de rôle dans chaque lot pour garder tout le cours représenté.
   const seen = new Set<string>();
-  const all: CardOut[] = [];
-  for (const list of results) {
-    for (const card of list ?? []) {
+  const lists: CardOut[][] = results.map((list) =>
+    (list ?? []).filter((card) => {
       const key = card.front.toLowerCase().replace(/\s+/g, " ");
-      if (seen.has(key)) continue;
+      if (seen.has(key)) return false;
       seen.add(key);
-      all.push(card);
-    }
+      return true;
+    }),
+  );
+  const picked: { g: number; k: number }[] = [];
+  for (let k = 0; picked.length < MAX_CARDS && lists.some((l) => k < l.length); k++) {
+    for (let g = 0; g < lists.length && picked.length < MAX_CARDS; g++) if (k < lists[g].length) picked.push({ g, k });
   }
+  picked.sort((a, b) => a.g - b.g || a.k - b.k);
+  const all = picked.map(({ g, k }) => lists[g][k]);
   if (all.length === 0) throw new Error("format");
   return JSON.stringify(all);
 }
