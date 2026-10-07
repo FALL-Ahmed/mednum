@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import type { Conversation } from "@/lib/chat-store";
 import { addDays, todayISO, toISO } from "@/lib/dates";
-import { IconPlus, IconTrash } from "../icons";
+import Link from "next/link";
+import type { DuoListItem } from "@/lib/duo";
+import { IconPlus, IconTrash, IconUsers } from "../icons";
 import { useT } from "@/lib/app-i18n";
 
 function groupOf(iso: string): string {
@@ -28,6 +30,7 @@ function IconPencil() {
 /** Liste des discussions : recherche, regroupement par date, renommer, supprimer. */
 export function ConversationList({
   conversations,
+  rooms = [],
   activeId,
   historyOk,
   onOpen,
@@ -36,6 +39,8 @@ export function ConversationList({
   onDelete,
 }: {
   conversations: Conversation[] | null;
+  /** Salles à deux avec Dr. Ahmed : elles figurent dans l'historique, parmi les discussions. */
+  rooms?: DuoListItem[];
   activeId: string | null;
   historyOk: boolean;
   onOpen: (id: string) => void;
@@ -50,14 +55,18 @@ export function ConversationList({
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = (conversations ?? []).filter((c) => !q || c.title.toLowerCase().includes(q));
-    const map = new Map<string, Conversation[]>();
-    for (const c of list) {
-      const g = groupOf(c.updated_at);
-      map.set(g, [...(map.get(g) ?? []), c]);
+    type Item = { kind: "chat"; at: string; c: Conversation } | { kind: "room"; at: string; r: DuoListItem };
+    const items: Item[] = [
+      ...(conversations ?? []).filter((c) => !q || c.title.toLowerCase().includes(q)).map((c): Item => ({ kind: "chat", at: c.updated_at, c })),
+      ...rooms.filter((r) => !q || (r.title || "").toLowerCase().includes(q)).map((r): Item => ({ kind: "room", at: r.created_at, r })),
+    ].sort((a, b) => b.at.localeCompare(a.at));
+    const map = new Map<string, Item[]>();
+    for (const it of items) {
+      const g = groupOf(it.at);
+      map.set(g, [...(map.get(g) ?? []), it]);
     }
     return ORDER.filter((g) => map.has(g)).map((g) => ({ title: g, items: map.get(g)! }));
-  }, [conversations, query]);
+  }, [conversations, rooms, query]);
 
   function commit(id: string) {
     const t = draft.trim();
@@ -98,7 +107,26 @@ export function ConversationList({
             <div key={g.title} className="mt-3 first:mt-0">
               <p className="px-3 pb-1 text-xs font-semibold text-muted">{t(g.title)}</p>
               <ul className="space-y-0.5">
-                {g.items.map((c) => {
+                {g.items.map((it) => {
+                  if (it.kind === "room") {
+                    return (
+                      <li key={`room-${it.r.code}`}>
+                        <Link
+                          href={`/app/duo/${it.r.code}`}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink/80 transition hover:bg-white"
+                        >
+                          <IconUsers className="h-4 w-4 shrink-0 text-eosin" />
+                          <span className="min-w-0 flex-1">
+                            <span dir="auto" className="block truncate">{it.r.title || t("Salle avec Dr. Ahmed")}</span>
+                            <span className="block truncate text-xs text-muted">
+                              {it.r.partner ? t("Salle à deux · avec {a}", { a: it.r.partner }) : t("Salle à deux")}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  }
+                  const c = it.c;
                   const active = c.id === activeId;
                   return (
                     <li key={c.id} className="group relative">

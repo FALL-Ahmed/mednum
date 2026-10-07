@@ -66,8 +66,10 @@ begin
     exit when not exists (select 1 from public.duo_sessions where code = v_code);
   end loop;
 
-  insert into public.duo_sessions (code, host_id, title, questions, kind, payload)
-  values (v_code, v_uid, left(coalesce(p_title, ''), 200), '[]'::jsonb, p_kind, p_payload)
+  -- Une salle avec Dr. Ahmed reste ouverte 30 jours (elle est gardée dans l'historique des discussions) ; les autres sessions 48 heures.
+  insert into public.duo_sessions (code, host_id, title, questions, kind, payload, expires_at)
+  values (v_code, v_uid, left(coalesce(p_title, ''), 200), '[]'::jsonb, p_kind, p_payload,
+          case when p_kind = 'room' then now() + interval '30 days' else now() + interval '48 hours' end)
   returning id into v_id;
   insert into public.duo_members (session_id, user_id, name) values (v_id, v_uid, left(coalesce(p_name, ''), 40));
   return v_code;
@@ -220,7 +222,7 @@ as $$
       from public.duo_sessions s
       join public.duo_members m on m.session_id = s.id and m.user_id = auth.uid()
      order by s.created_at desc
-     limit 20) r;
+     limit 60) r;
 $$;
 
 revoke all on function public.duo_create_v2(text, text, jsonb, text) from public;

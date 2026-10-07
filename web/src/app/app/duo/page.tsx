@@ -374,7 +374,7 @@ export default function DuoHome() {
       {list === null ? (
         <p className="mt-3 text-muted">{t("Chargement…")}</p>
       ) : list.length === 0 ? (
-        <p className="mt-3 text-muted">{t("Aucune session pour l'instant. Elles apparaîtront ici pendant 48 heures.")}</p>
+        <p className="mt-3 text-muted">{t("Aucune session pour l'instant. Tes sessions apparaîtront ici.")}</p>
       ) : (
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {list.map((s) => {

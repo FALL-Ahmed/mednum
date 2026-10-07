@@ -29,6 +29,7 @@ import { LimitNotice } from "../limit-notice";
 import { IconClose, IconMenu } from "../icons";
 import { Composer } from "./composer";
 import { ConversationList } from "./conversation-list";
+import { listDuo, type DuoListItem } from "@/lib/duo";
 import { Markdown } from "./markdown";
 import { useT } from "@/lib/app-i18n";
 
@@ -50,7 +51,7 @@ function makeTitle(text: string, nImages: number): string {
   return nImages > 1 ? "Images" : "Image";
 }
 
-function DrAvatar({ size = 32 }: { size?: number }) {
+export function DrAvatar({ size = 32 }: { size?: number }) {
   const t = useT();
   return (
     <span className="relative shrink-0 overflow-hidden rounded-full bg-hema-soft" style={{ width: size, height: size }}>
@@ -88,6 +89,7 @@ export function ChatApp() {
   const params = useSearchParams();
 
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
+  const [rooms, setRooms] = useState<DuoListItem[]>([]);
   const [historyOk, setHistoryOk] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
@@ -115,6 +117,10 @@ export function ChatApp() {
       if (cancelled) return;
       setHistoryOk(list !== null);
       setConversations(list ?? []);
+    });
+    // Les salles à deux avec Dr. Ahmed font partie de l'historique des discussions.
+    listDuo().then((r) => {
+      if (!cancelled) setRooms((r.data ?? []).filter((x) => x.kind === "room"));
     });
     return () => {
       cancelled = true;
@@ -380,6 +386,7 @@ export function ChatApp() {
   const list = (
     <ConversationList
       conversations={conversations}
+      rooms={rooms}
       activeId={activeId}
       historyOk={historyOk}
       onOpen={openConversation}

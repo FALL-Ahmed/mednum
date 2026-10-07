@@ -46,10 +46,18 @@ export function Composer({
   busy,
   onSend,
   onStop,
+  allowImages = true,
+  placeholder,
+  hint,
 }: {
   busy: boolean;
   onSend: (text: string, images: PreparedImage[]) => void;
   onStop: () => void;
+  /** Faux dans la salle à deux : le texte et la voix seulement. */
+  allowImages?: boolean;
+  placeholder?: string;
+  /** Petit texte sous la zone de saisie ; null pour le masquer. */
+  hint?: string | null;
 }) {
   const t = useT();
   const [text, setText] = useState("");
@@ -229,13 +237,15 @@ export function Composer({
                 addFiles(files);
               }
             }}
-            placeholder={t("Écris ta question, dépose une image ou parle…")}
+            placeholder={placeholder ?? t("Écris ta question, dépose une image ou parle…")}
             aria-label={t("Ta question")}
             className="block max-h-[200px] w-full resize-none bg-transparent px-4 py-3 text-base text-ink placeholder:text-muted focus:outline-none"
           />
         )}
 
         <div className="flex items-center gap-1 px-1 pb-1">
+          {allowImages && (
+            <>
           <input
             ref={fileRef}
             type="file"
@@ -259,6 +269,8 @@ export function Composer({
             <IconPaperclip />
           </button>
 
+            </>
+          )}
           <button
             type="button"
             onClick={toggleMic}
@@ -309,7 +321,9 @@ export function Composer({
           </div>
         </div>
       </div>
-      <p className="mt-2 text-center text-xs text-muted">{t("Dr. Ahmed t'aide à réviser et peut se tromper : vérifie les points importants avec ton cours.")}</p>
+      {hint !== null && (
+        <p className="mt-2 text-center text-xs text-muted">{hint ?? t("Dr. Ahmed t'aide à réviser et peut se tromper : vérifie les points importants avec ton cours.")}</p>
+      )}
     </div>
   );
 }

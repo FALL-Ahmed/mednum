@@ -35,6 +35,7 @@ export function DuoShell({
   total,
   expired,
   error,
+  wide = false,
   children,
 }: {
   st: DuoState;
@@ -42,6 +43,8 @@ export function DuoShell({
   total: number;
   expired: boolean;
   error: string | null;
+  /** Pleine largeur (la salle avec Dr. Ahmed) ; sinon une colonne de lecture. */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const t = useT();
@@ -62,7 +65,7 @@ export function DuoShell({
   const wa = `https://wa.me/?text=${encodeURIComponent(`Révise avec moi sur Axone : ${duoLink(st.code)} (code ${st.code})`)}`;
 
   return (
-    <div className="max-w-3xl">
+    <div className={wide ? "" : "max-w-3xl"}>
       <Link href="/app/duo" className="text-sm font-semibold text-ink/70 transition hover:text-ink">{t("← Révision à deux")}</Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">

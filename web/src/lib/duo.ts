@@ -60,7 +60,7 @@ const MESSAGES: Record<string, string> = {
   duo_plan_required: "La révision à deux est réservée au plan Premium.",
   duo_daily_limit: "Tu as déjà créé 10 sessions aujourd'hui. Reprends une session en cours ou réessaie demain.",
   duo_not_found: "Ce code ne correspond à aucune session. Vérifie-le avec ton partenaire.",
-  duo_expired: "Cette session est terminée (elle dure 48 heures).",
+  duo_expired: "Cette session est terminée.",
   duo_full: "Cette session a déjà deux participants.",
   duo_not_member: "Tu ne fais pas partie de cette session.",
   duo_chat_full: "La discussion de cette session est pleine.",

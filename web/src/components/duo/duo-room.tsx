@@ -18,7 +18,7 @@ export function DuoRoom({ st, refresh, expired, error, setError }: Props) {
   const t = useT();
   const room = st.payload as DuoRoomPayload;
   return (
-    <DuoShell st={st} total={0} expired={expired} error={error}>
+    <DuoShell st={st} total={0} expired={expired} error={error} wide>
       <section className="mt-5 rounded-2xl border border-line bg-white p-5">
         <p className="label text-muted">{t("Cours partagé")}</p>
         <p dir="auto" className="display mt-1 text-2xl text-ink">
