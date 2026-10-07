@@ -3,6 +3,7 @@ import { AxonTabs } from "./axon-tabs";
 import { IconBook, IconCalendar, IconChat, IconFile, IconSpark, IconTimer, IconUsers } from "@/components/icons";
 import { Pricing } from "./pricing";
 import { HeroDemo } from "./hero-demo";
+import { LiveNow } from "./live-now";
 import { getPublicOffers } from "@/lib/offers";
 import { getPublicStats } from "@/lib/stats";
 import { prefix as pfx, SITE, type Lang } from "@/lib/site-i18n";
@@ -170,23 +171,27 @@ export async function Landing({ lang }: { lang: Lang }) {
   return (
     <>
       {lang === "fr" && <LangSync lang="fr" onlyIf="l=fr" />}
-      <header className={`${WRAP} flex items-center justify-between py-5`}>
-        <a href="#top" aria-label="Axone, accueil">
-          <Logo />
-        </a>
-        <nav className="flex items-center gap-5 text-[15px] font-medium text-ink/70 sm:gap-7">
-          <a href="#fonctions" className="hidden hover:text-ink sm:block">{t.nav.features}</a>
-          <a href="#tarifs" className="hidden hover:text-ink sm:block">{t.nav.pricing}</a>
-          <a href="#faq" className="hidden hover:text-ink sm:block">{t.nav.faq}</a>
-          <a href={t.switchHref} hrefLang={lang === "fr" ? "ar" : "fr"} className="hover:text-ink">{t.switchLabel}</a>
-          <a
-            href={APP_URL}
-            className="rounded-full bg-ink px-5 py-2.5 font-semibold text-white transition hover:bg-eosin"
-          >
-            {t.nav.login}
+      <header className="sticky top-3 z-50 px-3 pt-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-full border border-ink/10 bg-white/80 py-2 pl-5 pr-2 shadow-[0_8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md sm:pl-7">
+          <a href="#top" aria-label="Axone, accueil">
+            <Logo />
           </a>
-        </nav>
+          <nav className="flex items-center gap-5 text-[15px] font-medium text-ink/70 sm:gap-7">
+            <a href="#fonctions" className="hidden hover:text-ink sm:block">{t.nav.features}</a>
+            <a href="#tarifs" className="hidden hover:text-ink sm:block">{t.nav.pricing}</a>
+            <a href="#faq" className="hidden hover:text-ink sm:block">{t.nav.faq}</a>
+            <a href={t.switchHref} hrefLang={lang === "fr" ? "ar" : "fr"} className="hover:text-ink">{t.switchLabel}</a>
+            <a
+              href={APP_URL}
+              className="rounded-full bg-ink px-4 py-2 font-semibold sm:px-5 sm:py-2.5 text-white transition hover:bg-eosin"
+            >
+              {t.nav.login}
+            </a>
+          </nav>
+        </div>
       </header>
+
+      <LiveNow lang={lang} />
 
       <main id="top">
         {/* Hero */}

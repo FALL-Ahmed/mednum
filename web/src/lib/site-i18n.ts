@@ -24,6 +24,7 @@ const FR = {
     chip: "Dr. Ahmed · ton prof virtuel",
   },
   proof: (n: string) => ({ before: "Utilisé par plus de", n, after: "étudiants" }),
+  online: "étudiants en ligne",
   weekQuestions: "questions posées à Dr. Ahmed cette semaine par des étudiants en santé.",
   features: {
     label: "Ce que fait Axone",
@@ -168,6 +169,7 @@ const AR: SiteDict = {
     chip: "الدكتور أحمد · أستاذك الافتراضي",
   },
   proof: (n: string) => ({ before: "يستخدمه أكثر من", n, after: "طالب" }),
+  online: "طالب متصل الآن",
   weekQuestions: "سؤال طرحه طلبة العلوم الصحية على الدكتور أحمد هذا الأسبوع.",
   features: {
     label: "ماذا يفعل أكسون",
