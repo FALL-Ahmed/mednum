@@ -9,7 +9,7 @@ export default function Overview({ ov, settings, days, go, reportsNew, pending =
   const labels = ov.daily.map(x => dayShort(x.day))
   return (
     <div>
-      <PageHead title="Vue d'ensemble" sub={`Les ${days} derniers jours · tous les montants sont convertis dans la devise choisie en haut à droite`} />
+      <PageHead title="Vue d'ensemble" sub={`Les ${days} derniers jours · tous les montants sont convertis dans la devise choisie`} />
 
       {pending > 0 && (
         <button className="ad-banner" onClick={() => go('payments')}>
@@ -54,7 +54,7 @@ export default function Overview({ ov, settings, days, go, reportsNew, pending =
         </Panel>
       </Grid>
 
-      <Panel title="Chiffre d'affaires et coût de l'IA par jour" sub="Dans la devise choisie en haut à droite">
+      <Panel title="Chiffre d'affaires et coût de l'IA par jour" sub="Dans la devise choisie">
         <Bars
           labels={labels}
           unit={curLabel()}

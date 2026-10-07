@@ -23,10 +23,22 @@ export async function pushState(): Promise<PushState> {
   try {
     const reg = await navigator.serviceWorker.ready
     const sub = await reg.pushManager.getSubscription()
-    return sub && Notification.permission === 'granted' ? 'on' : 'off'
+    if (!sub || Notification.permission !== 'granted') return 'off'
+    // « Activé » seulement si l'appareil est bien enregistré côté serveur (on le ré-enregistre au besoin)
+    return (await saveSubscription(sub)) ? 'off' : 'on'
   } catch {
     return 'off'
   }
+}
+
+/** Enregistre l'appareil pour les notifications. Renvoie un message d'erreur, ou null si tout est bon. */
+async function saveSubscription(sub: PushSubscription): Promise<string | null> {
+  const j = sub.toJSON()
+  const { data: u } = await supabase.auth.getUser()
+  const { error } = await supabase.from('admin_push_subscriptions').upsert({
+    endpoint: sub.endpoint, user_id: u.user?.id, p256dh: j.keys?.p256dh, auth: j.keys?.auth, user_agent: navigator.userAgent.slice(0, 200),
+  })
+  return error ? error.message : null
 }
 
 /** Demande l'autorisation, abonne cet appareil et l'enregistre côté serveur. Renvoie un message d'erreur ou null. */
@@ -37,12 +49,11 @@ export async function enablePush(): Promise<string | null> {
   try {
     const reg = await navigator.serviceWorker.ready
     const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) }))
-    const j = sub.toJSON()
-    const { data: u } = await supabase.auth.getUser()
-    const { error } = await supabase.from('admin_push_subscriptions').upsert({
-      endpoint: sub.endpoint, user_id: u.user?.id, p256dh: j.keys?.p256dh, auth: j.keys?.auth, user_agent: navigator.userAgent.slice(0, 200),
-    })
-    if (error) return /admin_push_subscriptions/.test(error.message) ? "La table des notifications n'existe pas encore : exécute le fichier 20261015000000_admin_push.sql dans Supabase." : error.message
+    const error = await saveSubscription(sub)
+    if (error) {
+      await sub.unsubscribe().catch(() => {}) // pas d'état « activé » trompeur
+      return /admin_push_subscriptions/.test(error) ? "Il manque une étape côté base de données : exécute le fichier supabase/ops/a_executer_maintenant.sql dans Supabase (SQL Editor), puis réessaie." : error
+    }
     return null
   } catch (e) {
     return e instanceof Error ? e.message : 'Activation impossible'

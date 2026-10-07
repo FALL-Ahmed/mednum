@@ -124,7 +124,7 @@ export default function Finance({ ov, settings, days }: PageProps) {
 
   return (
     <div>
-      <PageHead title="Finances" sub={`Résultat, rentabilité et coût de l'IA · ${days} derniers jours · montants convertis dans la devise choisie en haut à droite`} />
+      <PageHead title="Finances" sub={`Résultat, rentabilité et coût de l'IA · ${days} derniers jours · montants convertis dans la devise choisie`} />
 
       <KpiRow>
         <Kpi label={`Bénéfice net (${days} j)`} value={fmtMru(calc.net)} tone={calc.net >= 0 ? 'good' : 'bad'} sub={d.revenuePeriod > 0 ? `${pct(calc.net, d.revenuePeriod)} du chiffre d'affaires` : 'aucun encaissement sur la période'} />
