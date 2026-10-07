@@ -17,8 +17,8 @@ const countries = [
 
 const plans = [
   { key: "free" },
-  { key: "standard", main: true },
-  { key: "premium" },
+  { key: "standard" },
+  { key: "premium", main: true },
 ] as const;
 
 /** Liste de secours (si les offres du panneau d'administration ne sont pas lisibles). */
@@ -90,29 +90,48 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
           const name = p.key === "free" ? T.free.name : p.key === "standard" ? "Standard" : "Duo";
           const text = p.key === "free" ? T.free.text : p.key === "standard" ? T.standardText : T.duoText;
           const limits = offers ? offers.limits[keyOf[p.key]] : FALLBACK[keyOf[p.key]];
+          const items = itemsFor(limits, lang, p.key === "premium");
           return (
             <div
               key={p.key}
-              className={`flex flex-col rounded-3xl p-8 ${
-                main ? "bg-ink text-white" : "border border-line bg-slide text-ink"
+              className={`relative flex flex-col rounded-3xl p-8 pt-10 ${
+                main
+                  ? "bg-ink text-white shadow-[0_30px_70px_-30px_rgba(7,169,151,0.6)] ring-2 ring-eosin"
+                  : "border border-line bg-slide text-ink"
               }`}
+              style={
+                main
+                  ? { backgroundImage: "radial-gradient(120% 70% at 100% 0%, rgba(7,169,151,0.38), transparent 60%), radial-gradient(90% 60% at 0% 100%, rgba(7,169,151,0.16), transparent 70%)" }
+                  : undefined
+              }
             >
-              <p className={`label ${main ? "text-white/60" : "text-muted"}`}>{name}</p>
+              {main && (
+                <span className="label absolute left-1/2 top-0 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-eosin px-4 py-2 text-ink shadow-lg">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z" />
+                  </svg>
+                  {T.recommended}
+                </span>
+              )}
+              <p className={`label ${main ? "text-eosin" : "text-muted"}`}>{name}</p>
               <p className="display mt-5 text-5xl">{fmt(price)}</p>
-              <p className={`mt-1 h-5 text-sm ${main ? "text-white/60" : "text-muted"}`}>
+              <p className={`mt-1 h-5 text-sm ${main ? "text-white/70" : "text-muted"}`}>
                 {price > 0 ? `${c.unit} ${T.perMonth}` : ""}
               </p>
               <p className={`mt-6 font-semibold ${main ? "text-white" : "text-ink"}`}>{text}</p>
+              {main && (
+                <p className="mt-4 rounded-2xl bg-eosin px-4 py-3 text-[15px] font-semibold leading-snug text-ink">{items[0]}</p>
+              )}
               <ul
                 className={`mt-5 flex-1 divide-y border-t ${
                   main ? "divide-white/15 border-white/15" : "divide-line border-line"
                 }`}
               >
-                {itemsFor(limits, lang, p.key === "premium").map((i) => (
+                {(main ? items.slice(1) : items).map((i) => (
                   <li
                     key={i}
                     className={`flex items-center gap-3 py-3 text-[15px] ${
-                      main ? "text-white/85" : "text-ink/80"
+                      main ? "text-white/90" : "text-ink/80"
                     }`}
                   >
                     <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-eosin" />
@@ -120,14 +139,18 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
                   </li>
                 ))}
               </ul>
-              {p.key === "free" && (
-                <a
-                  href={`${prefix}/connexion`}
-                  className="mt-6 rounded-full bg-ink px-6 py-3.5 text-center font-semibold text-white transition hover:bg-eosin"
-                >
-                  {T.free.cta}
-                </a>
-              )}
+              <a
+                href={`${prefix}/connexion`}
+                className={`mt-6 rounded-full px-6 py-3.5 text-center font-semibold transition ${
+                  main
+                    ? "bg-eosin text-ink hover:bg-white"
+                    : p.key === "free"
+                      ? "bg-ink text-white hover:bg-eosin"
+                      : "border border-ink/25 text-ink hover:border-ink"
+                }`}
+              >
+                {p.key === "free" ? T.free.cta : `${T.choose} ${name}`}
+              </a>
             </div>
           );
         })}
