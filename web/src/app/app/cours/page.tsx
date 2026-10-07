@@ -25,6 +25,10 @@ export default function Cours() {
 
   const max = quota?.limits?.max_documents ?? null;
   const full = max !== null && (docs?.length ?? 0) >= max;
+  // Message d'invitation : supprimer un ancien cours suffit, ou passer au plan d'au-dessus.
+  const upgradeTo = quota?.plan === "standard" ? "Duo" : "Standard";
+  const limitMessage = (n: number | null) =>
+    `Ton plan permet ${n ?? "un nombre limité de"} document${(n ?? 0) > 1 ? "s" : ""}. Supprime un ancien cours pour en ajouter un nouveau, ou passe au plan ${upgradeTo} pour en avoir plus.`;
 
   async function onFile(file: File) {
     const sb = getSupabase();
@@ -32,7 +36,7 @@ export default function Cours() {
     setError(null);
     if (full) {
       setError(
-        `Ton plan permet ${max} document${(max ?? 0) > 1 ? "s" : ""} actif${(max ?? 0) > 1 ? "s" : ""}. Supprime-en un ou passe à un plan supérieur.`,
+        limitMessage(max),
       );
       return;
     }
@@ -67,7 +71,7 @@ export default function Cours() {
       });
       if (e) {
         if (/document_limit_reached/.test(e.message)) {
-          setError("Tu as atteint la limite de documents de ton plan. Passe à un plan supérieur pour en ajouter.");
+          setError(limitMessage(max));
           setUploading(null);
           return;
         }
