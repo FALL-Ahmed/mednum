@@ -5,7 +5,7 @@ export type DuoMember = { user_id: string; name: string; is_host: boolean; finis
 export type DuoKind = "qcm" | "room" | "case" | "flashcards";
 /** Réponse : pour un QCM, les lettres choisies ; pour un cas clinique, un texte ; pour les flashcards, ["known"] ou ["unknown"]. */
 export type DuoAnswer = { user_id: string; idx: number; sel: Key[] | string; points: number };
-export type DuoMessage = { id: number; user_id: string | null; body: string; created_at: string; is_ai?: boolean; tag?: string | null };
+export type DuoMessage = { id: number; user_id: string | null; body: string; created_at: string; is_ai?: boolean; tag?: string | null; image_count?: number };
 
 export type DuoCard = { front: string; back: string; chapter?: string };
 export type DuoCase = {
@@ -70,6 +70,7 @@ const MESSAGES: Record<string, string> = {
   quota_exceeded: "Le quota du jour de l'abonné Premium est atteint. Réessayez demain.",
   ai_failed: "Dr. Ahmed est indisponible pour le moment. Réessaie dans un instant.",
   not_finished: "Vous devez tous les deux avoir terminé le cas.",
+  invalid_images: "Ces images ne peuvent pas être envoyées (3 au maximum, en JPG ou PNG).",
   invalid_payload: "Ce contenu ne peut pas être partagé.",
 };
 
@@ -113,7 +114,17 @@ export const rateDuo = (code: string, idx: number, known: boolean) =>
   call<null>("duo_rate", { p_code: code, p_idx: idx, p_known: known });
 
 /** Dr. Ahmed dans la session : une question dans la salle, ou la comparaison des raisonnements d'un cas. */
-export async function askDuoAi(code: string, action: "ask" | "case_feedback", text?: string): Promise<{ error: string | null }> {
+export type DuoImage = { mime: string; data: string };
+
+/** Images d'une série de messages (chargées à part, car lourdes) : { id du message → liens des images }. */
+export async function getDuoImages(code: string, ids: number[]): Promise<Record<number, string[]>> {
+  const r = await call<{ message_id: number; position: number; data: string }[]>("duo_images", { p_code: code, p_ids: ids });
+  const out: Record<number, string[]> = {};
+  for (const x of r.data ?? []) (out[x.message_id] ??= [])[x.position] = x.data;
+  return out;
+}
+
+export async function askDuoAi(code: string, action: "ask" | "say" | "case_feedback", text?: string, images?: DuoImage[]): Promise<{ error: string | null }> {
   const sb = getSupabase();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -125,7 +136,7 @@ export async function askDuoAi(code: string, action: "ask" | "case_feedback", te
     const res = await fetch(`${url}/functions/v1/duo-ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: anon, Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ code, action, text }),
+      body: JSON.stringify({ code, action, text, images }),
     });
     if (res.ok) return { error: null };
     const j = (await res.json().catch(() => ({}))) as { error?: string };

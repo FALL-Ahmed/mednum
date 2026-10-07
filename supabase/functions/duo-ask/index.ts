@@ -1,5 +1,6 @@
 // Edge Function /duo-ask : Dr. Ahmed dans une session de révision à deux.
-//   • action "ask"           : une question posée dans la salle à deux ; Dr. Ahmed répond devant les deux étudiants.
+//   • action "ask"           : une question posée dans la salle à deux (avec images possibles) ; Dr. Ahmed répond devant les deux étudiants.
+//   • action "say"           : un message avec images à son partenaire seulement (Dr. Ahmed ne répond pas).
 //   • action "case_feedback" : après un cas clinique fait à deux, Dr. Ahmed compare les deux raisonnements.
 // Les questions comptent dans le quota de l'HÔTE (abonné Premium), pas dans celui de l'invité gratuit.
 
@@ -53,6 +54,7 @@ RÈGLES D'OR :
 3. Si les deux étudiants se contredisent ou comparent leurs réponses, arbitre avec le cours et explique pourquoi.
 4. Direct, précis, bienveillant. Explique le « pourquoi ». Messages courts (bonjour, merci) : réponse brève.
 5. Jamais de conseil médical pour un vrai patient : tu aides à réviser.
+6. Si une image est jointe (page de cours, schéma, ECG, radiographie, résultats), décris ce que tu vois puis réponds ; si elle est illisible ou ambiguë, dis-le. Ne pose jamais de diagnostic pour un vrai patient.
 
 FORMAT : commence directement par la réponse, environ 300 mots au plus pour les questions de fond. Symboles Unicode pour les formules (² ³ ≤ ≥ α β °), jamais de LaTeX. Markdown simple permis. Réponds dans la langue de la question (français ou arabe). Termine par « À retenir : … » (une phrase) quand la réponse est substantielle.`
 
@@ -60,13 +62,16 @@ const CASE_SYSTEM = `Tu es Dr. Ahmed, un senior en santé et tuteur de révision
 
 Pour chaque étudiant (en t'adressant à lui par son prénom) : ce qui est juste, ce qui manque ou est faux, à chaque étape importante, puis le diagnostic final. Termine par ce que l'un peut apprendre de l'autre et une phrase « À retenir ». Reste factuel : base-toi uniquement sur le cas fourni, sans inventer de valeur. Pas de note chiffrée. Ton bienveillant, environ 350 mots au plus. Réponds en français. C'est un exercice de révision, jamais un conseil pour un vrai patient.`
 
-async function callClaude(system: string, user: string, maxTokens: number) {
+type Img = { mime: string; data: string }
+const IMG_MIMES = ['image/jpeg', 'image/png', 'image/webp']
+
+async function callClaude(system: string, user: string, maxTokens: number, images: Img[] = []) {
   const key = Deno.env.get('ANTHROPIC_API_KEY')
   if (!key) throw new Error('no_key')
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content: images.length ? [...images.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.mime, data: im.data } })), { type: 'text', text: user }] : user }] }),
   })
   if (!res.ok) throw new Error(`anthropic ${res.status}`)
   const data = await res.json()
@@ -88,7 +93,7 @@ Deno.serve(async (req: Request) => {
   const uid = authData?.user?.id
   if (!uid) return json({ error: 'not_authenticated' }, 401)
 
-  let body: { code?: string; action?: string; text?: string }
+  let body: { code?: string; action?: string; text?: string; images?: Img[] }
   try {
     body = await req.json()
   } catch {
@@ -96,7 +101,15 @@ Deno.serve(async (req: Request) => {
   }
   const code = String(body.code ?? '').toUpperCase().trim()
   const action = body.action
-  if (!code || (action !== 'ask' && action !== 'case_feedback')) return json({ error: 'invalid_request' }, 400)
+  if (!code || (action !== 'ask' && action !== 'say' && action !== 'case_feedback')) return json({ error: 'invalid_request' }, 400)
+
+  // Images jointes (salle seulement) : 3 au plus, JPEG, PNG ou WebP, taille bornée
+  const images: Img[] = Array.isArray(body.images) ? body.images : []
+  if (images.length > 3 || images.some((im) => !im || !IMG_MIMES.includes(im.mime) || typeof im.data !== 'string' || im.data.length < 100 || im.data.length > 1_600_000)
+      || images.reduce((n, im) => n + (im?.data?.length ?? 0), 0) > 4_000_000) {
+    return json({ error: 'invalid_images' }, 400)
+  }
+  if (images.length > 0 && action === 'case_feedback') return json({ error: 'invalid_request' }, 400)
 
   const { data: session } = await supabase.from('duo_sessions').select('*').eq('code', code).maybeSingle()
   if (!session) return json({ error: 'duo_not_found' }, 404)
@@ -120,21 +133,44 @@ Deno.serve(async (req: Request) => {
     } catch { /* le suivi ne doit pas bloquer */ }
   }
 
-  if (action === 'ask') {
+  // Enregistre le message d'un étudiant, avec ses images à part
+  const saveHumanMessage = async (text: string) => {
+    const { data: msg } = await supabase
+      .from('duo_messages')
+      .insert({ session_id: session.id, user_id: uid, body: text, is_ai: false, image_count: images.length })
+      .select('id')
+      .single()
+    if (msg && images.length > 0) {
+      await supabase.from('duo_message_images').insert(
+        images.map((im, i) => ({ message_id: msg.id, session_id: session.id, position: i, data: `data:${im.mime};base64,${im.data}` })),
+      )
+    }
+  }
+
+  if (action === 'say') {
     if (session.kind !== 'room') return json({ error: 'invalid_kind' }, 400)
     const text = String(body.text ?? '').trim().slice(0, 800)
+    if (!text && images.length === 0) return json({ error: 'invalid_request' }, 400)
+    await saveHumanMessage(text)
+    return json({ ok: true })
+  }
+
+  if (action === 'ask') {
+    if (session.kind !== 'room') return json({ error: 'invalid_kind' }, 400)
+    let text = String(body.text ?? '').trim().slice(0, 800)
+    if (!text && images.length > 0) text = 'Que vois-tu sur cette image ? Explique-la.'
     if (!text) return json({ error: 'invalid_request' }, 400)
 
     const allowed = await quota()
     if (allowed === null) return json({ error: 'quota_error' }, 500)
     if (!allowed) return json({ error: 'quota_exceeded' }, 429)
 
-    await supabase.from('duo_messages').insert({ session_id: session.id, user_id: uid, body: text, is_ai: false })
+    await saveHumanMessage(String(body.text ?? '').trim().slice(0, 800))
 
     const { data: recent } = await supabase
-      .from('duo_messages').select('user_id,body,is_ai').eq('session_id', session.id).order('id', { ascending: false }).limit(12)
+      .from('duo_messages').select('user_id,body,is_ai,image_count').eq('session_id', session.id).order('id', { ascending: false }).limit(12)
     const history = (recent ?? []).reverse().slice(0, -1)
-      .map((m: { user_id: string | null; body: string; is_ai: boolean }) => `${m.is_ai ? 'Dr. Ahmed' : nameOf(m.user_id ?? '')} : ${m.body}`).join('\n')
+      .map((m: { user_id: string | null; body: string; is_ai: boolean; image_count?: number }) => `${m.is_ai ? 'Dr. Ahmed' : nameOf(m.user_id ?? '')} : ${m.body}${m.image_count ? ' [image jointe]' : ''}`).join('\n')
 
     const chunks: Chunk[] = Array.isArray(session.payload?.chunks) ? session.payload.chunks : []
     const picked = pickChunks(chunks, text + ' ' + history.slice(-400))
@@ -144,7 +180,7 @@ Deno.serve(async (req: Request) => {
 
     const userMsg = `EXTRAITS DU COURS :\n${context}\n\n${history ? `CONVERSATION RÉCENTE :\n${history}\n\n` : ''}NOUVELLE QUESTION de ${myName} : ${text}`
     try {
-      const r = await callClaude(ROOM_SYSTEM(String(session.payload?.name ?? ''), members.map((m: { name: string }) => m.name || 'Étudiant')), userMsg, 1400)
+      const r = await callClaude(ROOM_SYSTEM(String(session.payload?.name ?? ''), members.map((m: { name: string }) => m.name || 'Étudiant')), userMsg, 1400, images)
       await supabase.from('duo_messages').insert({ session_id: session.id, user_id: null, body: r.text, is_ai: true })
       await log(r.input, r.output)
     } catch (e) {

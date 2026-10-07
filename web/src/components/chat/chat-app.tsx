@@ -454,6 +454,11 @@ export function ChatApp() {
             ))}
           </select>
         </div>
+        <p className="border-b border-line bg-slide/60 px-4 py-1.5 text-xs text-muted sm:px-6">
+          {docId
+            ? t("Cours choisi : Dr. Ahmed répond d'après ce cours, puis va plus loin si besoin.")
+            : t("Sans cours : Dr. Ahmed répond avec ses connaissances médicales générales. Choisis un cours pour qu'il parte de ton document.")}
+        </p>
 
         {/* Messages */}
         <div

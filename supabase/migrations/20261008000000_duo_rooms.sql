@@ -16,6 +16,18 @@ alter table public.duo_messages
   add column if not exists is_ai boolean not null default false,
   add column if not exists tag   text;
 alter table public.duo_messages alter column user_id drop not null;
+alter table public.duo_messages add column if not exists image_count integer not null default 0;
+
+-- Images jointes aux messages de la salle (photos de cours, schémas, ECG) : gardées à part, pour ne pas alourdir la discussion.
+create table if not exists public.duo_message_images (
+  id          bigint  generated always as identity primary key,
+  message_id  bigint  not null references public.duo_messages(id) on delete cascade,
+  session_id  uuid    not null references public.duo_sessions(id) on delete cascade,
+  position    integer not null default 0,
+  data        text    not null
+);
+create index if not exists duo_message_images_msg_idx on public.duo_message_images (message_id, position);
+alter table public.duo_message_images enable row level security;
 
 -- Création d'une session non-QCM (réservée au plan Premium ou à un administrateur).
 create or replace function public.duo_create_v2(p_kind text, p_title text, p_payload jsonb, p_name text default '')
@@ -121,7 +133,7 @@ begin
                          where mine.session_id = v_s.id and mine.user_id = v_uid and mine.idx = a.idx))), '[]'::jsonb),
     'messages', coalesce((
       select jsonb_agg(x order by x.id) from (
-        select g.id, g.user_id, g.body, g.created_at, g.is_ai, g.tag from public.duo_messages g
+        select g.id, g.user_id, g.body, g.created_at, g.is_ai, g.tag, g.image_count from public.duo_messages g
          where g.session_id = v_s.id order by g.id desc limit 80) x), '[]'::jsonb)
   );
 end;
@@ -197,6 +209,32 @@ begin
 end;
 $$;
 
+-- Images de certains messages (réservé aux deux membres de la session).
+create or replace function public.duo_images(p_code text, p_ids bigint[])
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_s   public.duo_sessions;
+begin
+  if v_uid is null then raise exception 'not_authenticated'; end if;
+  v_s := (select s from public.duo_sessions s where s.code = upper(trim(p_code)));
+  if v_s.id is null then raise exception 'duo_not_found'; end if;
+  if not exists (select 1 from public.duo_members where session_id = v_s.id and user_id = v_uid) then
+    raise exception 'duo_not_member';
+  end if;
+  if p_ids is null or coalesce(array_length(p_ids, 1), 0) > 30 then raise exception 'invalid_request'; end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('message_id', i.message_id, 'position', i.position, 'data', i.data) order by i.message_id, i.position)
+      from public.duo_message_images i
+     where i.session_id = v_s.id and i.message_id = any(p_ids)), '[]'::jsonb);
+end;
+$$;
+
 -- Mes sessions récentes : ajoute le type et le total adapté.
 create or replace function public.duo_list()
 returns jsonb
@@ -231,3 +269,5 @@ revoke all on function public.duo_rate(text, integer, boolean)       from public
 grant execute on function public.duo_create_v2(text, text, jsonb, text) to authenticated;
 grant execute on function public.duo_submit_text(text, integer, text)   to authenticated;
 grant execute on function public.duo_rate(text, integer, boolean)       to authenticated;
+revoke all on function public.duo_images(text, bigint[]) from public;
+grant execute on function public.duo_images(text, bigint[]) to authenticated;

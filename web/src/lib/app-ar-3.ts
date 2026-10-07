@@ -293,6 +293,9 @@ export const AR3: Record<string, string> = {
   "Vous voyez tous les deux ses réponses. Pour parler seulement entre vous, mets Dr. Ahmed en pause.": "يرى كلاكما إجاباته. للحديث بينكما فقط، أوقف الدكتور أحمد مؤقتًا.",
   "Envoie-lui le code ou le lien. Il pourra rejoindre gratuitement. Tu peux déjà commencer.": "أرسل إليه الرمز أو الرابط. يمكنه الانضمام مجانًا. ويمكنك البدء من الآن.",
   "Lien": "الرابط",
+  "Cours choisi : Dr. Ahmed répond d'après ce cours, puis va plus loin si besoin.": "الدرس المختار: يجيب الدكتور أحمد انطلاقًا من هذا الدرس، ثم يتوسّع عند الحاجة.",
+  "Sans cours : Dr. Ahmed répond avec ses connaissances médicales générales. Choisis un cours pour qu'il parte de ton document.": "بلا درس: يجيب الدكتور أحمد بمعارفه الطبية العامة. اختر درسًا لينطلق من مستندك.",
+  "Ces images ne peuvent pas être envoyées (3 au maximum, en JPG ou PNG).": "تعذّر إرسال هذه الصور (3 كحدّ أقصى، بصيغة JPG أو PNG).",
   "Mauritanie": "موريتانيا",
   "Maroc": "المغرب",
 }

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { DrAvatar } from "@/components/chat/chat-app";
 import { Composer } from "@/components/chat/composer";
 import { Markdown } from "@/components/chat/markdown";
-import { askDuoAi, sendDuo, type DuoMessage, type DuoState } from "@/lib/duo";
+import { askDuoAi, getDuoImages, sendDuo, type DuoMessage, type DuoState } from "@/lib/duo";
+import type { PreparedImage } from "@/lib/images";
 import { useT } from "@/lib/app-i18n";
 
 /**
@@ -28,6 +29,8 @@ export function DuoChat({
   // Dr. Ahmed répond à chaque message tant que l'option est active ; sinon les deux étudiants parlent entre eux.
   const [aiOn, setAiOn] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
+  const [pendingImgs, setPendingImgs] = useState<string[]>([]);
+  const [imgCache, setImgCache] = useState<Record<number, string[]>>({});
   const [asking, setAsking] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -38,22 +41,41 @@ export function DuoChat({
   const messages = st.messages.filter((m) => m.tag !== "feedback");
   const writeToAi = ai && aiOn;
   // Le message que je viens d'envoyer s'affiche tout de suite ; il disparaît quand le serveur le renvoie.
-  const showPending = pending !== null && !messages.some((m) => m.user_id === st.me && m.body === pending);
+  const showPending = pending !== null && !messages.some((m) => m.user_id === st.me && m.body === pending && (m.image_count ?? 0) === pendingImgs.length);
+
+  // Les images des messages se chargent à part, une seule fois chacune.
+  useEffect(() => {
+    const need = messages.filter((m) => (m.image_count ?? 0) > 0 && !imgCache[m.id]).map((m) => m.id);
+    if (need.length === 0) return;
+    let cancelled = false;
+    getDuoImages(st.code, need.slice(0, 20)).then((got) => {
+      if (!cancelled && Object.keys(got).length > 0) setImgCache((c) => ({ ...c, ...got }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.code, messages.length]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [messages.length, showPending, asking]);
 
-  async function onSend(text: string) {
-    if (!text || asking) return;
+  async function onSend(text: string, imgs: PreparedImage[]) {
+    if ((!text && imgs.length === 0) || asking) return;
     setError(null);
     setPending(text);
+    setPendingImgs(imgs.map((i) => i.previewUrl));
     stick.current = true;
+    const images = imgs.map((i) => ({ mime: i.mediaType, data: i.base64 }));
     if (writeToAi) {
       setAsking(true);
-      const r = await askDuoAi(st.code, "ask", text);
+      const r = await askDuoAi(st.code, "ask", text, images);
       setAsking(false);
+      if (r.error) setError(r.error);
+    } else if (images.length > 0) {
+      const r = await askDuoAi(st.code, "say", text, images);
       if (r.error) setError(r.error);
     } else {
       const r = await sendDuo(st.code, text);
@@ -61,6 +83,7 @@ export function DuoChat({
     }
     await refresh();
     setPending(null);
+    setPendingImgs([]);
   }
 
   async function copy(m: DuoMessage) {
@@ -74,6 +97,22 @@ export function DuoChat({
   }
 
   const empty = messages.length === 0 && !showPending;
+
+  const picture = (urls: string[] | undefined, count: number, end: boolean) =>
+    count > 0 ? (
+      <div className={`flex flex-wrap gap-2 ${end ? "justify-end" : ""}`}>
+        {Array.from({ length: count }, (_, i) => urls?.[i]).map((src, i) =>
+          src ? (
+            <a key={i} href={src} target="_blank" rel="noopener noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="h-28 w-28 rounded-xl object-cover" />
+            </a>
+          ) : (
+            <span key={i} className="h-28 w-28 animate-pulse rounded-xl bg-slide" />
+          ),
+        )}
+      </div>
+    ) : null;
 
   return (
     <section className={`mt-5 flex flex-col overflow-hidden rounded-2xl border border-line bg-white ${ai ? "h-[max(26rem,calc(100dvh-23rem))]" : "h-[30rem]"}`}>
@@ -126,10 +165,13 @@ export function DuoChat({
               }
               const mine = m.user_id === st.me;
               return mine ? (
-                <div key={m.id} className="flex flex-col items-end gap-1">
-                  <div dir="auto" className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-hema px-4 py-3 text-white">
-                    {m.body}
-                  </div>
+                <div key={m.id} className="flex flex-col items-end gap-2">
+                  {picture(imgCache[m.id], m.image_count ?? 0, true)}
+                  {m.body && (
+                    <div dir="auto" className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-hema px-4 py-3 text-white">
+                      {m.body}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div key={m.id} className="flex items-start gap-3">
@@ -138,18 +180,33 @@ export function DuoChat({
                   </span>
                   <div className="min-w-0 max-w-[88%]">
                     <p className="label text-muted">{nameOf(m.user_id)}</p>
-                    <div dir="auto" className="mt-1 whitespace-pre-wrap rounded-2xl rounded-es-md bg-slide px-4 py-3 text-ink">
-                      {m.body}
+                    <div className="mt-1 space-y-2">
+                      {picture(imgCache[m.id], m.image_count ?? 0, false)}
+                      {m.body && (
+                        <div dir="auto" className="whitespace-pre-wrap rounded-2xl rounded-es-md bg-slide px-4 py-3 text-ink">
+                          {m.body}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
             {showPending && (
-              <div className="flex flex-col items-end gap-1">
-                <div dir="auto" className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-hema px-4 py-3 text-white opacity-80">
-                  {pending}
-                </div>
+              <div className="flex flex-col items-end gap-2 opacity-80">
+                {pendingImgs.length > 0 && (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {pendingImgs.map((src) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={src} src={src} alt="" className="h-28 w-28 rounded-xl object-cover" />
+                    ))}
+                  </div>
+                )}
+                {pending && (
+                  <div dir="auto" className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-hema px-4 py-3 text-white">
+                    {pending}
+                  </div>
+                )}
               </div>
             )}
             {asking && (
@@ -189,9 +246,9 @@ export function DuoChat({
         <div className="mx-auto max-w-3xl">
           <Composer
             busy={asking}
-            onSend={(text) => onSend(text)}
+            onSend={(text, imgs) => onSend(text, imgs)}
             onStop={() => {}}
-            allowImages={false}
+            allowImages={ai}
             placeholder={writeToAi ? t("Pose ta question à Dr. Ahmed…") : other ? t("Écris à {a}…", { a: otherName }) : t("Écris un message…")}
             hint={writeToAi ? undefined : null}
           />
