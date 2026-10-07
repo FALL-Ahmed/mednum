@@ -202,7 +202,7 @@ export default function Accueil() {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Usage label={t("Questions")} left={qLeft} total={quota?.daily_limit ?? null} fem />
-          <Usage label={t("Séries de QCM")} left={qcmLeft} total={lim?.qcm ?? null} />
+          <Usage label={t("Questions de QCM")} left={qcmLeft === null ? null : qcmLeft * 5} total={lim ? lim.qcm * 5 : null} fem />
           <Usage
             label={t("Documents")}
             left={docsLeft}

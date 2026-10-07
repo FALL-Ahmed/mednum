@@ -236,6 +236,8 @@ export const AR3: Record<string, string> = {
   "Valider ma réponse": "تأكيد إجابتي",
   "Vous avez tous les deux terminé. Dr. Ahmed compare vos raisonnements avec celui du cas, et dit ce que chacun peut apprendre de l'autre.": "أنهيتما كلاكما. يقارن الدكتور أحمد استدلالَيكما باستدلال الحالة، ويبيّن ما يستطيع كل منكما أن يتعلمه من الآخر.",
   "Vous devez tous les deux avoir terminé le cas.": "يجب أن ينهي كلاكما الحالة.",
+  "Questions de QCM": "أسئلة QCM",
+  "{n} questions de QCM": "{n} سؤال QCM",
   "Mauritanie": "موريتانيا",
   "Maroc": "المغرب",
 }

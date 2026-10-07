@@ -33,6 +33,8 @@ export function LimitNotice({ kind, onClose }: { kind: Kind; onClose?: () => voi
   const next = NEXT_PLAN[plan];
   const nextN = next ? next[kind] : null;
   const what = WHAT[kind];
+  // Les QCM se comptent en questions (une série = 5 questions), pas en séries.
+  const unitFor = (n: number) => (kind === "qcm" ? t("{n} questions de QCM", { n: n * 5 }) : t(n > 1 ? what.many : what.one, { n }));
 
   return (
     <div role="status" className="rounded-2xl border border-eosin bg-eosin-soft p-5 sm:p-6">
@@ -40,9 +42,9 @@ export function LimitNotice({ kind, onClose }: { kind: Kind; onClose?: () => voi
       <p className="display mt-2 text-2xl leading-tight text-ink">{t(what.title)}.</p>
       <p className="mt-2 text-ink/80">
         {mine !== null && (
-          <>{t("Ton plan {a} permet {b} par jour.", { a: t(PLAN_LABEL[plan] ?? plan), b: t(mine > 1 ? what.many : what.one, { n: mine }) })}</>
+          <>{t("Ton plan {a} permet {b} par jour.", { a: t(PLAN_LABEL[plan] ?? plan), b: unitFor(mine) })}</>
         )}{t("Le compteur repart demain.")}{next && nextN !== null && (
-          <>{t("Le plan {a} en offre {b} par jour.", { a: next.name, b: nextN })}</>
+          <>{t("Le plan {a} en offre {b} par jour.", { a: next.name, b: unitFor(nextN) })}</>
         )}
       </p>
       <div className="mt-4 flex flex-wrap gap-3">

@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { PENDING_KEY } from "@/lib/duo";
-import { LangSwitch } from "./lang-switch";
 import { useAuth } from "@/lib/useAuth";
 import {
   AppContext,
@@ -353,8 +352,6 @@ export function AppFrame({
             </span>
           )}
         </Link>
-
-        <LangSwitch className="rounded-lg px-3 py-2 text-start text-sm text-white/60 transition hover:bg-white/5 hover:text-white" />
 
         <a
           href="https://wa.me/22241513211?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20sur%20Axone."
