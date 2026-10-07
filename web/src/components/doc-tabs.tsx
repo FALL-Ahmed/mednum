@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { QuotaError } from "@/lib/ai";
 import type { DocumentRow } from "@/lib/course";
 import { generateCases, generateFiche, generateFlashcards, saveToDocument, studentCtx } from "@/lib/generate";
 import { useApp } from "./app-context";
 import { FicheView } from "./fiche-view";
+import { FlashcardPlayer, type Card } from "./flashcard-player";
 import { LimitNotice } from "./limit-notice";
 import { ReportButton } from "./report-button";
 
@@ -118,23 +119,21 @@ export function Fiche({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => vo
 
 /* ——— Flashcards (générées dans l'application, affichées ici) ——— */
 
-type Card = { front: string; back: string; chapter?: string };
-
 export function Flashcards({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => void }) {
   const { user, profile } = useApp();
   const raw = doc.flashcards ?? null;
-  const [i, setI] = useState(0);
-  const [flipped, setFlipped] = useState(false);
 
-  let cards: Card[] = [];
-  try {
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (Array.isArray(parsed)) {
-      cards = parsed.filter((c) => c && typeof c.front === "string" && typeof c.back === "string");
+  // Analysé une seule fois par jeu de cartes : le lecteur garde sa session tant que les cartes ne changent pas.
+  const cards = useMemo<Card[]>(() => {
+    try {
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.filter((c) => c && typeof c.front === "string" && typeof c.back === "string")
+        : [];
+    } catch {
+      return [];
     }
-  } catch {
-    cards = [];
-  }
+  }, [raw]);
 
   if (cards.length === 0) {
     return (
@@ -158,54 +157,7 @@ export function Flashcards({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) 
     );
   }
 
-  const card = cards[i];
-  const go = (n: number) => {
-    setI((x) => Math.min(Math.max(x + n, 0), cards.length - 1));
-    setFlipped(false);
-  };
-
-  return (
-    <div>
-      <p className="label text-muted">
-        Carte {i + 1} sur {cards.length}
-        {card.chapter ? ` · ${card.chapter}` : ""}
-      </p>
-      <button
-        onClick={() => setFlipped((f) => !f)}
-        aria-label={flipped ? "Voir la question" : "Voir la réponse"}
-        className={`mt-4 flex min-h-[16rem] w-full flex-col items-center justify-center rounded-2xl p-8 text-center transition-colors sm:min-h-[20rem] ${
-          flipped ? "bg-white text-ink ring-1 ring-line" : "bg-ink text-white"
-        }`}
-      >
-        <span className={`label ${flipped ? "text-muted" : "text-white/60"}`}>
-          {flipped ? "Réponse" : "Question"}
-        </span>
-        <span className="display mt-4 text-2xl leading-snug sm:text-3xl">{flipped ? card.back : card.front}</span>
-        <span className={`mt-6 text-sm ${flipped ? "text-muted" : "text-white/60"}`}>
-          Touche la carte pour la retourner
-        </span>
-      </button>
-      <div className="mt-3 text-right">
-        <ReportButton docId={doc.id} kind="flashcard" itemRef={String(i + 1)} snapshot={card} label="Signaler une erreur sur cette carte" />
-      </div>
-      <div className="mt-3 flex justify-between gap-3">
-        <button
-          onClick={() => go(-1)}
-          disabled={i === 0}
-          className="rounded-full border border-ink/20 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-40"
-        >
-          Précédente
-        </button>
-        <button
-          onClick={() => go(1)}
-          disabled={i === cards.length - 1}
-          className="rounded-full bg-ink px-6 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40"
-        >
-          Suivante
-        </button>
-      </div>
-    </div>
-  );
+  return <FlashcardPlayer docId={doc.id} userId={user.id} cards={cards} />;
 }
 
 /* ——— Cas cliniques (générés dans l'application, affichés ici) ——— */
