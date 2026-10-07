@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { trackOnce } from "@/lib/track";
+import { requestWelcomeEmail } from "@/lib/mail";
 import { useAuth } from "@/lib/useAuth";
 import { useT } from "@/lib/app-i18n";
 import { LangSwitch } from "@/components/lang-switch";
@@ -107,6 +109,8 @@ export default function Bienvenue() {
       setBusy(false);
       return;
     }
+    trackOnce("sign_up", { method: "google", country });
+    void requestWelcomeEmail();
     router.replace("/app");
   }
 

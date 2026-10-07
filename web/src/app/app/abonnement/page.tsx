@@ -21,6 +21,7 @@ import {
 } from "@/lib/payments";
 import { getSupabase } from "@/lib/supabase";
 import { formatDate, useT } from "@/lib/app-i18n";
+import { track } from "@/lib/track";
 import { fetchPromos, promoFor, promoPrice, type Promo, type PromoCountry } from "@/lib/promos";
 
 type PlanRow = { plan: string; label: string; price_monthly: number; price_yearly: number | null };
@@ -273,6 +274,7 @@ function Abonnement() {
   const durationLabel = duration === "yearly" ? "Annuel" : "Mensuel";
 
   function choose(p: PlanRow) {
+    track("begin_checkout", { plan: p.plan, duration, value: priceOf(p), currency: unit });
     setPlanId(p.plan);
     setMethod(null);
     setFile(null);
@@ -365,6 +367,7 @@ function Abonnement() {
         p_subjects: null,
       });
       if (e) throw e;
+      track("payment_submitted", { plan: plan.plan, duration, value: amount, currency: unit, method });
       setRef(reference);
       setStep(3);
       refreshQuota();

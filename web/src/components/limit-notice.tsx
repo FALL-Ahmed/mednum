@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { PLAN_LABEL, useApp } from "./app-context";
 import { useT } from "@/lib/app-i18n";
+import { useNextPlan } from "@/lib/next-plan";
+import { track } from "@/lib/track";
+import { useEffect } from "react";
 
 type Kind = "content" | "qcm" | "chat";
 
@@ -30,8 +33,19 @@ export function LimitNotice({ kind, onClose }: { kind: Kind; onClose?: () => voi
   const plan = quota?.plan ?? "freemium";
   const lim = quota?.limits;
   const mine = lim ? (kind === "content" ? lim.contents : kind === "qcm" ? lim.qcm : lim.questions) : null;
-  const next = NEXT_PLAN[plan];
+  const live = useNextPlan();
+  const fallback = NEXT_PLAN[plan];
+  const next = fallback
+    ? {
+        ...fallback,
+        // Chiffres réels du plan supérieur (réglés dans l'admin) quand ils sont chargés
+        ...(live.lim ? { content: live.lim.daily_contents, qcm: live.lim.daily_qcm, chat: live.lim.daily_questions } : {}),
+      }
+    : undefined;
   const nextN = next ? next[kind] : null;
+  useEffect(() => {
+    track("upsell_view", { place: `limit_${kind}` });
+  }, [kind]);
   const what = WHAT[kind];
   // Les QCM se comptent en questions (une série = 5 questions), pas en séries.
   const unitFor = (n: number) => (kind === "qcm" ? t("{n} questions de QCM", { n: n * 5 }) : t(n > 1 ? what.many : what.one, { n }));
@@ -51,6 +65,7 @@ export function LimitNotice({ kind, onClose }: { kind: Kind; onClose?: () => voi
         {next && (
           <Link
             href="/app/abonnement"
+            onClick={() => track("upsell_click", { place: `limit_${kind}`, plan: next.name })}
             className="rounded-full bg-ink px-5 py-2.5 text-[15px] font-semibold text-white transition hover:bg-eosin hover:text-ink"
           >{t("Voir le plan {a}", { a: next.name })}</Link>
         )}

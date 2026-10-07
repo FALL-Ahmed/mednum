@@ -9,6 +9,7 @@ import { IconPlus, IconTrash } from "@/components/icons";
 import { autoChunk, extractPdf, UnreadablePdfError, type Heading } from "@/lib/pdf";
 import { isImageFile, MAX_OCR_PAGES, OcrLimitError, ocrPages, pdfPagesToJpeg, photosToJpeg, TooManyPagesError } from "@/lib/ocr";
 import { getSupabase } from "@/lib/supabase";
+import { trackOnce } from "@/lib/track";
 import { useT } from "@/lib/app-i18n";
 
 export default function Cours() {
@@ -107,6 +108,7 @@ export default function Cours() {
         content: text,
         chunks: autoChunk(text, headings),
       });
+      if (!e) trackOnce("upload_document", { pages });
       if (e) {
         if (/document_limit_reached/.test(e.message)) {
           setError(limitMessage(max));

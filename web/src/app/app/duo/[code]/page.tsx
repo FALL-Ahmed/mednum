@@ -334,6 +334,12 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
               </p>
             </div>
           )}
+          {validated && q.commentaire && (
+            <div className="mt-3 rounded-2xl border border-line bg-slide px-4 py-3.5">
+              <p className="label text-muted">{t("Pourquoi ?")}</p>
+              <p dir="auto" className="mt-1.5 text-[15px] leading-relaxed text-ink">{q.commentaire}</p>
+            </div>
+          )}
           {!validated && d.other && d.other.answered > 0 && (
             <p className="mt-4 text-sm text-muted">{t("Les réponses de {a} s'affichent une fois que tu as validé la question.", { a: otherName })}</p>
           )}

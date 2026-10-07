@@ -18,6 +18,7 @@ import {
 import { useApp } from "./app-context";
 import { ConfirmDialog } from "./confirm-dialog";
 import { LimitNotice } from "./limit-notice";
+import { UpgradeNudge } from "./upgrade-nudge";
 import { ReportButton } from "./report-button";
 import { formatDate, useT } from "@/lib/app-i18n";
 
@@ -357,6 +358,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
             );
           })}
         </ul>
+        <UpgradeNudge points={pts} total={total} />
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             onClick={() => {
@@ -486,6 +488,13 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
             ? t("Sans réponse · 0 point")
             : `${result === "COMPLET" ? "Complet" : result === "PARTIEL" ? "Partiel" : "Faux"} · ${gained} points`}
         </p>
+      )}
+
+      {revealed && q.commentaire && (
+        <div className="mt-3 rounded-2xl border border-line bg-slide px-4 py-3.5">
+          <p className="label text-muted">{t("Pourquoi ?")}</p>
+          <p dir="auto" className="mt-1.5 text-[15px] leading-relaxed text-ink">{q.commentaire}</p>
+        </div>
       )}
 
       {revealed && (

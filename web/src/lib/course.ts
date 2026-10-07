@@ -120,17 +120,31 @@ export type Qcm = {
   propositions: Record<Key, string>;
   bonnesReponses: Key[];
   explication: Record<Key, string>;
+  /** Petit commentaire après la correction : pourquoi, piège, à retenir (absent des anciennes séries). */
+  commentaire?: string;
 };
 
 export function qcmPrompt(title: string, content: string): string {
-  return `Tu es un examinateur en santé (médecine / pharmacie). Génère 5 QCM basés UNIQUEMENT sur le contenu ci-dessous.
+  return `Tu es un examinateur expérimenté en santé (médecine / pharmacie). Génère 5 QCM basés UNIQUEMENT sur le contenu ci-dessous, avec la rigueur d'un vrai examen.
 
-RÈGLES :
-- Chaque question et chaque proposition s'appuie sur un fait EXPLICITEMENT présent dans le texte fourni.
-- 5 propositions A/B/C/D/E plausibles, non caricaturales. 1 à 4 bonnes réponses (jamais 0, jamais 5).
-- Une explication courte par proposition : vrai ou faux, et pourquoi, en citant le cours.
-- Varier les angles : mécanisme, clinique, examens, traitement (seulement ce que le cours traite).
+FOND :
+- Chaque question et chaque proposition s'appuie sur un fait EXPLICITEMENT présent dans le texte fourni. Rien d'inventé.
+- Mélange les niveaux : 2 questions de rappel ou de compréhension (mécanisme, définition, valeur) et 3 questions d'application. Pour celles-ci, pose un mini cas de 2 à 3 lignes (âge, contexte, signe clé) SEULEMENT si le cours donne de quoi le construire ; sinon une situation concrète tirée du cours.
+- Varie les angles : mécanisme, clinique, examens, traitement (seulement ce que le cours traite).
 - Interdit : questions générales sur « l'importance du chapitre » ou « le concept principal ».
+
+ÉNONCÉ :
+- Une seule idée, formulée de façon positive, qui se comprend sans lire les propositions. Évite les négations (« n'est pas », « sauf ») et les détails inutiles.
+
+PROPOSITIONS (A à E) :
+- 5 propositions de forme et de longueur comparables ; la bonne réponse ne doit pas être la plus longue ni la plus précise.
+- 1 à 4 bonnes réponses (jamais 0, jamais 5), à varier d'une question à l'autre, à des positions différentes.
+- Interdit : « toutes les réponses », « aucune des réponses », et les mots absolus (« toujours », « jamais », « uniquement ») sauf si le cours les emploie.
+- Les propositions fausses sont des pièges réalistes construits sur les confusions typiques du cours : notion voisine, mécanisme inversé, chiffre proche, exception oubliée. Jamais absurdes, mais clairement fausses d'après le cours.
+
+CORRECTION :
+- EXPL : une phrase par proposition (vrai ou faux, et pourquoi), en s'appuyant sur le cours.
+- COMMENTAIRE : 2 à 3 phrases pour l'étudiant après la correction : pourquoi la ou les bonnes réponses sont exactes, quel est le piège à éviter, puis « À retenir : » avec l'idée clé en une phrase.
 
 FORMAT EXACT, en texte simple (pas de JSON, pas de Markdown), un bloc par QCM :
 
@@ -147,6 +161,7 @@ EXPL B: explication de B
 EXPL C: explication de C
 EXPL D: explication de D
 EXPL E: explication de E
+COMMENTAIRE: pourquoi, piège à éviter. À retenir : idée clé.
 
 Chapitre : ${title}
 Contenu :
@@ -180,6 +195,7 @@ export function parseQcm(raw: string): Qcm[] {
       propositions: {} as Record<string, string>,
       explication: {} as Record<string, string>,
       bonnesReponses: [] as string[],
+      commentaire: "",
     };
     let target: { set: (t: string) => void; get: () => string } | null = null;
     for (const line of block.split("\n")) {
@@ -191,6 +207,9 @@ export function parseQcm(raw: string): Qcm[] {
       } else if ((m = t.match(/^(?:R[ÉE]PONSES?|BONNES?\s+R[ÉE]PONSES?)\s*:\s*(.*)$/i))) {
         q.bonnesReponses = [...new Set((m[1].toUpperCase().match(/[A-E]/g) ?? []) as string[])];
         target = null;
+      } else if ((m = t.match(/^COMMENT(?:AIRE)?\s*:\s*(.*)$/i))) {
+        q.commentaire = m[1];
+        target = { get: () => q.commentaire, set: (x) => (q.commentaire = x) };
       } else if ((m = t.match(/^EXPL(?:ICATION)?\s*([A-E])\s*[:.)]\s*(.*)$/i))) {
         const k = m[1].toUpperCase();
         q.explication[k] = m[2];
@@ -208,6 +227,7 @@ export function parseQcm(raw: string): Qcm[] {
       propositions: q.propositions,
       explication: q.explication,
       bonnesReponses: q.bonnesReponses,
+      ...(q.commentaire.trim() ? { commentaire: q.commentaire.trim() } : {}),
     };
     if (isValidQcm(qcm)) out.push(qcm);
   }
