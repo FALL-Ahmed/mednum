@@ -23,7 +23,7 @@ const intro = (c: StudentCtx) =>
 export async function generateFiche(name: string, content: string, c: StudentCtx): Promise<string> {
   const prompt = `${intro(c)}
 
-Ta mission : transformer ce cours en une fiche de révision que l'étudiant relit en 10 minutes avant un partiel, un examen de module ou un concours. Pas un résumé : une fiche fiable, courte et directement utile.
+Ta mission : transformer ce cours en une fiche de révision que l'étudiant relit en 10 minutes avant un examen, un contrôle ou un concours. Pas un résumé : une fiche fiable, courte et directement utile.
 
 CONTEXTE : niveau de l'étudiant : ${c.niveau} · cours : ${name}.
 

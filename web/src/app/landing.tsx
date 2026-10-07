@@ -54,7 +54,7 @@ const DEV_SAMPLE_REVIEWS: Review[] = [
     },
   },
   {
-    quote: "Les flashcards sont ce qui m'a le plus servi avant les partiels. Ce que je ne sais pas revient vite, et je ne perds plus de temps sur ce que je maîtrise déjà.",
+    quote: "Les flashcards sont ce qui m'a le plus servi avant les examens. Ce que je ne sais pas revient vite, et je ne perds plus de temps sur ce que je maîtrise déjà.",
     name: "Awa",
     role: "Médecine · Dakar",
     ar: {
