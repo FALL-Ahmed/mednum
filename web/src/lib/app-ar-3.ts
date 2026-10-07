@@ -268,6 +268,9 @@ export const AR3: Record<string, string> = {
   "La même série, chacun son rythme, puis vous comparez.": "السلسلة نفسها، ولكلٍّ وتيرته، ثم تقارنان.",
   "Le même jeu de cartes : qui sait quoi ?": "مجموعة البطاقات نفسها: من يعرف ماذا؟",
   "Raisonnez chacun de votre côté, puis comparez avec Dr. Ahmed.": "استدلّ كلٌّ منكما على حدة، ثم قارنا مع الدكتور أحمد.",
+  "Envoie-lui ce code. Il pourra rejoindre gratuitement. Tu peux déjà commencer.": "أرسل إليه هذا الرمز. يمكنه الانضمام مجانًا. ويمكنك البدء من الآن.",
+  "Code copié": "تم نسخ الرمز",
+  "Copier le code": "نسخ الرمز",
   "Mauritanie": "موريتانيا",
   "Maroc": "المغرب",
 }

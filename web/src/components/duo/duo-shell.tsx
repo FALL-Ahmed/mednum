@@ -52,7 +52,7 @@ export function DuoShell({
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(duoLink(st.code));
+      await navigator.clipboard.writeText(st.code);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -75,10 +75,10 @@ export function DuoShell({
       {!other && (
         <section className="mt-5 rounded-2xl border border-line bg-eosin-soft p-5">
           <p className="font-semibold text-ink">{t("En attente de ton partenaire")}</p>
-          <p className="mt-1 text-ink/80">{t("Envoie-lui ce lien. Il pourra rejoindre gratuitement. Tu peux déjà commencer.")}</p>
-          <p className="mt-3 break-all rounded-xl bg-white px-3 py-2 font-mono text-sm text-ink" dir="ltr">{duoLink(st.code)}</p>
+          <p className="mt-1 text-ink/80">{t("Envoie-lui ce code. Il pourra rejoindre gratuitement. Tu peux déjà commencer.")}</p>
+          <p className="mt-3 w-fit rounded-xl bg-white px-5 py-3 font-mono text-3xl font-semibold tracking-[0.3em] text-ink" dir="ltr">{st.code}</p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <button onClick={copy} className={btnLine}>{copied ? t("Lien copié") : t("Copier le lien")}</button>
+            <button onClick={copy} className={btnLine}>{copied ? t("Code copié") : t("Copier le code")}</button>
             <a href={wa} target="_blank" rel="noreferrer" className={btnDark}>{t("Envoyer sur WhatsApp")}</a>
           </div>
         </section>
