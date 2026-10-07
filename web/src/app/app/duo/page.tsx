@@ -5,14 +5,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { cleanCode, duoError, joinDuo, listDuo, PENDING_KEY, type DuoListItem } from "@/lib/duo";
+import { formatDate, useT } from "@/lib/app-i18n";
 
 const btnDark =
   "rounded-full bg-ink px-6 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40";
 
 const dateShort = (iso: string) =>
-  new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  formatDate(new Date(iso), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export default function DuoHome() {
+  const t = useT();
   const { profile, quota } = useApp();
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -25,7 +27,7 @@ export default function DuoHome() {
     async (raw: string) => {
       const c = cleanCode(raw);
       if (c.length !== 6) {
-        setError("Le code a 6 caractères (lettres et chiffres).");
+        setError(t("Le code a 6 caractères (lettres et chiffres)."));
         return;
       }
       setBusy(true);
@@ -38,7 +40,7 @@ export default function DuoHome() {
       }
       router.push(`/app/duo/${r.data}`);
     },
-    [profile.name, router],
+    [profile.name, router, t],
   );
 
   useEffect(() => {
@@ -59,40 +61,33 @@ export default function DuoHome() {
 
   return (
     <div className="max-w-3xl">
-      <p className="display text-3xl text-ink sm:text-4xl">Révision à deux</p>
-      <p className="mt-3 max-w-2xl text-lg text-muted">
-        Une série de QCM, deux personnes. Chacun répond à son rythme, vous voyez où en est l&apos;autre, puis vous
-        comparez vos réponses question par question.
-      </p>
+      <p className="display text-3xl text-ink sm:text-4xl">{t("Révision à deux")}</p>
+      <p className="mt-3 max-w-2xl text-lg text-muted">{t("Une série de QCM, deux personnes. Chacun répond à son rythme, vous voyez où en est l'autre, puis vous comparez vos réponses question par question.")}</p>
 
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <section className="rounded-2xl border border-line bg-white p-6">
-          <p className="label text-muted">Inviter quelqu&apos;un</p>
-          <p className="display mt-2 text-2xl text-ink">Lance une session</p>
+          <p className="label text-muted">{t("Inviter quelqu'un")}</p>
+          <p className="display mt-2 text-2xl text-ink">{t("Lance une session")}</p>
           <ol className="mt-3 list-inside list-decimal space-y-1.5 text-ink/80">
-            <li>Ouvre un cours, onglet QCM.</li>
-            <li>Choisis une série, puis « Réviser à deux ».</li>
-            <li>Envoie le lien à ton partenaire (WhatsApp, par exemple).</li>
+            <li>{t("Ouvre un cours, onglet QCM.")}</li>
+            <li>{t("Choisis une série, puis « Réviser à deux ».")}</li>
+            <li>{t("Envoie le lien à ton partenaire (WhatsApp, par exemple).")}</li>
           </ol>
-          <p className="mt-3 text-sm text-muted">Ton partenaire n&apos;a pas besoin d&apos;abonnement : l&apos;invitation est gratuite.</p>
+          <p className="mt-3 text-sm text-muted">{t("Ton partenaire n'a pas besoin d'abonnement : l'invitation est gratuite.")}</p>
           {isDuo ? (
-            <Link href="/app/cours" className={`mt-5 inline-block ${btnDark}`}>
-              Choisir un cours
-            </Link>
+            <Link href="/app/cours" className={`mt-5 inline-block ${btnDark}`}>{t("Choisir un cours")}</Link>
           ) : (
             <div className="mt-5 rounded-2xl bg-eosin-soft p-4">
-              <p className="font-semibold text-ink">Lancer une session est réservé au plan Duo.</p>
-              <Link href="/app/abonnement" className={`mt-3 inline-block ${btnDark}`}>
-                Voir le plan Duo
-              </Link>
+              <p className="font-semibold text-ink">{t("Lancer une session est réservé au plan Duo.")}</p>
+              <Link href="/app/abonnement" className={`mt-3 inline-block ${btnDark}`}>{t("Voir le plan Duo")}</Link>
             </div>
           )}
         </section>
 
         <section className="rounded-2xl border border-line bg-white p-6">
-          <p className="label text-muted">Tu as reçu une invitation</p>
-          <p className="display mt-2 text-2xl text-ink">Rejoins une session</p>
-          <p className="mt-3 text-ink/80">Colle le code à 6 caractères reçu de ton partenaire. C&apos;est gratuit.</p>
+          <p className="label text-muted">{t("Tu as reçu une invitation")}</p>
+          <p className="display mt-2 text-2xl text-ink">{t("Rejoins une session")}</p>
+          <p className="mt-3 text-ink/80">{t("Colle le code à 6 caractères reçu de ton partenaire. C'est gratuit.")}</p>
           <form
             className="mt-4"
             onSubmit={(e) => {
@@ -100,35 +95,33 @@ export default function DuoHome() {
               join(code);
             }}
           >
-            <label htmlFor="duo-code" className="text-sm font-semibold text-ink">
-              Code de la session
-            </label>
+            <label htmlFor="duo-code" className="text-sm font-semibold text-ink">{t("Code de la session")}</label>
             <input
               id="duo-code"
               value={code}
               onChange={(e) => setCode(cleanCode(e.target.value))}
               inputMode="text"
               autoComplete="off"
-              placeholder="K7M4QX"
+              placeholder={t("K7M4QX")}
               className="mt-2 w-full rounded-2xl border border-line bg-slide px-4 py-3.5 text-center font-mono text-xl tracking-[0.3em] text-ink placeholder:text-ink/25 focus:border-ink focus:outline-none"
             />
             <button type="submit" disabled={busy || code.length !== 6} className={`mt-4 w-full ${btnDark}`}>
-              {busy ? "Connexion…" : "Rejoindre"}
+              {busy ? t("Connexion…") : t("Rejoindre")}
             </button>
           </form>
           {error && (
             <p role="alert" className="mt-4 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-              {error}
+              {t(error)}
             </p>
           )}
         </section>
       </div>
 
-      <h2 className="display mt-10 text-2xl text-ink">Tes sessions</h2>
+      <h2 className="display mt-10 text-2xl text-ink">{t("Tes sessions")}</h2>
       {list === null ? (
-        <p className="mt-3 text-muted">Chargement…</p>
+        <p className="mt-3 text-muted">{t("Chargement…")}</p>
       ) : list.length === 0 ? (
-        <p className="mt-3 text-muted">Aucune session pour l&apos;instant. Elles apparaîtront ici pendant 48 heures.</p>
+        <p className="mt-3 text-muted">{t("Aucune session pour l'instant. Elles apparaîtront ici pendant 48 heures.")}</p>
       ) : (
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {list.map((s) => {
@@ -136,18 +129,16 @@ export default function DuoHome() {
             return (
               <li key={s.code} className="flex flex-col rounded-2xl border border-line bg-white p-5">
                 <p className="label text-muted">
-                  {dateShort(s.created_at)} · {s.is_host ? "Tu as invité" : "Tu as rejoint"}
+                  {dateShort(s.created_at)} · {s.is_host ? t("Tu as invité") : t("Tu as rejoint")}
                 </p>
-                <p className="mt-1.5 font-semibold leading-snug text-ink">{s.title || "Série de QCM"}</p>
+                <p className="mt-1.5 font-semibold leading-snug text-ink">{s.title || t("Série de QCM")}</p>
                 <p className="mt-2 text-sm text-muted">
-                  {s.partner ? `Avec ${s.partner}` : "En attente d'un partenaire"} · {s.answered}/{s.total} répondues ·{" "}
-                  {s.points} pts
-                </p>
+                  {s.partner ? t("Avec {a}", { a: s.partner }) : t("En attente d'un partenaire")} · {t("{a}/{b} répondues · {c} pts", { a: s.answered, b: s.total, c: s.points })}</p>
                 <Link
                   href={`/app/duo/${s.code}`}
                   className="mt-4 rounded-full border border-ink/25 px-6 py-3 text-center font-semibold text-ink transition hover:border-ink"
                 >
-                  {over ? "Voir le résultat" : "Ouvrir"}
+                  {over ? t("Voir le résultat") : t("Ouvrir")}
                 </Link>
               </li>
             );

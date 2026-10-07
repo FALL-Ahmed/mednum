@@ -20,6 +20,7 @@ import {
   SOON_METHODS,
 } from "@/lib/payments";
 import { getSupabase } from "@/lib/supabase";
+import { formatDate, useT } from "@/lib/app-i18n";
 
 type PlanRow = { plan: string; label: string; price_monthly: number; price_yearly: number | null };
 type Account = { method: string; account_number: string };
@@ -65,13 +66,14 @@ function genRef(): string {
 }
 
 function dateFr(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  return formatDate(new Date(iso), { day: "numeric", month: "long", year: "numeric" });
 }
 
 function Stepper({ step }: { step: Step }) {
+  const t = useT();
   const items = ["Offre", "Paiement", "Confirmation"];
   return (
-    <ol className="flex items-center gap-2 text-sm" aria-label="Étapes de l'abonnement">
+    <ol className="flex items-center gap-2 text-sm" aria-label={t("Étapes de l'abonnement")}>
       {items.map((label, i) => {
         const n = (i + 1) as Step;
         const done = step > n;
@@ -85,7 +87,7 @@ function Stepper({ step }: { step: Step }) {
             >
               {done ? <IconCheck className="h-3.5 w-3.5" /> : n}
             </span>
-            <span className={current ? "font-semibold text-ink" : "text-muted"}>{label}</span>
+            <span className={current ? "font-semibold text-ink" : "text-muted"}>{t(label)}</span>
             {n < 3 && <span aria-hidden className="mx-1 h-px w-6 bg-line sm:w-10" />}
           </li>
         );
@@ -96,6 +98,7 @@ function Stepper({ step }: { step: Step }) {
 
 /** Retour de la page de paiement KitPay : on attend la confirmation de l'opérateur et on active le plan. */
 function ReturnPanel({ outcome, onBack }: { outcome: string; onBack: () => void }) {
+  const t = useT();
   const { refreshQuota } = useApp();
   const [status, setStatus] = useState<"checking" | "active" | "closed" | "waiting">("checking");
 
@@ -138,39 +141,37 @@ function ReturnPanel({ outcome, onBack }: { outcome: string; onBack: () => void 
           <span className="grid h-12 w-12 place-items-center rounded-full bg-eosin text-ink">
             <IconCheck />
           </span>
-          <h2 className="display mt-6 text-3xl leading-tight text-ink">Paiement reçu. Ton plan est activé.</h2>
-          <p className="mt-4 text-lg text-muted">Tu peux en profiter tout de suite, sur le site et dans l&apos;application.</p>
+          <h2 className="display mt-6 text-3xl leading-tight text-ink">{t("Paiement reçu. Ton plan est activé.")}</h2>
+          <p className="mt-4 text-lg text-muted">{t("Tu peux en profiter tout de suite, sur le site et dans l'application.")}</p>
         </>
       ) : cancelled || status === "closed" ? (
         <>
-          <h2 className="display text-3xl leading-tight text-ink">Paiement annulé.</h2>
-          <p className="mt-4 text-lg text-muted">Rien n&apos;a été débité. Tu peux réessayer quand tu veux.</p>
+          <h2 className="display text-3xl leading-tight text-ink">{t("Paiement annulé.")}</h2>
+          <p className="mt-4 text-lg text-muted">{t("Rien n'a été débité. Tu peux réessayer quand tu veux.")}</p>
         </>
       ) : status === "waiting" || noRef ? (
         <>
-          <h2 className="display text-3xl leading-tight text-ink">Nous attendons la confirmation.</h2>
-          <p className="mt-4 text-lg text-muted">
-            Si tu as bien payé, ton plan s&apos;active tout seul dès que l&apos;opérateur confirme, en général en quelques
-            minutes. Tu peux fermer cette page.
-          </p>
+          <h2 className="display text-3xl leading-tight text-ink">{t("Nous attendons la confirmation.")}</h2>
+          <p className="mt-4 text-lg text-muted">{t("Si tu as bien payé, ton plan s'active tout seul dès que l'opérateur confirme, en général en quelques minutes. Tu peux fermer cette page.")}</p>
         </>
       ) : (
         <>
-          <h2 className="display text-3xl leading-tight text-ink">Vérification du paiement…</h2>
-          <p className="mt-4 text-lg text-muted">Ne ferme pas cette page, ça prend quelques secondes.</p>
+          <h2 className="display text-3xl leading-tight text-ink">{t("Vérification du paiement…")}</h2>
+          <p className="mt-4 text-lg text-muted">{t("Ne ferme pas cette page, ça prend quelques secondes.")}</p>
         </>
       )}
       <button
         onClick={onBack}
         className="mt-6 rounded-full border border-ink/20 px-6 py-3 font-semibold text-ink transition hover:border-ink"
       >
-        {status === "active" ? "Terminer" : "Retour aux offres"}
+        {status === "active" ? t("Terminer") : t("Retour aux offres")}
       </button>
     </div>
   );
 }
 
 function Abonnement() {
+  const t = useT();
   const { profile, quota, quotaKey, refreshQuota } = useApp();
   const params = useSearchParams();
   const [returned, setReturned] = useState<string | null>(params.get("retour"));
@@ -294,8 +295,8 @@ function Abonnement() {
       if (e instanceof PaymentError && e.code === "not_configured") setKit("off");
       setError(
         e instanceof PaymentError && e.code === "too_many"
-          ? "Tu as déjà plusieurs paiements en attente. Termine-les ou attends quelques minutes."
-          : "Impossible d'ouvrir la page de paiement pour le moment. Réessaie dans un instant.",
+          ? t("Tu as déjà plusieurs paiements en attente. Termine-les ou attends quelques minutes.")
+          : t("Impossible d'ouvrir la page de paiement pour le moment. Réessaie dans un instant."),
       );
     }
   }
@@ -314,8 +315,8 @@ function Abonnement() {
       if (e instanceof PaymentError && e.code === "not_configured") setPdun("off");
       setError(
         e instanceof PaymentError && e.code === "too_many"
-          ? "Tu as déjà plusieurs paiements en attente. Termine-les ou attends quelques minutes."
-          : "Impossible d'ouvrir la page de paiement pour le moment. Réessaie dans un instant.",
+          ? t("Tu as déjà plusieurs paiements en attente. Termine-les ou attends quelques minutes.")
+          : t("Impossible d'ouvrir la page de paiement pour le moment. Réessaie dans un instant."),
       );
     }
   }
@@ -356,8 +357,8 @@ function Abonnement() {
       const msg = err instanceof Error ? err.message : "";
       setError(
         /too_many_pending/.test(msg)
-          ? "Tu as déjà 3 demandes en attente de vérification. Attends leur validation ou écris-nous sur WhatsApp."
-          : "Impossible d'envoyer ta demande pour le moment. Vérifie ta connexion et réessaie.",
+          ? t("Tu as déjà 3 demandes en attente de vérification. Attends leur validation ou écris-nous sur WhatsApp.")
+          : t("Impossible d'envoyer ta demande pour le moment. Vérifie ta connexion et réessaie."),
       );
     } finally {
       setBusy(false);
@@ -383,22 +384,16 @@ function Abonnement() {
           <span className="grid h-12 w-12 place-items-center rounded-full bg-eosin text-ink">
             <IconCheck />
           </span>
-          <h2 className="display mt-6 text-3xl leading-tight text-ink">Demande envoyée.</h2>
-          <p className="mt-4 text-lg text-muted">
-            Nous vérifions ton reçu. Ton plan {plan?.label} est activé sous 24 heures, sur le site et dans
-            l&apos;application.
-          </p>
-          <p className="mt-6 text-sm text-muted">
-            Référence : <span className="font-bold text-ink">{ref}</span>
+          <h2 className="display mt-6 text-3xl leading-tight text-ink">{t("Demande envoyée.")}</h2>
+          <p className="mt-4 text-lg text-muted">{t("Nous vérifions ton reçu. Ton plan {a} est activé sous 24 heures, sur le site et dans l'application.", { a: plan?.label ?? "" })}</p>
+          <p className="mt-6 text-sm text-muted">{t("Référence :")}{" "}<span className="font-bold text-ink">{ref}</span>
           </p>
           <a
             href={wa(`Bonjour, j'ai envoyé une demande d'abonnement ${plan?.label}. Référence : ${ref}.`)}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-block rounded-full bg-ink px-7 py-3.5 font-semibold text-white transition hover:bg-eosin hover:text-ink"
-          >
-            Nous prévenir sur WhatsApp
-          </a>
+          >{t("Nous prévenir sur WhatsApp")}</a>
         </div>
       </div>
     );
@@ -412,9 +407,7 @@ function Abonnement() {
         target="_blank"
         rel="noopener noreferrer"
         className="mt-5 inline-block rounded-full bg-ink px-7 py-3.5 font-semibold text-white transition hover:bg-eosin hover:text-ink"
-      >
-        Écrire sur WhatsApp
-      </a>
+      >{t("Écrire sur WhatsApp")}</a>
     );
 
     // Méthodes proposées en Mauritanie : celles configurées en base (repli sur les quatre opérateurs)
@@ -448,20 +441,17 @@ function Abonnement() {
     if (ck === "sn" && pdun === "unknown") {
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <p className="text-muted">Chargement des moyens de paiement…</p>
+          <p className="text-muted">{t("Chargement des moyens de paiement…")}</p>
         </section>
       );
     } else if (ck === "sn" && pdun === "on") {
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <h2 className="display text-2xl text-ink">Paiement au Sénégal</h2>
-          <p className="mt-3 text-muted">
-            Tu choisis ton moyen de paiement sur la page suivante : mobile money (Wave, Orange Money, Free Money…) ou
-            carte bancaire.
-          </p>
+          <h2 className="display text-2xl text-ink">{t("Paiement au Sénégal")}</h2>
+          <p className="mt-3 text-muted">{t("Tu choisis ton moyen de paiement sur la page suivante : mobile money (Wave, Orange Money, Free Money…) ou carte bancaire.")}</p>
           {error && (
             <p role="alert" className="mt-5 rounded-xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-              {error}
+              {t(error)}
             </p>
           )}
           <button
@@ -469,16 +459,16 @@ function Abonnement() {
             disabled={busy}
             className="mt-6 w-full rounded-full bg-ink px-8 py-4 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40 sm:w-auto"
           >
-            {busy ? "Ouverture du paiement…" : `Payer ${fmt(amount)} ${unit}`}
+            {busy ? t("Ouverture du paiement…") : t("Payer {a} {b}", { a: fmt(amount), b: unit })}
           </button>
-          <p className="mt-3 text-sm text-muted">Ton plan est activé automatiquement dès que le paiement est confirmé.</p>
+          <p className="mt-3 text-sm text-muted">{t("Ton plan est activé automatiquement dès que le paiement est confirmé.")}</p>
         </section>
       );
     } else if (ck === "sn" || ck === "ma") {
       const list = SOON_METHODS[ck];
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <h2 className="display text-2xl text-ink">Moyens de paiement {ck === "sn" ? "au Sénégal" : "au Maroc"}</h2>
+          <h2 className="display text-2xl text-ink">{t("Moyens de paiement")}{" "}{ck === "sn" ? t("au Sénégal") : t("au Maroc")}</h2>
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {list.map((m) => (
               <div
@@ -486,45 +476,39 @@ function Abonnement() {
                 aria-disabled="true"
                 className="flex flex-col items-center gap-1 rounded-xl border-2 border-dashed border-line px-3 py-5 text-center opacity-80"
               >
-                <span className="text-sm font-semibold text-ink">{m.label}</span>
-                <span className="text-xs text-muted">{m.note}</span>
-                <span className="mt-1 rounded-full bg-slide px-2.5 py-0.5 text-xs font-semibold text-muted">Bientôt</span>
+                <span className="text-sm font-semibold text-ink">{t(m.label)}</span>
+                <span className="text-xs text-muted">{t(m.note)}</span>
+                <span className="mt-1 rounded-full bg-slide px-2.5 py-0.5 text-xs font-semibold text-muted">{t("Bientôt")}</span>
               </div>
             ))}
           </div>
-          <p className="mt-5 text-muted">
-            Le paiement en ligne arrive bientôt. En attendant, écris-nous sur WhatsApp : nous activons ton plan{" "}
-            {plan.label} avec toi.
-          </p>
+          <p className="mt-5 text-muted">{t("Le paiement en ligne arrive bientôt. En attendant, écris-nous sur WhatsApp : nous activons ton plan {a} avec toi.", { a: plan.label })}</p>
           {contactBtn(`Bonjour, je voudrais m'abonner au plan ${plan.label} (${profile.country}).`)}
         </section>
       );
     } else if (ck === "other") {
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <h2 className="display text-2xl text-ink">Paiement</h2>
-          <p className="mt-3 text-muted">
-            Écris-nous sur WhatsApp : nous activons ton plan {plan.label} avec toi.
-          </p>
+          <h2 className="display text-2xl text-ink">{t("Paiement")}</h2>
+          <p className="mt-3 text-muted">{t("Écris-nous sur WhatsApp : nous activons ton plan {a} avec toi.", { a: plan.label })}</p>
           {contactBtn(`Bonjour, je voudrais m'abonner au plan ${plan.label}${profile.country ? ` (${profile.country})` : ""}.`)}
         </section>
       );
     } else if (kit === "unknown" || accounts === null) {
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <p className="text-muted">Chargement des moyens de paiement…</p>
+          <p className="text-muted">{t("Chargement des moyens de paiement…")}</p>
         </section>
       );
     } else if (kit === "on") {
       // Mauritanie, paiement automatique : page de paiement hébergée, plan activé tout seul
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <h2 className="display text-2xl text-ink">Comment veux-tu payer ?</h2>
+          <h2 className="display text-2xl text-ink">{t("Comment veux-tu payer ?")}</h2>
           {methodGrid}
           {method && (
             <div className="mt-6">
-              <label htmlFor="pay-phone" className="text-sm font-semibold text-ink">
-                Ton numéro {nice(method)} <span className="font-normal text-muted">(recommandé)</span>
+              <label htmlFor="pay-phone" className="text-sm font-semibold text-ink">{t("Ton numéro {a}", { a: nice(method) })}<span className="font-normal text-muted">{t("(recommandé)")}</span>
               </label>
               <input
                 id="pay-phone"
@@ -532,17 +516,15 @@ function Abonnement() {
                 autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="ex : 46 12 34 56"
+                placeholder={t("ex : 46 12 34 56")}
                 className="mt-2 w-full max-w-xs rounded-xl border border-line bg-slide px-4 py-3 text-ink placeholder:text-muted focus:border-ink focus:outline-none"
               />
-              <p className="mt-2 text-sm text-muted">
-                Le numéro avec lequel tu paies aide à retrouver ton paiement plus vite.
-              </p>
+              <p className="mt-2 text-sm text-muted">{t("Le numéro avec lequel tu paies aide à retrouver ton paiement plus vite.")}</p>
             </div>
           )}
           {error && (
             <p role="alert" className="mt-5 rounded-xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-              {error}
+              {t(error)}
             </p>
           )}
           <button
@@ -550,20 +532,16 @@ function Abonnement() {
             disabled={busy || !method}
             className="mt-6 w-full rounded-full bg-ink px-8 py-4 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40 sm:w-auto"
           >
-            {busy ? "Ouverture du paiement…" : `Payer ${fmt(amount)} MRU`}
+            {busy ? t("Ouverture du paiement…") : t("Payer {a} MRU", { a: fmt(amount) })}
           </button>
-          <p className="mt-3 text-sm text-muted">
-            Tu paies dans l&apos;application de ton opérateur. Ton plan est activé automatiquement, sans reçu à envoyer.
-          </p>
+          <p className="mt-3 text-sm text-muted">{t("Tu paies dans l'application de ton opérateur. Ton plan est activé automatiquement, sans reçu à envoyer.")}</p>
         </section>
       );
     } else if (accounts.length === 0) {
       body = (
         <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <h2 className="display text-2xl text-ink">Paiement</h2>
-          <p className="mt-3 text-muted">
-            Les moyens de paiement ne sont pas encore disponibles ici. Écris-nous sur WhatsApp pour t&apos;abonner.
-          </p>
+          <h2 className="display text-2xl text-ink">{t("Paiement")}</h2>
+          <p className="mt-3 text-muted">{t("Les moyens de paiement ne sont pas encore disponibles ici. Écris-nous sur WhatsApp pour t'abonner.")}</p>
           {contactBtn(`Bonjour, je voudrais m'abonner au plan ${plan.label}.`)}
         </section>
       );
@@ -572,28 +550,26 @@ function Abonnement() {
       body = (
         <>
           <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-            <h2 className="display text-2xl text-ink">Comment veux-tu payer ?</h2>
+            <h2 className="display text-2xl text-ink">{t("Comment veux-tu payer ?")}</h2>
             {methodGrid}
           </section>
 
           {account && (
             <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-              <h2 className="display text-2xl text-ink">Fais ton paiement</h2>
+              <h2 className="display text-2xl text-ink">{t("Fais ton paiement")}</h2>
               <ol className="mt-5 space-y-6">
                 <li className="flex gap-4">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-white">1</span>
                   <div className="min-w-0">
-                    <p className="font-semibold text-ink">
-                      Envoie exactement {fmt(amount)} MRU avec {nice(account.method)}
-                    </p>
+                    <p className="font-semibold text-ink">{t("Envoie exactement {a} MRU avec {b}", { a: fmt(amount), b: nice(account.method) })}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-slide px-4 py-3">
-                      <span className="text-sm text-muted">au numéro</span>
+                      <span className="text-sm text-muted">{t("au numéro")}</span>
                       <span className="display text-2xl tabular-nums text-ink">{account.account_number}</span>
                       <button
                         onClick={() => copy(account.account_number)}
                         className="rounded-full border border-ink/20 px-4 py-1.5 text-sm font-semibold text-ink transition hover:border-ink"
                       >
-                        {copied ? "Copié" : "Copier"}
+                        {copied ? t("Copié") : t("Copier")}
                       </button>
                     </div>
                   </div>
@@ -601,27 +577,27 @@ function Abonnement() {
                 <li className="flex gap-4">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-white">2</span>
                   <div className="min-w-0">
-                    <p className="font-semibold text-ink">Prends une capture d&apos;écran du reçu</p>
-                    <p className="mt-1 text-sm text-muted">Elle doit montrer le montant et le numéro.</p>
+                    <p className="font-semibold text-ink">{t("Prends une capture d'écran du reçu")}</p>
+                    <p className="mt-1 text-sm text-muted">{t("Elle doit montrer le montant et le numéro.")}</p>
                   </div>
                 </li>
                 <li className="flex gap-4">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink text-sm font-bold text-white">3</span>
                   <div className="min-w-0">
-                    <p className="font-semibold text-ink">Ajoute-la ici</p>
+                    <p className="font-semibold text-ink">{t("Ajoute-la ici")}</p>
                     <input
                       ref={fileRef}
                       type="file"
                       accept="image/*"
                       className="sr-only"
-                      aria-label="Capture du reçu de paiement"
+                      aria-label={t("Capture du reçu de paiement")}
                       onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                     />
                     <button
                       onClick={() => fileRef.current?.click()}
-                      className="mt-2 rounded-xl border border-dashed border-ink/30 px-5 py-3.5 text-left text-ink/80 transition hover:border-ink"
+                      className="mt-2 rounded-xl border border-dashed border-ink/30 px-5 py-3.5 text-start text-ink/80 transition hover:border-ink"
                     >
-                      {file ? `Reçu choisi : ${file.name}` : "Choisir une image"}
+                      {file ? t("Reçu choisi : {a}", { a: file.name }) : t("Choisir une image")}
                     </button>
                   </div>
                 </li>
@@ -629,7 +605,7 @@ function Abonnement() {
 
               {error && (
                 <p role="alert" className="mt-6 rounded-xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-                  {error}
+                  {t(error)}
                 </p>
               )}
 
@@ -638,9 +614,9 @@ function Abonnement() {
                 disabled={busy || !file}
                 className="mt-6 w-full rounded-full bg-ink px-8 py-4 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40 sm:w-auto"
               >
-                {busy ? "Envoi…" : "Envoyer ma demande"}
+                {busy ? t("Envoi…") : t("Envoyer ma demande")}
               </button>
-              <p className="mt-3 text-sm text-muted">Ton plan est activé sous 24 heures après vérification.</p>
+              <p className="mt-3 text-sm text-muted">{t("Ton plan est activé sous 24 heures après vérification.")}</p>
             </section>
           )}
         </>
@@ -651,17 +627,15 @@ function Abonnement() {
       <div className="space-y-6">
         <Stepper step={2} />
 
-        <button onClick={() => setStep(1)} className="text-sm font-semibold text-ink/70 transition hover:text-ink">
-          ← Changer d&apos;offre
-        </button>
+        <button onClick={() => setStep(1)} className="text-sm font-semibold text-ink/70 transition hover:text-ink">{t("← Changer d'offre")}</button>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">{body}</div>
 
           {/* Récapitulatif */}
           <aside className="h-fit rounded-2xl border border-line bg-white p-6 lg:sticky lg:top-24">
-            <p className="text-sm font-medium text-muted">Ton abonnement</p>
-            <p className="display mt-1 text-3xl text-ink">{plan.label}</p>
+            <p className="text-sm font-medium text-muted">{t("Ton abonnement")}</p>
+            <p className="display mt-1 text-3xl text-ink">{t(plan.label)}</p>
             <p className="mt-0.5 text-muted">{durationLabel}</p>
             <p className="mt-4 border-t border-line pt-4">
               <span className="display text-3xl text-ink">{fmt(amount)}</span>{" "}
@@ -671,7 +645,7 @@ function Abonnement() {
               {(FEATURES[plan.plan] ?? []).slice(0, 4).map((f) => (
                 <li key={f} className="flex gap-2.5">
                   <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-eosin" />
-                  {f}
+                  {t(f)}
                 </li>
               ))}
             </ul>
@@ -687,15 +661,15 @@ function Abonnement() {
       <Stepper step={1} />
 
       <div className="max-w-xl rounded-2xl border border-line bg-white p-5">
-        <p className="text-sm font-medium text-muted">Ton plan actuel</p>
-        <p className="display mt-1 text-2xl text-ink">{PLAN_LABEL[quota?.plan ?? "freemium"] ?? quota?.plan}</p>
+        <p className="text-sm font-medium text-muted">{t("Ton plan actuel")}</p>
+        <p className="display mt-1 text-2xl text-ink">{t(PLAN_LABEL[quota?.plan ?? "freemium"] ?? quota?.plan ?? "")}</p>
         {isPaid(quota?.plan) && quota?.expires_at && (
-          <p className="mt-1 text-muted">Actif jusqu&apos;au {dateFr(quota.expires_at)}.</p>
+          <p className="mt-1 text-muted">{t("Actif jusqu'au {a}.", { a: dateFr(quota.expires_at) })}</p>
         )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Durée" className="inline-flex rounded-full border border-line bg-white p-1">
+        <div role="tablist" aria-label={t("Durée")} className="inline-flex rounded-full border border-line bg-white p-1">
           {(["monthly", "yearly"] as const).map((d) => (
             <button
               key={d}
@@ -706,15 +680,15 @@ function Abonnement() {
                 duration === d ? "bg-ink text-white" : "text-ink/70 hover:text-ink"
               }`}
             >
-              {d === "monthly" ? "Mensuel" : "Annuel"}
+              {d === "monthly" ? t("Mensuel") : t("Annuel")}
             </button>
           ))}
         </div>
-        {duration === "yearly" && <p className="text-sm font-semibold text-ink">25 % d&apos;économie sur l&apos;année</p>}
+        {duration === "yearly" && <p className="text-sm font-semibold text-ink">{t("25 % d'économie sur l'année")}</p>}
       </div>
 
       {plans === null ? (
-        <p className="text-muted">Chargement des offres…</p>
+        <p className="text-muted">{t("Chargement des offres…")}</p>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           {plans.map((p) => {
@@ -725,11 +699,9 @@ function Abonnement() {
                 className={`flex flex-col rounded-2xl border-2 bg-white p-7 ${main ? "border-eosin" : "border-line"}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted">{p.label}</span>
+                  <span className="text-sm font-medium text-muted">{t(p.label)}</span>
                   {main && (
-                    <span className="rounded-full bg-eosin-soft px-3 py-1 text-xs font-bold" style={{ color: "var(--eosin-text)" }}>
-                      Le plus choisi
-                    </span>
+                    <span className="rounded-full bg-eosin-soft px-3 py-1 text-xs font-bold" style={{ color: "var(--eosin-text)" }}>{t("Le plus choisi")}</span>
                   )}
                 </div>
                 <p className="display mt-3 text-5xl text-ink">{fmt(priceOf(p))}</p>
@@ -738,7 +710,7 @@ function Abonnement() {
                   {(FEATURES[p.plan] ?? []).map((f) => (
                     <li key={f} className="flex items-center gap-3 py-2.5 text-[15px] text-ink/80">
                       <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-eosin" />
-                      {f}
+                      {t(f)}
                     </li>
                   ))}
                 </ul>
@@ -749,9 +721,7 @@ function Abonnement() {
                       ? "bg-ink text-white hover:bg-eosin hover:text-ink"
                       : "border border-ink text-ink hover:bg-ink hover:text-white"
                   }`}
-                >
-                  Choisir {p.label}
-                </button>
+                >{t("Choisir {a}", { a: p.label })}</button>
               </div>
             );
           })}
@@ -762,8 +732,9 @@ function Abonnement() {
 }
 
 export default function AbonnementPage() {
+  const t = useT();
   return (
-    <Suspense fallback={<p className="text-muted">Chargement…</p>}>
+    <Suspense fallback={<p className="text-muted">{t("Chargement…")}</p>}>
       <Abonnement />
     </Suspense>
   );

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { PENDING_KEY } from "@/lib/duo";
+import { LangSwitch } from "./lang-switch";
 import { useAuth } from "@/lib/useAuth";
 import {
   AppContext,
@@ -29,6 +30,7 @@ import {
   IconUser,
   IconUsers,
 } from "./icons";
+import { formatDate, useT } from "@/lib/app-i18n";
 
 type NavItem = {
   href: string;
@@ -73,14 +75,13 @@ function titleFor(pathname: string): string {
 
 function Wordmark() {
   return (
-    <span className="display text-2xl text-white">
-      axone<span className="text-eosin">.</span>
+    <span className="display text-2xl text-white">axone<span className="text-eosin">.</span>
     </span>
   );
 }
 
 const dateLongue = () => {
-  const d = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const d = formatDate(new Date(), { weekday: "long", day: "numeric", month: "long" });
   return d.charAt(0).toUpperCase() + d.slice(1);
 };
 
@@ -92,6 +93,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function Guarded({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const { user, ready } = useAuth();
@@ -171,7 +173,7 @@ function Guarded({ children }: { children: React.ReactNode }) {
   if (!ready || !user || !profile || !quotaKey) {
     return (
       <main className="grid min-h-screen place-items-center px-5">
-        <p className="text-muted">Chargement de ton espace…</p>
+        <p className="text-muted">{t("Chargement de ton espace…")}</p>
       </main>
     );
   }
@@ -223,6 +225,7 @@ export function AppFrame({
   refreshProfile: () => Promise<void>;
   children: React.ReactNode;
 }) {
+  const t = useT();
   const [drawer, setDrawer] = useState(false);
 
   const used = quota?.daily_used ?? 0;
@@ -231,22 +234,22 @@ export function AppFrame({
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
   const lowQuota = left !== null && left <= 1;
   const paid = isPaid(quota?.plan);
-  const planName = PLAN_LABEL[quota?.plan ?? "freemium"] ?? "Gratuit";
+  const planName = t(PLAN_LABEL[quota?.plan ?? "freemium"] ?? "Gratuit");
   const initial = profile.name.trim().charAt(0).toUpperCase() || "?";
   const recent = (docs ?? []).slice(0, 3);
   const expires = quota?.expires_at
-    ? new Date(quota.expires_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })
+    ? formatDate(new Date(quota.expires_at), { day: "numeric", month: "long" })
     : null;
 
   const sidebar = (onNavigate?: () => void) => (
     <div className="flex h-full flex-col">
       <div className="px-5 pb-4 pt-6">
-        <Link href="/app" onClick={onNavigate} aria-label="Axone, accueil">
+        <Link href="/app" onClick={onNavigate} aria-label={t("Axone, accueil")}>
           <Wordmark />
         </Link>
       </div>
 
-      <nav className="mt-2 flex-1 overflow-hidden px-3" aria-label="Navigation principale">
+      <nav className="mt-2 flex-1 overflow-hidden px-3" aria-label={t("Navigation principale")}>
         <div className="space-y-0.5">
           {ALL.map((n) => {
             const active = n.exact ? pathname === n.href : pathname.startsWith(n.href);
@@ -267,9 +270,9 @@ export function AppFrame({
                     active ? "bg-white/10 text-white" : "text-white/65 hover:bg-white/5 hover:text-white"
                   }`}
                 >
-                  {active && <span aria-hidden className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-eosin" />}
+                  {active && <span aria-hidden className="absolute inset-y-1.5 start-0 w-[3px] rounded-full bg-eosin" />}
                   <Icon className={`h-[18px] w-[18px] ${active ? "text-eosin" : ""}`} />
-                  <span className="flex-1">{n.label}</span>
+                  <span className="flex-1">{t(n.label)}</span>
                   {badge && (
                     <span
                       className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
@@ -291,12 +294,12 @@ export function AppFrame({
                           key={d.id}
                           href={`/app/cours/${encodeURIComponent(d.id)}`}
                           onClick={onNavigate}
-                          className={`ml-5 mt-0.5 flex items-center gap-2 rounded-md py-1.5 pl-3 pr-2 text-sm transition-colors ${
+                          className={`ms-5 mt-0.5 flex items-center gap-2 rounded-md py-1.5 ps-3 pe-2 text-sm transition-colors ${
                             dActive ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/5 hover:text-white"
                           }`}
                         >
                           <IconFile className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{d.name}</span>
+                          <span dir="auto" className="truncate">{d.name}</span>
                         </Link>
                       );
                     })}
@@ -313,7 +316,7 @@ export function AppFrame({
         {quota && (
           <div className="rounded-xl bg-white/6 px-4 py-3">
             <div className="flex items-baseline justify-between text-sm">
-              <span className="text-white/70">Questions aujourd&apos;hui</span>
+              <span className="text-white/70">{t("Questions aujourd'hui")}</span>
               <span className="font-bold text-white">
                 {used}/{limit}
               </span>
@@ -336,20 +339,22 @@ export function AppFrame({
           {!paid ? (
             <>
               <span className="min-w-0">
-                <span className="block text-sm font-semibold">Passer à Standard</span>
+                <span className="block text-sm font-semibold">{t("Passer à Standard")}</span>
                 <span className="block text-xs text-white/55">
-                  {standardPrice ? `${standardPrice.toLocaleString("fr-FR")} MRU par mois` : "Plus de questions et de QCM"}
+                  {standardPrice ? t("{a} MRU par mois", { a: standardPrice.toLocaleString("fr-FR") }) : t("Plus de questions et de QCM")}
                 </span>
               </span>
-              <span aria-hidden className="text-white/60">→</span>
+              <span aria-hidden className="inline-block text-white/60 rtl:-scale-x-100">→</span>
             </>
           ) : (
             <span className="min-w-0">
-              <span className="block text-sm font-semibold">Plan {planName}</span>
-              {expires && <span className="block text-xs text-white/55">Jusqu&apos;au {expires}</span>}
+              <span className="block text-sm font-semibold">{t("Plan {a}", { a: planName })}</span>
+              {expires && <span className="block text-xs text-white/55">{t("Jusqu'au {a}", { a: expires })}</span>}
             </span>
           )}
         </Link>
+
+        <LangSwitch className="rounded-lg px-3 py-2 text-start text-sm text-white/60 transition hover:bg-white/5 hover:text-white" />
 
         <a
           href="https://wa.me/22241513211?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20sur%20Axone."
@@ -357,9 +362,7 @@ export function AppFrame({
           rel="noopener noreferrer"
           className="hidden items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/60 transition hover:bg-white/5 hover:text-white [@media(min-height:720px)]:flex"
         >
-          <IconChat className="h-4 w-4" />
-          Besoin d&apos;aide ? WhatsApp
-        </a>
+          <IconChat className="h-4 w-4" />{t("Besoin d'aide ? WhatsApp")}</a>
 
         <div className="flex items-center gap-3 px-1 py-1">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-sm font-bold text-white">
@@ -368,13 +371,13 @@ export function AppFrame({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">{profile.name}</p>
             <p className="truncate text-xs text-white/55">
-              {[profile.promotion_name, profile.country].filter(Boolean).join(" · ")}
+              {[profile.promotion_name, profile.country ? t(profile.country) : null].filter(Boolean).join(" · ")}
             </p>
           </div>
           <button
             onClick={onSignOut}
-            aria-label="Se déconnecter"
-            title="Se déconnecter"
+            aria-label={t("Se déconnecter")}
+            title={t("Se déconnecter")}
             className="rounded-lg p-2 text-white/55 transition hover:bg-white/10 hover:text-white"
           >
             <IconLogout className="h-[18px] w-[18px]" />
@@ -390,21 +393,21 @@ export function AppFrame({
     >
       <div className="min-h-screen bg-slide">
         {/* Barre latérale (ordinateur) */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 bg-ink lg:block">{sidebar()}</aside>
+        <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 bg-ink lg:block">{sidebar()}</aside>
 
         {/* Tiroir (téléphone et tablette) */}
         {drawer && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <button
-              aria-label="Fermer le menu"
+              aria-label={t("Fermer le menu")}
               className="absolute inset-0 bg-black/50"
               onClick={() => setDrawer(false)}
             />
-            <aside className="absolute inset-y-0 left-0 w-72 bg-ink shadow-2xl">
+            <aside className="absolute inset-y-0 start-0 w-72 bg-ink shadow-2xl">
               <button
-                aria-label="Fermer le menu"
+                aria-label={t("Fermer le menu")}
                 onClick={() => setDrawer(false)}
-                className="absolute right-3 top-4 rounded-lg p-2 text-white/70 hover:bg-white/10"
+                className="absolute end-3 top-4 rounded-lg p-2 text-white/70 hover:bg-white/10"
               >
                 <IconClose />
               </button>
@@ -413,35 +416,35 @@ export function AppFrame({
           </div>
         )}
 
-        <div className="lg:pl-64">
+        <div className="lg:ps-64">
           <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-white/90 px-4 backdrop-blur sm:px-8">
             <button
               onClick={() => setDrawer(true)}
-              aria-label="Ouvrir le menu"
-              className="-ml-2 rounded-lg p-2 text-ink hover:bg-slide lg:hidden"
+              aria-label={t("Ouvrir le menu")}
+              className="-ms-2 rounded-lg p-2 text-ink hover:bg-slide lg:hidden"
             >
               <IconMenu />
             </button>
-            <h1 className="display text-xl text-ink">{titleFor(pathname)}</h1>
+            <h1 className="display text-xl text-ink">{t(titleFor(pathname))}</h1>
             <span className="hidden text-sm text-muted md:inline">{dateLongue()}</span>
 
-            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <div className="ms-auto flex items-center gap-2 sm:gap-3">
               {left !== null && (
                 <Link
                   href="/app/abonnement"
                   className={`hidden items-center gap-2.5 rounded-full border px-3.5 py-1.5 text-sm sm:flex ${
                     lowQuota ? "border-[#ffb74d] bg-[#fff6e6]" : "border-line bg-white"
                   }`}
-                  title="Questions restantes aujourd'hui"
+                  title={t("Questions restantes aujourd'hui")}
                 >
                   <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-slide">
                     <span
-                      className={`absolute inset-y-0 left-0 rounded-full ${lowQuota ? "bg-[#ffb74d]" : "bg-eosin"}`}
+                      className={`absolute inset-y-0 start-0 rounded-full ${lowQuota ? "bg-[#ffb74d]" : "bg-eosin"}`}
                       style={{ width: `${100 - pct}%` }}
                     />
                   </span>
                   <span className="font-bold text-ink">{left}</span>
-                  <span className="text-muted">restante{left > 1 ? "s" : ""}</span>
+                  <span className="text-muted">{t(left > 1 ? "restantes" : "restante")}</span>
                 </Link>
               )}
               <Link
@@ -452,7 +455,7 @@ export function AppFrame({
                     : "rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-eosin hover:text-ink"
                 }
               >
-                {paid ? planName : "Passer à Standard"}
+                {paid ? planName : t("Passer à Standard")}
               </Link>
             </div>
           </header>

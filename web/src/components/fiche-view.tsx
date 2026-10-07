@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useT } from "@/lib/app-i18n";
+import { dirOf } from "@/lib/dir";
 
 /*
   Affichage d'une fiche de révision. Lit le format de la génération web ("# titre", "## section", "- point",
@@ -191,7 +193,7 @@ function Callout({ tone, text }: { tone: keyof typeof TONE; text: string }) {
 function Table({ rows }: { rows: string[][] }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-line">
-      <table className="w-full min-w-[32rem] border-collapse text-left text-[15px]">
+      <table className="w-full min-w-[32rem] border-collapse text-start text-[15px]">
         <thead>
           <tr className="bg-ink text-white">
             {rows[0].map((c, k) => (
@@ -219,12 +221,13 @@ function Table({ rows }: { rows: string[][] }) {
 
 /** Suite d'étapes : frise verticale numérotée (une étape par ligne, reliées par un trait). */
 function Steps({ steps }: { steps: string[] }) {
+  const t = useT();
   return (
-    <ol aria-label="Étapes">
+    <ol aria-label={t("Étapes")}>
       {steps.map((st, k) => (
         <li key={k} className="relative flex gap-4 pb-4 last:pb-0">
           {k < steps.length - 1 && (
-            <span aria-hidden className="absolute left-[13px] top-7 bottom-0 w-0.5 bg-eosin/40" />
+            <span aria-hidden className="absolute start-[13px] top-7 bottom-0 w-0.5 bg-eosin/40" />
           )}
           <span className="relative z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-eosin text-sm font-bold text-ink">
             {k + 1}
@@ -300,6 +303,7 @@ function AnswerLine({ item }: { item: AnswerItem }) {
 }
 
 function QaCard({ n, q, answers }: { n: number; q: string; answers: string[] }) {
+  const t = useT();
   const items = answers.flatMap(splitAnswer);
   return (
     <div className="overflow-hidden rounded-xl border border-line">
@@ -309,7 +313,7 @@ function QaCard({ n, q, answers }: { n: number; q: string; answers: string[] }) 
       </div>
       {items.length > 0 && (
         <div className="bg-slide px-5 py-4">
-          <p className="label mb-3 text-muted">Réponse attendue</p>
+          <p className="label mb-3 text-muted">{t("Réponse attendue")}</p>
           <ul className="space-y-2.5">
             {items.map((it, i) => (
               <AnswerLine key={i} item={it} />
@@ -459,19 +463,20 @@ const slug = (s: string, i: number) => `fiche-${i}-${s.toLowerCase().replace(/[^
 const NUM = /^((?:[IVX]+|\d+)\.)\s*/;
 
 export function FicheView({ text }: { text: string }) {
+  const t = useT();
   const { title, meta, sections } = parse(text);
   const toc = sections.filter((s) => s.title);
 
   return (
-    <article>
+    <article dir={dirOf(text)}>
       <header className="rounded-2xl bg-ink px-6 py-7 text-white sm:px-10 sm:py-9">
-        <p className="label text-white/60">Fiche de révision</p>
+        <p className="label text-white/60">{t("Fiche de révision")}</p>
         <h3 className="display mt-2 text-3xl leading-tight sm:text-4xl">
-          {title.replace(/^FICHE DE R[ÉE]VISION\s*[—-]\s*/i, "") || "Fiche de révision"}
+          {title.replace(/^FICHE DE R[ÉE]VISION\s*[—-]\s*/i, "") || t("Fiche de révision")}
         </h3>
         {meta && <p className="mt-3 text-white/70">{meta}</p>}
         {toc.length > 1 && (
-          <nav aria-label="Sommaire" className="mt-6 flex flex-wrap gap-2">
+          <nav aria-label={t("Sommaire")} className="mt-6 flex flex-wrap gap-2">
             {toc.map((s, i) => (
               <button
                 key={i}

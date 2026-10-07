@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { prepareImage, type PreparedImage } from "@/lib/images";
 import { transcribe, useRecorder, VoiceError, type VoiceLang } from "@/lib/voice";
 import { IconClose } from "../icons";
+import { useT } from "@/lib/app-i18n";
 
 const MAX_IMAGES = 3;
 
@@ -50,6 +51,7 @@ export function Composer({
   onSend: (text: string, images: PreparedImage[]) => void;
   onStop: () => void;
 }) {
+  const t = useT();
   const [text, setText] = useState("");
   const [images, setImages] = useState<PreparedImage[]>([]);
   const [note, setNote] = useState<string | null>(null);
@@ -70,20 +72,20 @@ export function Composer({
     setNote(null);
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (list.length === 0) {
-      setNote("Seules les images sont acceptées pour l'instant.");
+      setNote(t("Seules les images sont acceptées pour l'instant."));
       return;
     }
     const room = MAX_IMAGES - images.length;
     if (room <= 0) {
-      setNote(`Tu peux joindre ${MAX_IMAGES} images au maximum.`);
+      setNote(t("Tu peux joindre {a} images au maximum.", { a: MAX_IMAGES }));
       return;
     }
     try {
       const prepared = await Promise.all(list.slice(0, room).map(prepareImage));
       setImages((cur) => [...cur, ...prepared]);
-      if (list.length > room) setNote(`Tu peux joindre ${MAX_IMAGES} images au maximum.`);
+      if (list.length > room) setNote(t("Tu peux joindre {a} images au maximum.", { a: MAX_IMAGES }));
     } catch {
-      setNote("Cette image n'a pas pu être lue. Essaie un fichier JPG ou PNG.");
+      setNote(t("Cette image n'a pas pu être lue. Essaie un fichier JPG ou PNG."));
     }
   }
 
@@ -110,11 +112,11 @@ export function Composer({
     if (rec.recording) {
       const r = await rec.stop();
       if (!r || r.seconds < 0.6) {
-        setNote("L'enregistrement est trop court. Appuie sur le micro, parle, puis rappuie pour terminer.");
+        setNote(t("L'enregistrement est trop court. Appuie sur le micro, parle, puis rappuie pour terminer."));
         return;
       }
       if (r.peak < 0.012) {
-        setNote("Je n'entends presque rien : le micro est peut-être coupé, mal choisi ou trop loin de toi.");
+        setNote(t("Je n'entends presque rien : le micro est peut-être coupé, mal choisi ou trop loin de toi."));
         return;
       }
       setTranscribing(true);
@@ -124,12 +126,12 @@ export function Composer({
           setText((cur) => (cur ? `${cur} ${out}` : out));
           window.setTimeout(() => taRef.current && autosize(taRef.current), 0);
           taRef.current?.focus();
-          if (r.snrDb < 8) setNote("Il y avait beaucoup de bruit autour de toi : relis le texte et corrige-le avant d'envoyer.");
+          if (r.snrDb < 8) setNote(t("Il y avait beaucoup de bruit autour de toi : relis le texte et corrige-le avant d'envoyer."));
         } else {
-          setNote("Je n'ai pas compris ce qui a été dit. Rapproche-toi du micro, dans un endroit calme, et réessaie.");
+          setNote(t("Je n'ai pas compris ce qui a été dit. Rapproche-toi du micro, dans un endroit calme, et réessaie."));
         }
       } catch (e) {
-        setNote(VOICE_ERRORS[e instanceof VoiceError ? e.code : "failed"]);
+        setNote(t(VOICE_ERRORS[e instanceof VoiceError ? e.code : "failed"]));
       } finally {
         setTranscribing(false);
       }
@@ -163,12 +165,12 @@ export function Composer({
             {images.map((im, i) => (
               <li key={im.previewUrl} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={im.previewUrl} alt={`Image jointe ${i + 1}`} className="h-16 w-16 rounded-xl object-cover" />
+                <img src={im.previewUrl} alt={t("Image jointe {a}", { a: i + 1 })} className="h-16 w-16 rounded-xl object-cover" />
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
-                  aria-label={`Retirer l'image ${i + 1}`}
-                  className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-white"
+                  aria-label={t("Retirer l'image {a}", { a: i + 1 })}
+                  className="absolute -end-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-white"
                 >
                   <IconClose className="h-3 w-3" />
                 </button>
@@ -183,30 +185,28 @@ export function Composer({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#e0796f] opacity-70" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-[#e0796f]" />
             </span>
-            <span className="font-semibold text-ink">Je t&apos;écoute… {clock(rec.seconds)}</span>
+            <span className="font-semibold text-ink">{t("Je t'écoute… {a}", { a: clock(rec.seconds) })}</span>
             <span
-              className="relative ml-1 h-2 w-24 overflow-hidden rounded-full bg-slide sm:w-36"
+              className="relative ms-1 h-2 w-24 overflow-hidden rounded-full bg-slide sm:w-36"
               role="meter"
-              aria-label="Niveau du micro"
+              aria-label={t("Niveau du micro")}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(rec.level * 100)}
             >
               <span
-                className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-100 ${
+                className={`absolute inset-y-0 start-0 rounded-full transition-[width] duration-100 ${
                   rec.level < 0.08 ? "bg-[#ffb74d]" : "bg-eosin"
                 }`}
                 style={{ width: `${Math.max(3, rec.level * 100)}%` }}
               />
             </span>
             <span className="hidden text-sm text-muted sm:inline">
-              {rec.level < 0.08 ? "Parle plus fort ou rapproche-toi" : "Appuie sur le micro pour terminer"}
+              {rec.level < 0.08 ? t("Parle plus fort ou rapproche-toi") : t("Appuie sur le micro pour terminer")}
             </span>
           </div>
         ) : transcribing ? (
-          <p className="px-4 py-3.5 text-muted" role="status">
-            Transcription en cours…
-          </p>
+          <p className="px-4 py-3.5 text-muted" role="status">{t("Transcription en cours…")}</p>
         ) : (
           <textarea
             ref={taRef}
@@ -229,8 +229,8 @@ export function Composer({
                 addFiles(files);
               }
             }}
-            placeholder="Écris ta question, dépose une image ou parle…"
-            aria-label="Ta question"
+            placeholder={t("Écris ta question, dépose une image ou parle…")}
+            aria-label={t("Ta question")}
             className="block max-h-[200px] w-full resize-none bg-transparent px-4 py-3 text-base text-ink placeholder:text-muted focus:outline-none"
           />
         )}
@@ -242,7 +242,7 @@ export function Composer({
             accept="image/*"
             multiple
             className="sr-only"
-            aria-label="Joindre une image"
+            aria-label={t("Joindre une image")}
             onChange={(e) => {
               if (e.target.files) addFiles(e.target.files);
               e.target.value = "";
@@ -252,8 +252,8 @@ export function Composer({
             type="button"
             onClick={() => fileRef.current?.click()}
             disabled={rec.recording || transcribing}
-            aria-label="Joindre une image"
-            title="Joindre une image"
+            aria-label={t("Joindre une image")}
+            title={t("Joindre une image")}
             className="grid h-10 w-10 place-items-center rounded-full text-ink/70 transition hover:bg-slide hover:text-ink disabled:opacity-40"
           >
             <IconPaperclip />
@@ -263,8 +263,8 @@ export function Composer({
             type="button"
             onClick={toggleMic}
             disabled={transcribing}
-            aria-label={rec.recording ? "Terminer l'enregistrement" : "Dicter avec le micro"}
-            title={rec.recording ? "Terminer l'enregistrement" : "Dicter avec le micro"}
+            aria-label={rec.recording ? t("Terminer l'enregistrement") : t("Dicter avec le micro")}
+            title={rec.recording ? t("Terminer l'enregistrement") : t("Dicter avec le micro")}
             className={`grid h-10 w-10 place-items-center rounded-full transition disabled:opacity-40 ${
               rec.recording ? "bg-[#e0796f] text-white" : "text-ink/70 hover:bg-slide hover:text-ink"
             }`}
@@ -275,21 +275,21 @@ export function Composer({
             <button
               type="button"
               onClick={() => setLang((l) => (l === "auto" ? "fr" : l === "fr" ? "ar" : "auto"))}
-              aria-label={`Langue de la dictée : ${lang === "auto" ? "automatique, français ou arabe" : lang === "fr" ? "français" : "arabe"}. Changer.`}
-              title="Langue de la dictée (automatique, français ou arabe)"
+              aria-label={t("Langue de la dictée : {a}. Changer.", { a: t(lang === "auto" ? "automatique, français ou arabe" : lang === "fr" ? "français" : "arabe") })}
+              title={t("Langue de la dictée (automatique, français ou arabe)")}
               className="rounded-md px-1.5 py-1 text-xs font-bold uppercase text-muted transition hover:bg-slide hover:text-ink"
             >
               {lang}
             </button>
           )}
 
-          <div className="ml-auto pr-1">
+          <div className="ms-auto pe-1">
             {busy ? (
               <button
                 type="button"
                 onClick={onStop}
-                aria-label="Arrêter la réponse"
-                title="Arrêter la réponse"
+                aria-label={t("Arrêter la réponse")}
+                title={t("Arrêter la réponse")}
                 className="grid h-10 w-10 place-items-center rounded-full bg-ink text-white transition hover:bg-eosin hover:text-ink"
               >
                 <span className="block h-3.5 w-3.5 rounded-sm bg-current" />
@@ -299,8 +299,8 @@ export function Composer({
                 type="button"
                 onClick={submit}
                 disabled={!canSend}
-                aria-label="Envoyer"
-                title="Envoyer"
+                aria-label={t("Envoyer")}
+                title={t("Envoyer")}
                 className="grid h-10 w-10 place-items-center rounded-full bg-ink text-white transition hover:bg-eosin hover:text-ink disabled:bg-line disabled:text-muted"
               >
                 <IconSend />
@@ -309,9 +309,7 @@ export function Composer({
           </div>
         </div>
       </div>
-      <p className="mt-2 text-center text-xs text-muted">
-        Dr. Ahmed t&apos;aide à réviser et peut se tromper : vérifie les points importants avec ton cours.
-      </p>
+      <p className="mt-2 text-center text-xs text-muted">{t("Dr. Ahmed t'aide à réviser et peut se tromper : vérifie les points importants avec ton cours.")}</p>
     </div>
   );
 }

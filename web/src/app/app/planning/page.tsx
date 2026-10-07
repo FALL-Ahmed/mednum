@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/app-context";
 import { IconCheck, IconTrash } from "@/components/icons";
-import { addDays, fromISO, labelJour, toISO, todayISO } from "@/lib/dates";
+import { addDays, fromISO, labelJour, monthName, toISO, todayISO, weekdayShort } from "@/lib/dates";
 import { getSupabase } from "@/lib/supabase";
+import { useT } from "@/lib/app-i18n";
 
 type Session = {
   id: string;
@@ -15,11 +16,6 @@ type Session = {
   done: boolean;
 };
 
-const MOIS = [
-  "janvier", "février", "mars", "avril", "mai", "juin",
-  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-];
-const JOURS = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
 const MAX_CHIPS = 2;
 
 /** 42 cases (6 semaines, lundi en premier) couvrant le mois affiché. */
@@ -35,6 +31,7 @@ const fmtMin = (min: number) =>
   min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
 
 export default function Planning() {
+  const t = useT();
   const { user } = useApp();
   const todayStr = todayISO();
   const now = fromISO(todayStr);
@@ -71,7 +68,7 @@ export default function Planning() {
         .lte("created_at", `${addDays(to, 1)}T00:00:00`),
     ]);
     if (planned.error) {
-      setError("Impossible de charger ton planning pour le moment.");
+      setError(t("Impossible de charger ton planning pour le moment."));
       return;
     }
     setSessions((planned.data ?? []) as Session[]);
@@ -81,7 +78,7 @@ export default function Planning() {
       byDay[d] = (byDay[d] ?? 0) + r.minutes;
     }
     setStudyMin(byDay);
-  }, [user.id, from, to]);
+  }, [user.id, from, to, t]);
 
   useEffect(() => {
     const t = window.setTimeout(load, 0); // chargement hors du rendu
@@ -128,7 +125,7 @@ export default function Planning() {
       reminder: false,
       done: false,
     });
-    if (err) setError("Impossible d'ajouter cette session. Réessaie dans un instant.");
+    if (err) setError(t("Impossible d'ajouter cette session. Réessaie dans un instant."));
     else {
       setMatiere("");
       setSous("");
@@ -163,9 +160,7 @@ export default function Planning() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="max-w-xl text-muted">
-            Planifie tes sessions de révision. Elles apparaissent sur le calendrier, avec le temps travaillé en Pomodoro.
-          </p>
+          <p className="max-w-xl text-muted">{t("Planifie tes sessions de révision. Elles apparaissent sur le calendrier, avec le temps travaillé en Pomodoro.")}</p>
         </div>
       </div>
 
@@ -176,39 +171,35 @@ export default function Planning() {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => go(-1)}
-                aria-label="Mois précédent"
+                aria-label={t("Mois précédent")}
                 className="grid h-10 w-10 place-items-center rounded-full border border-line text-lg text-ink transition hover:border-ink"
               >
                 ‹
               </button>
               <button
                 onClick={() => go(1)}
-                aria-label="Mois suivant"
+                aria-label={t("Mois suivant")}
                 className="grid h-10 w-10 place-items-center rounded-full border border-line text-lg text-ink transition hover:border-ink"
               >
                 ›
               </button>
             </div>
-            <div className="order-first w-full text-left sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
+            <div className="order-first w-full text-start sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
               <p className="display text-2xl capitalize text-ink sm:text-3xl">
-                {MOIS[view.m]} {view.y}
+                {monthName(view.m)} {view.y}
               </p>
-              <p className="text-sm text-muted">
-                {monthCount} session{monthCount > 1 ? "s" : ""} ce mois-ci
-              </p>
+              <p className="text-sm text-muted">{t(monthCount > 1 ? "{a} sessions ce mois-ci" : "{a} session ce mois-ci", { a: monthCount })}</p>
             </div>
             <button
               onClick={goToday}
               className="rounded-full border border-ink/20 px-4 py-2 text-sm font-semibold text-ink transition hover:border-ink"
-            >
-              Aujourd&apos;hui
-            </button>
+            >{t("Aujourd'hui")}</button>
           </div>
 
           <div className="mt-5 grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-line bg-line">
-            {JOURS.map((j) => (
-              <div key={j} className="label bg-slide py-2 text-center text-muted">
-                {j}
+            {[1, 2, 3, 4, 5, 6, 0].map((dow) => (
+              <div key={dow} className="label bg-slide py-2 text-center text-muted">
+                {weekdayShort(dow)}
               </div>
             ))}
             {grid.map((iso) => {
@@ -222,9 +213,9 @@ export default function Planning() {
                 <button
                   key={iso}
                   onClick={() => pick(iso)}
-                  aria-label={`${labelJour(iso)}${list.length ? `, ${list.length} session${list.length > 1 ? "s" : ""}` : ""}`}
+                  aria-label={`${labelJour(iso)}${list.length ? `, ${t(list.length > 1 ? "{n} sessions" : "{n} session", { n: list.length })}` : ""}`}
                   aria-pressed={isSel}
-                  className={`flex min-h-[4.25rem] flex-col items-stretch p-1.5 text-left transition sm:min-h-[6.5rem] sm:p-2 ${
+                  className={`flex min-h-[4.25rem] flex-col items-stretch p-1.5 text-start transition sm:min-h-[6.5rem] sm:p-2 ${
                     isSel ? "bg-hema-soft" : inMonth ? "bg-white hover:bg-slide" : "bg-slide/60 hover:bg-slide"
                   }`}
                 >
@@ -250,7 +241,7 @@ export default function Planning() {
                       </span>
                     ))}
                     {list.length > MAX_CHIPS && (
-                      <span className="px-1 text-xs font-semibold text-muted">+{list.length - MAX_CHIPS} autre{list.length - MAX_CHIPS > 1 ? "s" : ""}</span>
+                      <span className="px-1 text-xs font-semibold text-muted">{t(list.length - MAX_CHIPS > 1 ? "+{a} autres" : "+{a} autre", { a: list.length - MAX_CHIPS })}</span>
                     )}
                     {min > 0 && <span className="mt-auto px-1 text-[11px] text-muted">⏱ {fmtMin(min)}</span>}
                   </span>
@@ -272,22 +263,22 @@ export default function Planning() {
 
         {/* Jour sélectionné */}
         <aside className="rounded-2xl border border-line bg-white p-5 sm:p-6 lg:sticky lg:top-24 lg:self-start">
-          <p className="label text-muted">Jour sélectionné</p>
+          <p className="label text-muted">{t("Jour sélectionné")}</p>
           <p className="display mt-1 text-2xl capitalize text-ink">{labelJour(selected)}</p>
-          {dayStudy > 0 && <p className="mt-1 text-sm text-muted">⏱ {fmtMin(dayStudy)} travaillées en Pomodoro</p>}
+          {dayStudy > 0 && <p className="mt-1 text-sm text-muted">{t("⏱ {a} travaillées en Pomodoro", { a: fmtMin(dayStudy) })}</p>}
 
           <div className="mt-4">
             {sessions === null ? (
-              <p className="text-muted">Chargement…</p>
+              <p className="text-muted">{t("Chargement…")}</p>
             ) : daySessions.length === 0 ? (
-              <p className="text-muted">Aucune session ce jour-là.</p>
+              <p className="text-muted">{t("Aucune session ce jour-là.")}</p>
             ) : (
               <ul className="divide-y divide-line rounded-2xl border border-line">
                 {daySessions.map((s) => (
                   <li key={s.id} className="flex items-center gap-3 px-3 py-3">
                     <button
                       onClick={() => toggle(s)}
-                      aria-label={s.done ? "Marquer comme à faire" : "Marquer comme faite"}
+                      aria-label={s.done ? t("Marquer comme à faire") : t("Marquer comme faite")}
                       aria-pressed={s.done}
                       className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border transition ${
                         s.done ? "border-eosin bg-eosin text-ink" : "border-line text-transparent hover:border-ink"
@@ -303,7 +294,7 @@ export default function Planning() {
                     </span>
                     <button
                       onClick={() => remove(s.id)}
-                      aria-label="Supprimer cette session"
+                      aria-label={t("Supprimer cette session")}
                       className="rounded-lg p-2 text-muted transition hover:bg-slide hover:text-[#a3271c]"
                     >
                       <IconTrash />
@@ -315,22 +306,18 @@ export default function Planning() {
           </div>
 
           <form onSubmit={add} className="mt-5 border-t border-line pt-5">
-            <p className="font-semibold text-ink">Ajouter une session</p>
-            <label htmlFor="p-m" className="label mt-3 block text-muted">
-              Matière
-            </label>
+            <p className="font-semibold text-ink">{t("Ajouter une session")}</p>
+            <label htmlFor="p-m" className="label mt-3 block text-muted">{t("Matière")}</label>
             <input
               id="p-m"
               value={matiere}
               onChange={(e) => setMatiere(e.target.value)}
-              placeholder="ex : Cardiologie"
+              placeholder={t("ex : Cardiologie")}
               className="mt-1.5 w-full rounded-xl border border-line bg-slide px-3.5 py-2.5 text-ink placeholder:text-muted focus:border-ink focus:outline-none"
             />
             <div className="mt-3 grid grid-cols-[7.5rem_1fr] gap-3">
               <div>
-                <label htmlFor="p-t" className="label block text-muted">
-                  Heure
-                </label>
+                <label htmlFor="p-t" className="label block text-muted">{t("Heure")}</label>
                 <input
                   id="p-t"
                   type="time"
@@ -340,9 +327,7 @@ export default function Planning() {
                 />
               </div>
               <div>
-                <label htmlFor="p-s" className="label block text-muted">
-                  Chapitre
-                </label>
+                <label htmlFor="p-s" className="label block text-muted">{t("Chapitre")}</label>
                 <input
                   id="p-s"
                   value={sous}
@@ -357,11 +342,11 @@ export default function Planning() {
               disabled={busy || !matiere.trim()}
               className="mt-4 w-full rounded-full bg-ink px-6 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40"
             >
-              {busy ? "Ajout…" : "Planifier"}
+              {busy ? t("Ajout…") : t("Planifier")}
             </button>
             {error && (
               <p role="alert" className="mt-3 rounded-xl bg-[#fff1f0] px-3.5 py-2.5 text-sm text-[#a3271c]">
-                {error}
+                {t(error)}
               </p>
             )}
           </form>

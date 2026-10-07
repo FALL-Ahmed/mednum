@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadSrs, saveSrs, type SrsMap } from "@/lib/flashcard-store";
 import { isDue, isMastered, reviewCard, type Rating } from "@/lib/srs";
 import { ReportButton } from "./report-button";
+import { useT } from "@/lib/app-i18n";
 
 /* Flashcards avec répétition espacée : même déroulement que l'application mobile. */
 
@@ -25,6 +26,7 @@ const btnLine =
   "rounded-full border border-ink/25 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-40";
 
 export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userId: string; cards: Card[] }) {
+  const t = useT();
   const [srs, setSrs] = useState<SrsMap | null>(null);
   const [cloud, setCloud] = useState(true);
   const [deck, setDeck] = useState<number[]>([]);
@@ -111,7 +113,7 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
 
   const mastered = useMemo(() => (srs ? cards.filter((_, i) => isMastered(srs[i])).length : 0), [srs, cards]);
 
-  if (srs === null) return <p className="text-muted">Chargement de tes cartes…</p>;
+  if (srs === null) return <p className="text-muted">{t("Chargement de tes cartes…")}</p>;
 
   /* ——— Tout est à jour ——— */
   if (deck.length === 0 && !finished) {
@@ -120,16 +122,10 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
         <p className="text-5xl" aria-hidden>
           ✅
         </p>
-        <p className="display mt-4 text-3xl text-ink">Tout est à jour</p>
-        <p className="mx-auto mt-3 max-w-md text-muted">
-          Tu as déjà revu ces cartes aujourd&apos;hui. La répétition espacée te les représentera au bon moment.
-        </p>
-        <p className="mt-4 text-sm font-semibold text-ink">
-          {mastered} carte{mastered > 1 ? "s" : ""} maîtrisée{mastered > 1 ? "s" : ""} sur {cards.length}
-        </p>
-        <button onClick={() => startDeck(cards.map((_, i) => i))} className={`mt-6 ${btnLine}`}>
-          Réviser quand même
-        </button>
+        <p className="display mt-4 text-3xl text-ink">{t("Tout est à jour")}</p>
+        <p className="mx-auto mt-3 max-w-md text-muted">{t("Tu as déjà revu ces cartes aujourd'hui. La répétition espacée te les représentera au bon moment.")}</p>
+        <p className="mt-4 text-sm font-semibold text-ink">{t(mastered > 1 ? "{a} cartes maîtrisées sur {b}" : "{a} carte maîtrisée sur {b}", { a: mastered, b: cards.length })}</p>
+        <button onClick={() => startDeck(cards.map((_, i) => i))} className={`mt-6 ${btnLine}`}>{t("Réviser quand même")}</button>
       </div>
     );
   }
@@ -144,11 +140,11 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
           <p className="text-5xl" aria-hidden>
             {again.length === 0 ? "🏆" : "📚"}
           </p>
-          <p className="display mt-3 text-3xl text-ink">Session terminée !</p>
+          <p className="display mt-3 text-3xl text-ink">{t("Session terminée !")}</p>
           <p className="mt-2 text-muted">
             {again.length > 0
-              ? `${again.length} carte${again.length > 1 ? "s" : ""} à revoir sur ${total}`
-              : `${total} cartes revues, tout est acquis`}
+              ? t(again.length > 1 ? "{a} cartes à revoir sur {b}" : "{a} carte à revoir sur {b}", { a: again.length, b: total })
+              : t("{a} cartes revues, tout est acquis", { a: total })}
           </p>
         </div>
         <div className="mt-6 flex h-2 overflow-hidden rounded-full bg-slide" aria-hidden>
@@ -163,15 +159,13 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
                 <span className="h-2 w-2 rounded-full" style={{ background: r.color }} aria-hidden />
                 <span className="display text-2xl text-ink">{stats[r.id]}</span>
               </p>
-              <p className="mt-1 text-sm text-muted">{r.label}</p>
+              <p className="mt-1 text-sm text-muted">{t(r.label)}</p>
             </div>
           ))}
         </div>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           {again.length > 0 && (
-            <button onClick={() => startDeck(again)} className={btnDark}>
-              Revoir les cartes difficiles
-            </button>
+            <button onClick={() => startDeck(again)} className={btnDark}>{t("Revoir les cartes difficiles")}</button>
           )}
           <button
             onClick={() => {
@@ -179,9 +173,7 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
               setFinished(false);
             }}
             className={btnLine}
-          >
-            Terminer
-          </button>
+          >{t("Terminer")}</button>
         </div>
       </div>
     );
@@ -193,13 +185,9 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="label rounded-full bg-slide px-3 py-1.5 text-muted">
-          Carte {pos + 1} sur {deck.length}
-          {card.chapter ? ` · ${card.chapter}` : ""}
+        <p className="label rounded-full bg-slide px-3 py-1.5 text-muted">{t("Carte {a} sur {b}", { a: pos + 1, b: deck.length })}{card.chapter ? ` · ${card.chapter}` : ""}
         </p>
-        <p className="text-sm text-muted">
-          {mastered} maîtrisée{mastered > 1 ? "s" : ""} sur {cards.length}
-        </p>
+        <p className="text-sm text-muted">{t(mastered > 1 ? "{a} maîtrisées sur {b}" : "{a} maîtrisée sur {b}", { a: mastered, b: cards.length })}</p>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slide" aria-hidden>
         <div className="h-full rounded-full bg-eosin transition-[width] duration-300" style={{ width: `${(pos / deck.length) * 100}%` }} />
@@ -207,27 +195,23 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
 
       <button
         onClick={() => setFlipped((f) => !f)}
-        aria-label={flipped ? "Voir la question" : "Voir la réponse"}
+        aria-label={flipped ? t("Voir la question") : t("Voir la réponse")}
         className={`mt-4 flex min-h-[16rem] w-full flex-col items-center justify-center rounded-3xl p-8 text-center transition-colors sm:min-h-[20rem] ${
           flipped ? "text-white ring-1 ring-eosin/40" : "bg-white text-ink ring-1 ring-line"
         }`}
         style={flipped ? { backgroundImage: "linear-gradient(135deg, rgba(7,169,151,0.85), #0B1E34 85%)", backgroundColor: "#0B1E34" } : undefined}
       >
-        <span className={`label ${flipped ? "text-white/70" : "text-muted"}`}>{flipped ? "Réponse" : "Question"}</span>
-        <span className="display mt-4 text-2xl leading-snug sm:text-3xl">{flipped ? card.back : card.front}</span>
+        <span className={`label ${flipped ? "text-white/70" : "text-muted"}`}>{flipped ? t("Réponse") : t("Question")}</span>
+        <span dir="auto" className="display mt-4 text-2xl leading-snug sm:text-3xl">{flipped ? card.back : card.front}</span>
         <span className={`mt-6 text-sm ${flipped ? "text-white/70" : "text-muted"}`}>
-          {flipped ? "Note-toi honnêtement : la carte reviendra au bon moment" : "Touche la carte pour voir la réponse"}
+          {flipped ? t("Note-toi honnêtement : la carte reviendra au bon moment") : t("Touche la carte pour voir la réponse")}
         </span>
       </button>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <button onClick={() => browse(-1)} disabled={pos === 0} className={btnLine}>
-          ← Précédente
-        </button>
-        <ReportButton docId={docId} kind="flashcard" itemRef={String(idx + 1)} snapshot={card} label="Signaler une erreur" />
-        <button onClick={() => browse(1)} disabled={pos + 1 >= deck.length} className={btnLine}>
-          Suivante →
-        </button>
+        <button onClick={() => browse(-1)} disabled={pos === 0} className={btnLine}>{t("← Précédente")}</button>
+        <ReportButton docId={docId} kind="flashcard" itemRef={String(idx + 1)} snapshot={card} label={t("Signaler une erreur")} />
+        <button onClick={() => browse(1)} disabled={pos + 1 >= deck.length} className={btnLine}>{t("Suivante →")}</button>
       </div>
 
       {flipped && (
@@ -242,7 +226,7 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
                   : "border-line bg-white text-ink hover:border-ink"
               }`}
             >
-              {r.label}
+              {t(r.label)}
               <span className={`ms-2 hidden text-xs font-normal sm:inline ${r.id === "good" ? "text-ink/60" : "text-muted"}`} aria-hidden>
                 {k + 1}
               </span>
@@ -250,11 +234,9 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
           ))}
         </div>
       )}
-      <p className="mt-4 hidden text-xs text-muted sm:block">
-        Clavier : espace pour retourner, 1 à 4 pour noter, flèches pour parcourir.
-      </p>
+      <p className="mt-4 hidden text-xs text-muted sm:block">{t("Clavier : espace pour retourner, 1 à 4 pour noter, flèches pour parcourir.")}</p>
       {!cloud && (
-        <p className="mt-2 text-xs text-muted">Ta progression est gardée sur cet appareil pour le moment.</p>
+        <p className="mt-2 text-xs text-muted">{t("Ta progression est gardée sur cet appareil pour le moment.")}</p>
       )}
     </div>
   );

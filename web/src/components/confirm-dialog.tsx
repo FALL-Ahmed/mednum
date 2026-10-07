@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useT } from "@/lib/app-i18n";
 
 /** Fenêtre de confirmation aux couleurs d'Axone (remplace la fenêtre grise du navigateur). */
 export function ConfirmDialog({
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -46,10 +48,10 @@ export function ConfirmDialog({
         className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-8"
       >
         <h2 id="confirm-title" className="display text-2xl leading-tight text-ink">
-          {title}
+          {t(title)}
         </h2>
         <p id="confirm-text" className="mt-3 text-muted">
-          {text}
+          {t(text)}
         </p>
         <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <button
@@ -57,9 +59,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             disabled={busy}
             className="rounded-full border border-ink/25 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-50"
-          >
-            Annuler
-          </button>
+          >{t("Annuler")}</button>
           <button
             onClick={onConfirm}
             disabled={busy}

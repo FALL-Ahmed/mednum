@@ -5,6 +5,7 @@ import { useApp } from "@/components/app-context";
 import { Ambiance } from "@/components/ambiance";
 import { addDays, todayISO, toISO } from "@/lib/dates";
 import { getSupabase } from "@/lib/supabase";
+import { getAppLang, useT } from "@/lib/app-i18n";
 
 type Mode = "focus" | "pause";
 const FOCUS = [15, 25, 45, 60];
@@ -14,8 +15,12 @@ const fmtClock = (ms: number) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 };
-const fmtDuration = (min: number) =>
-  min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
+const fmtDuration = (min: number) => {
+  const ar = getAppLang() === "ar";
+  const mu = ar ? "د" : "min";
+  const hu = ar ? "س" : "h";
+  return min < 60 ? `${min} ${mu}` : `${Math.floor(min / 60)} ${hu}${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
+};
 
 function beep() {
   try {
@@ -35,6 +40,7 @@ function beep() {
 }
 
 export default function Pomodoro() {
+  const t = useT();
   const { user } = useApp();
   const [focusMin, setFocusMin] = useState(25);
   const [pauseMin, setPauseMin] = useState(5);
@@ -153,16 +159,14 @@ export default function Pomodoro() {
 
   return (
     <div>
-      <p className="max-w-xl text-muted">
-        Travaille par blocs de concentration, puis fais une pause. Chaque bloc terminé est enregistré.
-      </p>
+      <p className="max-w-xl text-muted">{t("Travaille par blocs de concentration, puis fais une pause. Chaque bloc terminé est enregistré.")}</p>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
         <section className="rounded-2xl border border-line bg-white p-5 sm:p-6 lg:col-span-3">
           <div className="flex justify-center">
             <div
               role="tablist"
-              aria-label="Phase"
+              aria-label={t("Phase")}
               className="inline-flex rounded-full border border-line bg-slide p-1"
             >
               {(["focus", "pause"] as Mode[]).map((m) => (
@@ -174,7 +178,7 @@ export default function Pomodoro() {
                     mode === m ? "bg-ink text-white" : "text-ink/60"
                   }`}
                 >
-                  {m === "focus" ? "Focus" : "Pause"}
+                  {m === "focus" ? t("Focus") : t("Pause")}
                 </span>
               ))}
             </div>
@@ -200,8 +204,7 @@ export default function Pomodoro() {
               <p className="display text-5xl tabular-nums text-ink" role="timer" aria-live="off">
                 {fmtClock(leftMs)}
               </p>
-              <p className="label mt-2 text-muted">
-                {cycles} bloc{cycles > 1 ? "s" : ""} terminé{cycles > 1 ? "s" : ""}
+              <p className="label mt-2 text-muted">{t(cycles > 1 ? "{a} blocs terminés" : "{a} bloc terminé", { a: cycles })}
               </p>
             </div>
           </div>
@@ -211,31 +214,27 @@ export default function Pomodoro() {
               <button
                 onClick={pause}
                 className="rounded-full bg-ink px-8 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink"
-              >
-                Pause
-              </button>
+              >{t("Pause")}</button>
             ) : (
               <button
                 onClick={start}
                 className="rounded-full bg-ink px-8 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink"
               >
-                {leftMs < total ? "Reprendre" : "Démarrer"}
+                {leftMs < total ? t("Reprendre") : t("Démarrer")}
               </button>
             )}
             <button
               onClick={reset}
               className="rounded-full border border-ink/20 px-6 py-3 font-semibold text-ink transition hover:border-ink"
-            >
-              Réinitialiser
-            </button>
+            >{t("Réinitialiser")}</button>
           </div>
         </section>
 
         <div className="space-y-4 lg:col-span-2">
           <section className="rounded-2xl border border-line bg-white p-5 sm:p-6">
-            <p className="display text-xl text-ink">Réglages</p>
+            <p className="display text-xl text-ink">{t("Réglages")}</p>
 
-            <p className="label mt-4 text-muted">Durée de focus</p>
+            <p className="label mt-4 text-muted">{t("Durée de focus")}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {FOCUS.map((m) => (
                 <button
@@ -246,13 +245,11 @@ export default function Pomodoro() {
                   className={`rounded-full border px-4 py-2 text-sm font-semibold transition disabled:opacity-40 ${
                     focusMin === m ? "border-ink bg-ink text-white" : "border-line text-ink/80 hover:border-ink"
                   }`}
-                >
-                  {m} min
-                </button>
+                >{t("{a} min", { a: m })}</button>
               ))}
             </div>
 
-            <p className="label mt-4 text-muted">Durée de pause</p>
+            <p className="label mt-4 text-muted">{t("Durée de pause")}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {PAUSE.map((m) => (
                 <button
@@ -263,34 +260,30 @@ export default function Pomodoro() {
                   className={`rounded-full border px-4 py-2 text-sm font-semibold transition disabled:opacity-40 ${
                     pauseMin === m ? "border-ink bg-ink text-white" : "border-line text-ink/80 hover:border-ink"
                   }`}
-                >
-                  {m} min
-                </button>
+                >{t("{a} min", { a: m })}</button>
               ))}
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
-                <label htmlFor="pm" className="label block text-muted">
-                  Matière <span className="normal-case tracking-normal">(facultatif)</span>
+                <label htmlFor="pm" className="label block text-muted">{t("Matière")}{" "}<span className="normal-case tracking-normal">{t("(facultatif)")}</span>
                 </label>
                 <input
                   id="pm"
                   value={matiere}
                   onChange={(e) => setMatiere(e.target.value)}
-                  placeholder="ex : Cardiologie"
+                  placeholder={t("ex : Cardiologie")}
                   className="mt-2 w-full rounded-2xl border border-line bg-slide px-4 py-2.5 text-ink placeholder:text-muted focus:border-ink focus:outline-none"
                 />
               </div>
               <div>
-                <label htmlFor="ps" className="label block text-muted">
-                  Chapitre <span className="normal-case tracking-normal">(facultatif)</span>
+                <label htmlFor="ps" className="label block text-muted">{t("Chapitre")}{" "}<span className="normal-case tracking-normal">{t("(facultatif)")}</span>
                 </label>
                 <input
                   id="ps"
                   value={sous}
                   onChange={(e) => setSous(e.target.value)}
-                  placeholder="ex : Insuffisance cardiaque"
+                  placeholder={t("ex : Insuffisance cardiaque")}
                   className="mt-2 w-full rounded-2xl border border-line bg-slide px-4 py-2.5 text-ink placeholder:text-muted focus:border-ink focus:outline-none"
                 />
               </div>
@@ -299,11 +292,11 @@ export default function Pomodoro() {
 
           <section className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-line bg-white p-4">
-              <p className="label text-muted">Aujourd&apos;hui</p>
+              <p className="label text-muted">{t("Aujourd'hui")}</p>
               <p className="display mt-1 text-2xl text-ink">{stats ? fmtDuration(stats.today) : "–"}</p>
             </div>
             <div className="rounded-2xl border border-line bg-white p-4">
-              <p className="label text-muted">7 derniers jours</p>
+              <p className="label text-muted">{t("7 derniers jours")}</p>
               <p className="display mt-1 text-2xl text-ink">{stats ? fmtDuration(stats.week) : "–"}</p>
             </div>
           </section>

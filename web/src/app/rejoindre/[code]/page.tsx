@@ -3,9 +3,11 @@
 import { use, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cleanCode, PENDING_KEY } from "@/lib/duo";
+import { useT } from "@/lib/app-i18n";
 
 /** Lien d'invitation : on retient le code, puis on envoie vers l'espace (la connexion se fait en route). */
 export default function Rejoindre({ params }: { params: Promise<{ code: string }> }) {
+  const t = useT();
   const { code } = use(params);
   const router = useRouter();
 
@@ -20,7 +22,7 @@ export default function Rejoindre({ params }: { params: Promise<{ code: string }
 
   return (
     <main className="grid min-h-screen place-items-center px-5">
-      <p className="text-muted">Ouverture de l&apos;invitation…</p>
+      <p className="text-muted">{t("Ouverture de l'invitation…")}</p>
     </main>
   );
 }

@@ -30,6 +30,7 @@ import { IconClose, IconMenu } from "../icons";
 import { Composer } from "./composer";
 import { ConversationList } from "./conversation-list";
 import { Markdown } from "./markdown";
+import { useT } from "@/lib/app-i18n";
 
 type UiMsg = {
   id: string;
@@ -50,11 +51,12 @@ function makeTitle(text: string, nImages: number): string {
 }
 
 function DrAvatar({ size = 32 }: { size?: number }) {
+  const t = useT();
   return (
     <span className="relative shrink-0 overflow-hidden rounded-full bg-hema-soft" style={{ width: size, height: size }}>
       <Image
         src="/dr-ahmed-face.webp"
-        alt="Dr. Ahmed"
+        alt={t("Dr. Ahmed")}
         fill
         sizes={`${size * 3}px`}
         className="object-cover"
@@ -81,6 +83,7 @@ function IconRefresh() {
 
 /** Discussion avec Dr. Ahmed : historique enregistré, images, dictée vocale, réponses en continu. */
 export function ChatApp() {
+  const t = useT();
   const { user, profile, docs, refreshQuota } = useApp();
   const params = useSearchParams();
 
@@ -280,7 +283,7 @@ export function ChatApp() {
     } catch (e) {
       setMsgs((cur) => cur.filter((m) => m.id !== asstId));
       if (e instanceof QuotaError) setLimit(true);
-      else setError(e instanceof Error ? e.message : ERR_GENERIC);
+      else setError(e instanceof Error ? e.message : t(ERR_GENERIC));
     } finally {
       abortRef.current = null;
       setBusy(false);
@@ -390,26 +393,26 @@ export function ChatApp() {
     <div className="flex h-[calc(100dvh-4rem)] bg-white">
       {toDelete && (
         <ConfirmDialog
-          title="Supprimer cette discussion ?"
-          text={`« ${conversations?.find((x) => x.id === toDelete)?.title ?? "Cette discussion"} » sera supprimée définitivement, avec tous ses messages.`}
-          confirmLabel="Supprimer la discussion"
+          title={t("Supprimer cette discussion ?")}
+          text={t("« {a} » sera supprimée définitivement, avec tous ses messages.", { a: conversations?.find((x) => x.id === toDelete)?.title ?? t("Cette discussion") })}
+          confirmLabel={t("Supprimer la discussion")}
           danger
           onConfirm={() => remove(toDelete)}
           onCancel={() => setToDelete(null)}
         />
       )}
-      <aside className="hidden w-64 shrink-0 border-r border-line bg-slide lg:block" aria-label="Tes discussions">
+      <aside className="hidden w-64 shrink-0 border-e border-line bg-slide lg:block" aria-label={t("Tes discussions")}>
         {list}
       </aside>
 
       {listOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <button aria-label="Fermer la liste" className="absolute inset-0 bg-black/40" onClick={() => setListOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-slide shadow-2xl" aria-label="Tes discussions">
+          <button aria-label={t("Fermer la liste")} className="absolute inset-0 bg-black/40" onClick={() => setListOpen(false)} />
+          <aside className="absolute inset-y-0 start-0 w-72 bg-slide shadow-2xl" aria-label={t("Tes discussions")}>
             <button
-              aria-label="Fermer la liste"
+              aria-label={t("Fermer la liste")}
               onClick={() => setListOpen(false)}
-              className="absolute right-2 top-3 rounded-lg p-2 text-ink/70 hover:bg-white"
+              className="absolute end-2 top-3 rounded-lg p-2 text-ink/70 hover:bg-white"
             >
               <IconClose />
             </button>
@@ -423,22 +426,20 @@ export function ChatApp() {
         <div className="flex items-center gap-3 border-b border-line px-4 py-2.5 sm:px-6">
           <button
             onClick={() => setListOpen(true)}
-            aria-label="Ouvrir la liste des discussions"
-            className="-ml-1 rounded-lg p-2 text-ink hover:bg-slide lg:hidden"
+            aria-label={t("Ouvrir la liste des discussions")}
+            className="-ms-1 rounded-lg p-2 text-ink hover:bg-slide lg:hidden"
           >
             <IconMenu />
           </button>
           <p className="min-w-0 flex-1 truncate font-semibold text-ink">{title}</p>
-          <label className="sr-only" htmlFor="chat-course">
-            Cours utilisé pour répondre
-          </label>
+          <label className="sr-only" htmlFor="chat-course">{t("Cours utilisé pour répondre")}</label>
           <select
             id="chat-course"
             value={docId}
             onChange={(e) => changeCourse(e.target.value)}
             className="max-w-[12rem] rounded-full border border-line bg-white px-3.5 py-1.5 text-sm text-ink focus:border-ink focus:outline-none sm:max-w-[16rem]"
           >
-            <option value="">Sans cours</option>
+            <option value="">{t("Sans cours")}</option>
             {(docs ?? []).map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -457,14 +458,12 @@ export function ChatApp() {
           className="flex-1 overflow-y-auto"
         >
           {loadingConv ? (
-            <p className="px-6 py-10 text-center text-muted">Chargement de la discussion…</p>
+            <p className="px-6 py-10 text-center text-muted">{t("Chargement de la discussion…")}</p>
           ) : msgs.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
               <DrAvatar size={72} />
-              <h2 className="display mt-5 text-3xl text-ink">Bonjour {profile.name}, que veux-tu réviser ?</h2>
-              <p className="mt-2 max-w-md text-muted">
-                Écris ta question, dépose une image (page de cours, schéma, ECG) ou dicte-la avec le micro.
-                {docCtx ? ` Dr. Ahmed part de « ${docCtx.name} » puis va plus loin si besoin.` : ""}
+              <h2 className="display mt-5 text-3xl text-ink">{t("Bonjour {a}, que veux-tu réviser ?", { a: profile.name })}</h2>
+              <p className="mt-2 max-w-md text-muted">{t("Écris ta question, dépose une image (page de cours, schéma, ECG) ou dicte-la avec le micro.")}{docCtx ? " " + t("Dr. Ahmed part de « {a} » puis va plus loin si besoin.", { a: docCtx.name }) : ""}
               </p>
             </div>
           ) : (
@@ -478,13 +477,13 @@ export function ChatApp() {
                           {m.images.map((src, i) => (
                             <a key={i} href={src} target="_blank" rel="noopener noreferrer">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={src} alt={`Image jointe ${i + 1}`} className="h-28 w-28 rounded-xl object-cover" />
+                              <img src={src} alt={t("Image jointe {a}", { a: i + 1 })} className="h-28 w-28 rounded-xl object-cover" />
                             </a>
                           ))}
                         </div>
                       )}
                       {m.text && (
-                        <div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-hema px-4 py-3 text-white">
+                        <div dir="auto" className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-ee-md bg-hema px-4 py-3 text-white">
                           {m.text}
                         </div>
                       )}
@@ -492,11 +491,11 @@ export function ChatApp() {
                   ) : (
                     <div className="flex items-start gap-3">
                       <DrAvatar />
-                      <div className="min-w-0 flex-1 pt-0.5 text-ink/90">
+                      <div dir="auto" className="min-w-0 flex-1 pt-0.5 text-ink/90">
                         {m.text ? (
                           <Markdown>{m.text}</Markdown>
                         ) : (
-                          <span className="flex h-6 items-center gap-1.5" aria-label="Dr. Ahmed écrit">
+                          <span className="flex h-6 items-center gap-1.5" aria-label={t("Dr. Ahmed écrit")}>
                             {[0, 1, 2].map((d) => (
                               <span
                                 key={d}
@@ -511,23 +510,21 @@ export function ChatApp() {
                           <div className="mt-2 flex items-center gap-1 text-muted">
                             <button
                               onClick={() => copy(m)}
-                              aria-label="Copier la réponse"
-                              title="Copier"
+                              aria-label={t("Copier la réponse")}
+                              title={t("Copier")}
                               className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition hover:bg-slide hover:text-ink"
                             >
                               <IconCopy />
-                              {copied === m.id ? "Copié" : "Copier"}
+                              {copied === m.id ? t("Copié") : t("Copier")}
                             </button>
                             {idx === msgs.length - 1 && canRegenerate && (
                               <button
                                 onClick={regenerate}
-                                aria-label="Regénérer la réponse"
-                                title="Regénérer"
+                                aria-label={t("Regénérer la réponse")}
+                                title={t("Regénérer")}
                                 className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition hover:bg-slide hover:text-ink"
                               >
-                                <IconRefresh />
-                                Regénérer
-                              </button>
+                                <IconRefresh />{t("Regénérer")}</button>
                             )}
                           </div>
                         )}
@@ -553,8 +550,8 @@ export function ChatApp() {
               role="alert"
               className="mx-auto mb-3 flex max-w-3xl items-center justify-between gap-3 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]"
             >
-              <span>{error}</span>
-              <button onClick={() => setError(null)} aria-label="Fermer le message" className="shrink-0 font-bold">
+              <span>{t(error)}</span>
+              <button onClick={() => setError(null)} aria-label={t("Fermer le message")} className="shrink-0 font-bold">
                 <IconClose className="h-4 w-4" />
               </button>
             </div>

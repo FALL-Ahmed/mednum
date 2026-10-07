@@ -1,3 +1,4 @@
+import { getAppLang, translate } from "./app-i18n";
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Date locale au format AAAA-MM-JJ. */
@@ -18,18 +19,22 @@ export function addDays(iso: string, n: number): string {
   return toISO(d);
 }
 
-const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-const MOIS = [
-  "janvier", "février", "mars", "avril", "mai", "juin",
-  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-];
+const loc = () => (getAppLang() === "ar" ? "ar-u-nu-latn" : "fr-FR");
 
-export const jourCourt = (iso: string) => JOURS[fromISO(iso).getDay()].slice(0, 3);
+/** Nom du mois (0 = janvier) et du jour de la semaine (0 = dimanche), dans la langue choisie. */
+export const monthName = (m: number) => new Date(2024, m, 1).toLocaleDateString(loc(), { month: "long" });
+export const weekdayName = (dow: number) => new Date(2024, 0, 7 + dow).toLocaleDateString(loc(), { weekday: "long" });
+export const weekdayShort = (dow: number) =>
+  getAppLang() === "ar"
+    ? new Date(2024, 0, 7 + dow).toLocaleDateString(loc(), { weekday: "short" })
+    : weekdayName(dow).slice(0, 3);
+
+export const jourCourt = (iso: string) => weekdayShort(fromISO(iso).getDay());
 
 export function labelJour(iso: string): string {
   const today = todayISO();
-  if (iso === today) return "Aujourd'hui";
-  if (iso === addDays(today, 1)) return "Demain";
+  if (iso === today) return translate(getAppLang(), "Aujourd'hui");
+  if (iso === addDays(today, 1)) return translate(getAppLang(), "Demain");
   const d = fromISO(iso);
-  return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}`;
+  return `${weekdayName(d.getDay())} ${d.getDate()} ${monthName(d.getMonth())}`;
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isPaid, PLAN_LABEL, useApp } from "@/components/app-context";
 import { getSupabase } from "@/lib/supabase";
+import { useT } from "@/lib/app-i18n";
 
 type Promotion = { id: string; name: string; description: string | null; sort_order: number; filiere: string };
 const COUNTRIES = ["Mauritanie", "Sénégal", "Maroc"] as const;
@@ -29,6 +30,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 export default function Compte() {
+  const t = useT();
   const router = useRouter();
   const { user, profile, quota, refreshProfile } = useApp();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -83,7 +85,7 @@ export default function Compte() {
     );
     if (err) {
       console.error("[compte] enregistrement impossible :", err.message);
-      setError("Impossible d'enregistrer tes modifications pour le moment. Réessaie dans un instant.");
+      setError(t("Impossible d'enregistrer tes modifications pour le moment. Réessaie dans un instant."));
     } else {
       await refreshProfile();
       setSaved(true);
@@ -102,31 +104,26 @@ export default function Compte() {
     <div className="max-w-2xl">
 
       <section className="mt-8 rounded-2xl border border-line bg-white p-6 sm:p-8">
-        <p className="label text-muted">Connexion</p>
-        <p className="display mt-2 text-2xl text-ink">{email || "Compte Google"}</p>
-        <p className="mt-2 text-muted">
-          Connecte-toi avec ce même compte Google dans l&apos;application (Réglages, puis Compte) pour retrouver tes
-          cours, ton plan et tes documents partout.
-        </p>
+        <p className="label text-muted">{t("Connexion")}</p>
+        <p className="display mt-2 text-2xl text-ink">{email || t("Compte Google")}</p>
+        <p className="mt-2 text-muted">{t("Connecte-toi avec ce même compte Google dans l'application (Réglages, puis Compte) pour retrouver tes cours, ton plan et tes documents partout.")}</p>
       </section>
 
       <section className="mt-6 rounded-2xl border border-line bg-white p-6 sm:p-8">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="label text-muted">Ton plan</p>
+          <p className="label text-muted">{t("Ton plan")}</p>
           <Link href="/app/abonnement" className="text-sm font-semibold text-ink/70 hover:text-ink">
-            {isPaid(quota?.plan) ? "Gérer →" : "Voir les plans →"}
+            {isPaid(quota?.plan) ? t("Gérer →") : t("Voir les plans →")}
           </Link>
         </div>
-        <p className="display mt-2 text-3xl text-ink">{PLAN_LABEL[quota?.plan ?? "freemium"] ?? quota?.plan}</p>
+        <p className="display mt-2 text-3xl text-ink">{t(PLAN_LABEL[quota?.plan ?? "freemium"] ?? quota?.plan ?? "")}</p>
       </section>
 
       <form onSubmit={save} className="mt-6 space-y-8 rounded-2xl border border-line bg-white p-6 sm:p-8">
-        <p className="display text-2xl text-ink">Ton profil</p>
+        <p className="display text-2xl text-ink">{t("Ton profil")}</p>
 
         <div>
-          <label htmlFor="c-name" className="label text-muted">
-            Prénom
-          </label>
+          <label htmlFor="c-name" className="label text-muted">{t("Prénom")}</label>
           <input
             id="c-name"
             value={name}
@@ -137,18 +134,18 @@ export default function Compte() {
         </div>
 
         <div>
-          <p className="label text-muted">Pays</p>
+          <p className="label text-muted">{t("Pays")}</p>
           <div className="mt-3 flex flex-wrap gap-2.5">
             {COUNTRIES.map((c) => (
               <Chip key={c} active={country === c} onClick={() => setCountry(c)}>
-                {c}
+                {t(c)}
               </Chip>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="label text-muted">Filière</p>
+          <p className="label text-muted">{t("Filière")}</p>
           <div className="mt-3 flex flex-wrap gap-2.5">
             {FILIERES.map((f) => (
               <Chip
@@ -159,16 +156,16 @@ export default function Compte() {
                   setPromotionId(null);
                 }}
               >
-                {f.label}
+                {t(f.label)}
               </Chip>
             ))}
           </div>
         </div>
 
         <div>
-          <p className="label text-muted">Année</p>
+          <p className="label text-muted">{t("Année")}</p>
           {years.length === 0 ? (
-            <p className="mt-3 text-muted">Chargement des années…</p>
+            <p className="mt-3 text-muted">{t("Chargement des années…")}</p>
           ) : (
             <div className="mt-3 flex flex-wrap gap-2.5">
               {years.map((p) => (
@@ -181,27 +178,24 @@ export default function Compte() {
         </div>
 
         <div>
-          <label htmlFor="c-school" className="label text-muted">
-            Université <span className="normal-case tracking-normal">(facultatif)</span>
+          <label htmlFor="c-school" className="label text-muted">{t("Université")}{" "}<span className="normal-case tracking-normal">{t("(facultatif)")}</span>
           </label>
           <input
             id="c-school"
             value={school}
             onChange={(e) => setSchool(e.target.value)}
-            placeholder="ex : FMPOS UNAM, UCAD, Université Hassan II…"
+            placeholder={t("ex : FMPOS UNAM, UCAD, Université Hassan II…")}
             className="mt-3 w-full rounded-2xl border border-line bg-slide px-5 py-3.5 text-lg text-ink placeholder:text-muted focus:border-ink focus:outline-none"
           />
         </div>
 
         {error && (
           <p role="alert" className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-[#a3271c]">
-            {error}
+            {t(error)}
           </p>
         )}
         {saved && (
-          <p role="status" className="rounded-2xl bg-eosin-soft px-4 py-3 text-ink">
-            Modifications enregistrées.
-          </p>
+          <p role="status" className="rounded-2xl bg-eosin-soft px-4 py-3 text-ink">{t("Modifications enregistrées.")}</p>
         )}
 
         <button
@@ -209,16 +203,14 @@ export default function Compte() {
           disabled={!canSave}
           className="rounded-full bg-ink px-8 py-4 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40"
         >
-          {busy ? "Enregistrement…" : "Enregistrer"}
+          {busy ? t("Enregistrement…") : t("Enregistrer")}
         </button>
       </form>
 
       <button
         onClick={signOut}
         className="mt-8 rounded-full border border-ink/20 px-7 py-3.5 font-semibold text-ink transition hover:border-ink"
-      >
-        Se déconnecter
-      </button>
+      >{t("Se déconnecter")}</button>
     </div>
   );
 }

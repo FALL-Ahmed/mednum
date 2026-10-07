@@ -7,10 +7,12 @@ import { chatSystem, pickChunks, splitSuggestions, type DocumentRow } from "@/li
 import { setFlag } from "@/lib/flags";
 import { useApp } from "./app-context";
 import { LimitNotice } from "./limit-notice";
+import { useT } from "@/lib/app-i18n";
 
 type Bubble = { role: "user" | "assistant"; text: string; source?: string; suggestions?: string[] };
 
 function Avatar({ size = 40 }: { size?: number }) {
+  const t = useT();
   return (
     <span
       className="relative shrink-0 overflow-hidden rounded-full bg-hema-soft"
@@ -18,7 +20,7 @@ function Avatar({ size = 40 }: { size?: number }) {
     >
       <Image
         src="/dr-ahmed-face.webp"
-        alt="Dr. Ahmed"
+        alt={t("Dr. Ahmed")}
         fill
         sizes={`${size * 3}px`}
         className="object-cover"
@@ -32,6 +34,7 @@ function Avatar({ size = 40 }: { size?: number }) {
  * sans document, c'est une question libre.
  */
 export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters?: string[] }) {
+  const t = useT();
   const { profile, refreshQuota } = useApp();
   const [msgs, setMsgs] = useState<Bubble[]>([]);
   const [input, setInput] = useState("");
@@ -94,7 +97,7 @@ export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters
     } catch (e) {
       setMsgs((m) => m.slice(0, -2));
       if (e instanceof QuotaError) setLimit(true);
-      else setError(e instanceof Error ? e.message : "Une erreur est survenue.");
+      else setError(e instanceof Error ? e.message : t("Une erreur est survenue."));
       setInput(q);
       refreshQuota();
     } finally {
@@ -111,12 +114,12 @@ export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters
               <Avatar size={56} />
               <div>
                 <p className="display text-2xl text-ink">
-                  {doc ? "Pose ta question sur ce cours." : `Bonjour ${profile.name}, qu'est-ce qu'on révise ?`}
+                  {doc ? t("Pose ta question sur ce cours.") : t("Bonjour {a}, qu'est-ce qu'on révise ?", { a: profile.name })}
                 </p>
                 <p className="mt-1 text-muted">
                   {doc
-                    ? "Dr. Ahmed part de ton document, puis va plus loin si besoin."
-                    : "Pose une question libre, ou choisis un de tes cours pour une réponse tirée de ton document."}
+                    ? t("Dr. Ahmed part de ton document, puis va plus loin si besoin.")
+                    : t("Pose une question libre, ou choisis un de tes cours pour une réponse tirée de ton document.")}
                 </p>
               </div>
             </div>
@@ -140,15 +143,15 @@ export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters
         {msgs.map((m, i) => (
           <div key={i}>
             {m.role === "user" ? (
-              <div className="ml-auto w-fit max-w-[88%] rounded-2xl rounded-br-md bg-hema px-4 py-3 text-white">
+              <div dir="auto" className="ms-auto w-fit max-w-[88%] rounded-2xl rounded-ee-md bg-hema px-4 py-3 text-white">
                 {m.text}
               </div>
             ) : (
               <div className="flex max-w-[94%] items-start gap-3">
                 <Avatar size={36} />
                 <div className="min-w-0">
-                  <div className="whitespace-pre-line rounded-2xl rounded-tl-md bg-slide px-4 py-3 text-ink/90">
-                    {m.text || <span className="text-muted">Dr. Ahmed réfléchit…</span>}
+                  <div className="whitespace-pre-line rounded-2xl rounded-ss-md bg-slide px-4 py-3 text-ink/90">
+                    {m.text || <span className="text-muted">{t("Dr. Ahmed réfléchit…")}</span>}
                   </div>
                   {m.source && <p className="label mt-2 text-muted">{m.source}</p>}
                   {m.suggestions && m.suggestions.length > 0 && (
@@ -181,7 +184,7 @@ export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters
         )}
         {error && (
           <p role="alert" className="mb-3 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-            {error}
+            {t(error)}
           </p>
         )}
         <form
@@ -194,17 +197,15 @@ export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Pose ta question…"
-            aria-label="Ta question"
+            placeholder={t("Pose ta question…")}
+            aria-label={t("Ta question")}
             className="min-w-0 flex-1 rounded-full border border-line bg-slide px-5 py-3.5 text-base text-ink placeholder:text-muted focus:border-ink focus:outline-none"
           />
           <button
             type="submit"
             disabled={busy || !input.trim()}
             className="rounded-full bg-ink px-6 py-3.5 font-semibold text-white transition hover:bg-eosin disabled:opacity-40"
-          >
-            Envoyer
-          </button>
+          >{t("Envoyer")}</button>
         </form>
       </div>
     </div>

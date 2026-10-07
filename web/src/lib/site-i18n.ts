@@ -153,7 +153,7 @@ const AR: SiteDict = {
   htmlDescription:
     "يحوّل أكسون دروسك إلى ملخّصات وأسئلة QCM وبطاقات مراجعة وحالات سريرية. لطلبة الطب والصيدلة في موريتانيا والسنغال والمغرب.",
   switchLabel: "Français",
-  switchHref: "/",
+  switchHref: "/?l=fr",
   whatsappText: "مرحبًا، لدي سؤال عن أكسون.",
   nav: { features: "الميزات", pricing: "الأسعار", faq: "أسئلة شائعة", login: "تسجيل الدخول" },
   hero: {

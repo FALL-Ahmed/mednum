@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KEYS, scoreQcm, type Key } from "@/lib/course";
 import { answerDuo, duoLink, getDuoState, sendDuo, type DuoAnswer, type DuoState } from "@/lib/duo";
+import { useT } from "@/lib/app-i18n";
 
 const btnDark =
   "rounded-full bg-ink px-6 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40";
@@ -11,13 +12,14 @@ const btnLine =
   "rounded-full border border-ink/25 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-40";
 
 const POLL_MS = 3000;
-const picks = (sel: Key[]) => (sel.length ? sel.join(", ") : "Sans réponse");
+const picks = (sel: Key[], none: string) => (sel.length ? sel.join(", ") : none);
 
 function Bar({ label, n, total }: { label: string; n: number; total: number }) {
+  const t = useT();
   return (
     <div className="min-w-0 flex-1">
       <p className="flex justify-between gap-2 text-sm">
-        <span className="truncate font-semibold text-ink">{label}</span>
+        <span className="truncate font-semibold text-ink">{t(label)}</span>
         <span className="shrink-0 text-muted">
           {n}/{total}
         </span>
@@ -30,6 +32,7 @@ function Bar({ label, n, total }: { label: string; n: number; total: number }) {
 }
 
 export default function DuoSession({ params }: { params: Promise<{ code: string }> }) {
+  const t = useT();
   const { code } = use(params);
   const [st, setSt] = useState<DuoState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,20 +89,18 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
   if (error && !st) {
     return (
       <div className="max-w-xl">
-        <p className="display text-3xl text-ink">Session introuvable</p>
+        <p className="display text-3xl text-ink">{t("Session introuvable")}</p>
         <p role="alert" className="mt-3 rounded-2xl bg-[#fff1f0] px-4 py-3 text-[#a3271c]">
-          {error}
+          {t(error)}
         </p>
-        <Link href="/app/duo" className={`mt-5 inline-block ${btnDark}`}>
-          Retour à la révision à deux
-        </Link>
+        <Link href="/app/duo" className={`mt-5 inline-block ${btnDark}`}>{t("Retour à la révision à deux")}</Link>
       </div>
     );
   }
-  if (!st || !d) return <p className="text-muted">Chargement de la session…</p>;
+  if (!st || !d) return <p className="text-muted">{t("Chargement de la session…")}</p>;
 
   const total = st.questions.length;
-  const otherName = d.other?.name.trim() || "Ton partenaire";
+  const otherName = d.other?.name.trim() || t("Ton partenaire");
   const myDone = d.mine.size >= total;
   const q = st.questions[idx];
   const validated = d.mine.has(idx);
@@ -143,59 +144,54 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
 
   return (
     <div className="max-w-3xl">
-      <Link href="/app/duo" className="text-sm font-semibold text-ink/70 transition hover:text-ink">
-        ← Révision à deux
-      </Link>
+      <Link href="/app/duo" className="text-sm font-semibold text-ink/70 transition hover:text-ink">{t("← Révision à deux")}</Link>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-        <p className="display text-2xl text-ink sm:text-3xl">{st.title || "Série de QCM"}</p>
-        <p className="label rounded-full bg-slide px-3 py-1.5 text-muted">
-          Code <span className="font-mono tracking-widest text-ink">{st.code}</span>
+        <p dir="auto" className="display text-2xl text-ink sm:text-3xl">{st.title || t("Série de QCM")}</p>
+        <p className="label rounded-full bg-slide px-3 py-1.5 text-muted">{t("Code")}{" "}<span className="font-mono tracking-widest text-ink">{st.code}</span>
         </p>
       </div>
 
       {!d.other && (
         <section className="mt-5 rounded-2xl border border-line bg-eosin-soft p-5">
-          <p className="font-semibold text-ink">En attente de ton partenaire</p>
-          <p className="mt-1 text-ink/80">Envoie-lui ce lien. Il pourra rejoindre gratuitement. Tu peux déjà commencer.</p>
+          <p className="font-semibold text-ink">{t("En attente de ton partenaire")}</p>
+          <p className="mt-1 text-ink/80">{t("Envoie-lui ce lien. Il pourra rejoindre gratuitement. Tu peux déjà commencer.")}</p>
           <p className="mt-3 break-all rounded-xl bg-white px-3 py-2 font-mono text-sm text-ink">{duoLink(st.code)}</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <button onClick={copy} className={btnLine}>
-              {copied ? "Lien copié" : "Copier le lien"}
+              {copied ? t("Lien copié") : t("Copier le lien")}
             </button>
-            <a href={wa} target="_blank" rel="noreferrer" className={btnDark}>
-              Envoyer sur WhatsApp
-            </a>
+            <a href={wa} target="_blank" rel="noreferrer" className={btnDark}>{t("Envoyer sur WhatsApp")}</a>
           </div>
         </section>
       )}
 
       <div className="mt-5 flex gap-5 rounded-2xl border border-line bg-white p-4">
-        <Bar label="Toi" n={d.mine.size} total={total} />
-        {d.other ? <Bar label={otherName} n={d.other.answered} total={total} /> : <p className="flex-1 text-sm text-muted">Pas encore de partenaire.</p>}
+        <Bar label={t("Toi")} n={d.mine.size} total={total} />
+        {d.other ? <Bar label={otherName} n={d.other.answered} total={total} /> : <p className="flex-1 text-sm text-muted">{t("Pas encore de partenaire.")}</p>}
       </div>
 
       {expired && (
-        <p className="mt-4 rounded-2xl bg-slide px-4 py-3 text-ink">Cette session est terminée : tu peux revoir les réponses, plus en ajouter.</p>
+        <p className="mt-4 rounded-2xl bg-slide px-4 py-3 text-ink">{t("Cette session est terminée : tu peux revoir les réponses, plus en ajouter.")}</p>
       )}
       {error && (
         <p role="alert" className="mt-4 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-          {error}
+          {t(error)}
         </p>
       )}
 
       {view === "result" ? (
         <section className="mt-5 rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <p className="label text-muted">Résultat</p>
+          <p className="label text-muted">{t("Résultat")}</p>
           <div className="mt-3 grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-muted">Toi</p>
+              <p className="text-sm text-muted">{t("Toi")}</p>
               <p className="display text-5xl text-ink">
                 {d.myPts}
                 <span className="text-xl text-muted"> / {total * 10}</span>
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted">{d.other ? otherName : "Partenaire"}</p>
+              <p className="text-sm text-muted">{d.other ? otherName : t("Partenaire")}</p>
               {d.other ? (
                 <>
                   <p className="display text-5xl text-ink">
@@ -203,11 +199,11 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
                     <span className="text-xl text-muted"> / {total * 10}</span>
                   </p>
                   {!d.other.finished && (
-                    <p className="mt-1 text-sm text-muted">Il lui reste des questions : son score peut encore changer.</p>
+                    <p className="mt-1 text-sm text-muted">{t("Il lui reste des questions : son score peut encore changer.")}</p>
                   )}
                 </>
               ) : (
-                <p className="mt-2 text-muted">Personne n&apos;a encore rejoint.</p>
+                <p className="mt-2 text-muted">{t("Personne n'a encore rejoint.")}</p>
               )}
             </div>
           </div>
@@ -222,11 +218,11 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
                       setIdx(i);
                       setView("play");
                     }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slide"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-start transition hover:bg-slide"
                   >
                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slide text-sm font-bold text-ink">{i + 1}</span>
-                    <span className="min-w-0 flex-1 truncate text-ink/85">{qq.question}</span>
-                    <span className="shrink-0 text-right text-sm font-semibold text-ink">
+                    <span dir="auto" className="min-w-0 flex-1 truncate text-ink/85">{qq.question}</span>
+                    <span className="shrink-0 text-end text-sm font-semibold text-ink">
                       {mineA ? mineA.points : "—"} · {theirA ? theirA.points : "—"}
                     </span>
                   </button>
@@ -234,20 +230,18 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
               );
             })}
           </ul>
-          <p className="mt-2 text-xs text-muted">Chaque ligne : tes points, puis ceux de {d.other ? otherName : "ton partenaire"}.</p>
+          <p className="mt-2 text-xs text-muted">{t("Chaque ligne : tes points, puis ceux de {a}.", { a: d.other ? otherName : t("ton partenaire") })}</p>
           <button
             onClick={() => {
               setIdx(0);
               setView("play");
             }}
             className={`mt-5 ${btnLine}`}
-          >
-            Revoir la correction
-          </button>
+          >{t("Revoir la correction")}</button>
         </section>
       ) : (
         <section className="mt-5 rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <nav aria-label="Questions" className="flex flex-wrap gap-2">
+          <nav aria-label={t("Questions")} className="flex flex-wrap gap-2">
             {st.questions.map((qq, i) => {
               const a = d.mine.get(i);
               const r = a ? scoreQcm(a.sel, qq.bonnesReponses).result : null;
@@ -265,7 +259,7 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
                 <button
                   key={i}
                   onClick={() => setIdx(i)}
-                  aria-label={`Question ${i + 1}`}
+                  aria-label={t("Question {a}", { a: i + 1 })}
                   aria-current={i === idx ? "step" : undefined}
                   className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold transition ${tone}`}
                 >
@@ -275,11 +269,9 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
             })}
           </nav>
 
-          <p className="label mt-6 text-muted">
-            Question {idx + 1} sur {total}
-          </p>
-          <p className="display mt-3 text-2xl leading-snug text-ink">{q.question}</p>
-          <p className="mt-2 text-sm text-muted">Une ou plusieurs propositions sont exactes.</p>
+          <p className="label mt-6 text-muted">{t("Question {a} sur {b}", { a: idx + 1, b: total })}</p>
+          <p dir="auto" className="display mt-3 text-2xl leading-snug text-ink">{q.question}</p>
+          <p className="mt-2 text-sm text-muted">{t("Une ou plusieurs propositions sont exactes.")}</p>
 
           <div className="mt-5 space-y-2.5">
             {KEYS.map((k) => {
@@ -305,10 +297,10 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
                     })
                   }
                   aria-pressed={isPicked}
-                  className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-left text-[15px] transition ${style}`}
+                  className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-start text-[15px] transition ${style}`}
                 >
                   <span className="label mt-0.5 w-4 shrink-0">{k}</span>
-                  <span className="flex-1">
+                  <span dir="auto" className="flex-1">
                     {q.propositions[k]}
                     {validated && <span className="mt-1.5 block text-sm text-muted">{q.explication[k]}</span>}
                   </span>
@@ -320,61 +312,53 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
           {validated && (
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <p className="rounded-2xl bg-slide px-4 py-3 text-ink">
-                <span className="block text-sm text-muted">Toi</span>
-                <span className="font-semibold">
-                  {picks(d.mine.get(idx)!.sel)} · {d.mine.get(idx)!.points} pts
-                </span>
+                <span className="block text-sm text-muted">{t("Toi")}</span>
+                <span className="font-semibold">{t("{a} · {b} pts", { a: picks(d.mine.get(idx)!.sel, t("Sans réponse")), b: d.mine.get(idx)!.points })}</span>
               </p>
               <p className="rounded-2xl bg-slide px-4 py-3 text-ink">
                 <span className="block text-sm text-muted">{otherName}</span>
                 <span className="font-semibold">
-                  {theirAns ? `${picks(theirAns.sel)} · ${theirAns.points} pts` : d.other ? "Pas encore répondu" : "—"}
+                  {theirAns ? t("{a} · {b} pts", { a: picks(theirAns.sel, t("Sans réponse")), b: theirAns.points }) : d.other ? t("Pas encore répondu") : "—"}
                 </span>
               </p>
             </div>
           )}
           {!validated && d.other && d.other.answered > 0 && (
-            <p className="mt-4 text-sm text-muted">Les réponses de {otherName} s&apos;affichent une fois que tu as validé la question.</p>
+            <p className="mt-4 text-sm text-muted">{t("Les réponses de {a} s'affichent une fois que tu as validé la question.", { a: otherName })}</p>
           )}
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className={btnLine}>
-              ← Précédente
-            </button>
+            <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className={btnLine}>{t("← Précédente")}</button>
             {!validated && (
               <button onClick={validate} disabled={busy || chosen.length === 0 || expired} className={btnDark}>
-                {busy ? "Validation…" : "Valider"}
+                {busy ? t("Validation…") : t("Valider")}
               </button>
             )}
             {idx < total - 1 ? (
-              <button onClick={() => setIdx((i) => i + 1)} className={validated ? btnDark : btnLine}>
-                Suivante →
-              </button>
+              <button onClick={() => setIdx((i) => i + 1)} className={validated ? btnDark : btnLine}>{t("Suivante →")}</button>
             ) : (
               myDone && (
-                <button onClick={() => setView("result")} className={btnDark}>
-                  Voir le résultat
-                </button>
+                <button onClick={() => setView("result")} className={btnDark}>{t("Voir le résultat")}</button>
               )
             )}
           </div>
           {!myDone && idx === total - 1 && (
-            <p className="mt-3 text-sm text-muted">Valide toutes les questions pour voir le résultat de la session.</p>
+            <p className="mt-3 text-sm text-muted">{t("Valide toutes les questions pour voir le résultat de la session.")}</p>
           )}
         </section>
       )}
 
       <section className="mt-5 rounded-2xl border border-line bg-white p-5">
-        <p className="font-semibold text-ink">Discussion</p>
+        <p className="font-semibold text-ink">{t("Discussion")}</p>
         {st.messages.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Écris un petit mot à {d.other ? otherName : "ton partenaire"} : il apparaîtra ici.</p>
+          <p className="mt-2 text-sm text-muted">{t("Écris un petit mot à {a} : il apparaîtra ici.", { a: d.other ? otherName : t("ton partenaire") })}</p>
         ) : (
           <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">
             {st.messages.map((m) => {
               const mineMsg = m.user_id === st.me;
               return (
                 <li key={m.id} className={`flex ${mineMsg ? "justify-end" : "justify-start"}`}>
-                  <span className={`max-w-[85%] rounded-2xl px-4 py-2 text-[15px] ${mineMsg ? "bg-ink text-white" : "bg-slide text-ink"}`}>
+                  <span dir="auto" className={`max-w-[85%] rounded-2xl px-4 py-2 text-[15px] ${mineMsg ? "bg-ink text-white" : "bg-slide text-ink"}`}>
                     {m.body}
                   </span>
                 </li>
@@ -383,21 +367,17 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
           </ul>
         )}
         <form onSubmit={send} className="mt-3 flex gap-2">
-          <label htmlFor="duo-msg" className="sr-only">
-            Ton message
-          </label>
+          <label htmlFor="duo-msg" className="sr-only">{t("Ton message")}</label>
           <input
             id="duo-msg"
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={300}
             disabled={expired}
-            placeholder="Ton message"
+            placeholder={t("Ton message")}
             className="min-w-0 flex-1 rounded-full border border-line bg-slide px-4 py-2.5 text-ink focus:border-ink focus:outline-none"
           />
-          <button type="submit" disabled={!text.trim() || expired} className={btnDark}>
-            Envoyer
-          </button>
+          <button type="submit" disabled={!text.trim() || expired} className={btnDark}>{t("Envoyer")}</button>
         </form>
       </section>
     </div>

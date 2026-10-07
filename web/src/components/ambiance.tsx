@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { fileUrl, fmtTime, loadSons, type MusicTrack, type SonsManifest } from "@/lib/sons";
 import { PRESETS, SOUNDS, Soundscape, type SoundId } from "@/lib/soundscape";
+import { useT } from "@/lib/app-i18n";
 
 const KEY = "axone:ambiance:v2";
 type Mix = Record<string, number>;
@@ -88,6 +89,7 @@ type Current = { kind: TrackKind; index: number } | null;
 
 /** Ambiance sonore : playlists de musique + sons de la nature à mélanger. L'élève choisit et lance quand il veut. */
 export function Ambiance({ inBreak }: { inBreak: boolean }) {
+  const t = useT();
   const scape = useRef<Soundscape | null>(null);
   const [mix, setMix] = useState<Mix>({});
   const [playing, setPlaying] = useState(false);
@@ -257,7 +259,7 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
     ...(sons?.ambiance ?? []).map((f) => ({ id: f.id, label: f.label, hint: f.hint, group: f.group })),
   ];
 
-  const status = count === 0 ? "Aucun son choisi" : playing ? "En cours de lecture" : "En pause";
+  const status = t(count === 0 ? "Aucun son choisi" : playing ? "En cours de lecture" : "En pause");
   const track = current ? tracksOf(current.kind)[current.index] : null;
   const meta = PLAYLISTS.find((p) => p.kind === tab)!;
   const listTracks = tracksOf(tab);
@@ -269,7 +271,7 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
         <button
           onClick={() => setPlaying((p) => !p)}
           disabled={count === 0}
-          aria-label={playing ? "Mettre le son en pause" : "Lancer le son"}
+          aria-label={playing ? t("Mettre le son en pause") : t("Lancer le son")}
           className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-eosin text-ink shadow-lg transition hover:scale-105 disabled:opacity-40 disabled:hover:scale-100"
         >
           {playing && count > 0 ? (
@@ -284,14 +286,14 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
           )}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="display text-2xl leading-tight">Ambiance sonore</p>
+          <p className="display text-2xl leading-tight">{t("Ambiance sonore")}</p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-white/70">
             <span className={`eq text-eosin${playing && count > 0 ? "" : " idle"}`} aria-hidden>
               <i /><i /><i /><i />
             </span>
             {status}
-            {track && <span className="text-white/90">· {track.title}</span>}
-            {Object.keys(mix).length > 0 && <span className="text-white/50">· {Object.keys(mix).length} son{Object.keys(mix).length > 1 ? "s" : ""} de nature</span>}
+            {track && <span className="text-white/90">· {t(track.title)}</span>}
+            {Object.keys(mix).length > 0 && <span className="text-white/50">{t(Object.keys(mix).length > 1 ? "· {a} sons de nature" : "· {a} son de nature", { a: Object.keys(mix).length })}</span>}
           </p>
         </div>
         <label className="flex items-center gap-3 text-sm font-semibold text-white/80">
@@ -299,28 +301,26 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
             <path d="M11 5 6 9H2v6h4l5 4V5z" />
             <path d="M15.5 8.5a5 5 0 0 1 0 7" />
           </svg>
-          <span className="sr-only">Volume général</span>
+          <span className="sr-only">{t("Volume général")}</span>
           <input
             type="range"
             min={0}
             max={100}
             value={Math.round(master * 100)}
             onChange={(e) => setMaster(Number(e.target.value) / 100)}
-            aria-label="Volume général"
+            aria-label={t("Volume général")}
             className="w-36 accent-[var(--eosin)]"
           />
         </label>
         {count > 0 && (
-          <button onClick={stopAll} className="rounded-full border border-white/25 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white hover:text-ink">
-            Tout arrêter
-          </button>
+          <button onClick={stopAll} className="rounded-full border border-white/25 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white hover:text-ink">{t("Tout arrêter")}</button>
         )}
       </div>
 
       <div className="space-y-8 p-6 sm:p-8">
         {/* Ambiances prêtes */}
         <div>
-          <p className="label text-muted">Ambiances prêtes · un clic</p>
+          <p className="label text-muted">{t("Ambiances prêtes · un clic")}</p>
           <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {PRESETS.map((p) => {
               const on = presetOn(p);
@@ -330,13 +330,13 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
                     onClick={() => (on ? stopAll() : applyPreset(p))}
                     aria-pressed={on}
                     style={{ background: GRADIENT[p.id] }}
-                    className={`relative flex h-28 w-full flex-col justify-end rounded-2xl p-4 text-left text-white transition hover:-translate-y-0.5 hover:shadow-lg ${
+                    className={`relative flex h-28 w-full flex-col justify-end rounded-2xl p-4 text-start text-white transition hover:-translate-y-0.5 hover:shadow-lg ${
                       on ? "ring-4 ring-eosin ring-offset-2" : ""
                     }`}
                   >
-                    <span className="display text-lg leading-tight">{p.label}</span>
-                    <span className="mt-0.5 text-xs text-white/75">{p.hint}</span>
-                    {on && <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-ink">En cours</span>}
+                    <span className="display text-lg leading-tight">{t(p.label)}</span>
+                    <span className="mt-0.5 text-xs text-white/75">{t(p.hint)}</span>
+                    {on && <span className="absolute end-3 top-3 rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-ink">{t("En cours")}</span>}
                   </button>
                 </li>
               );
@@ -348,9 +348,9 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
                     applyAmbient(last);
                     setPlaying(true);
                   }}
-                  className="flex h-28 w-full flex-col justify-end rounded-2xl border-2 border-dashed border-ink/25 p-4 text-left text-ink transition hover:border-ink"
+                  className="flex h-28 w-full flex-col justify-end rounded-2xl border-2 border-dashed border-ink/25 p-4 text-start text-ink transition hover:border-ink"
                 >
-                  <span className="display text-lg leading-tight">Mon dernier mélange</span>
+                  <span className="display text-lg leading-tight">{t("Mon dernier mélange")}</span>
                   <span className="mt-0.5 text-xs text-muted">
                     {Object.keys(last).map((k) => allSounds.find((s) => s.id === k)?.label ?? k).join(" · ")}
                   </span>
@@ -362,23 +362,21 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
 
         {/* Playlists de musique */}
         <div>
-          <p className="label text-muted">Musique · playlists</p>
+          <p className="label text-muted">{t("Musique · playlists")}</p>
           <div className="mt-3 rounded-2xl border border-line">
-            <div role="tablist" aria-label="Playlist" className="grid grid-cols-2 gap-2 border-b border-line p-2">
+            <div role="tablist" aria-label={t("Playlist")} className="grid grid-cols-2 gap-2 border-b border-line p-2">
               {PLAYLISTS.map((p) => (
                 <button
                   key={p.kind}
                   role="tab"
                   aria-selected={tab === p.kind}
                   onClick={() => setTab(p.kind)}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition ${tab === p.kind ? "bg-ink text-white" : "text-ink hover:bg-slide"}`}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-start transition ${tab === p.kind ? "bg-ink text-white" : "text-ink hover:bg-slide"}`}
                 >
                   <span className={tab === p.kind ? "text-eosin" : "text-ink/60"}>{p.kind === "lofi" ? <Headphones /> : <Note />}</span>
                   <span className="min-w-0">
-                    <span className="block font-semibold leading-tight">{p.label}</span>
-                    <span className={`block truncate text-xs ${tab === p.kind ? "text-white/60" : "text-muted"}`}>
-                      {tracksOf(p.kind).length} morceaux · {totalMin(tracksOf(p.kind))} min · {p.hint}
-                    </span>
+                    <span className="block font-semibold leading-tight">{t(p.label)}</span>
+                    <span className={`block truncate text-xs ${tab === p.kind ? "text-white/60" : "text-muted"}`}>{t("{a} morceaux · {b} min · {c}", { a: tracksOf(p.kind).length, b: totalMin(tracksOf(p.kind)), c: p.hint })}</span>
                   </span>
                 </button>
               ))}
@@ -386,16 +384,16 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
 
             {sonsState !== "ok" ? (
               <p className="px-4 py-6 text-sm text-muted">
-                {sonsState === "loading" ? "Chargement de la musique…" : "La musique n'est pas disponible pour le moment."}
+                {sonsState === "loading" ? t("Chargement de la musique…") : t("La musique n'est pas disponible pour le moment.")}
               </p>
             ) : (
               <ol>
-                {listTracks.map((t, i) => {
+                {listTracks.map((track, i) => {
                   const isCur = current?.kind === meta.kind && current.index === i;
-                  const d = t.seconds;
+                  const d = track.seconds;
                   return (
-                    <li key={t.id} className={`border-b border-line last:border-b-0 ${isCur ? "bg-eosin-soft" : ""}`}>
-                      <button onClick={() => (isCur && playing ? setPlaying(false) : isCur ? setPlaying(true) : playIndex(meta.kind, i))} className="flex w-full items-center gap-4 px-4 py-3 text-left transition hover:bg-slide/70">
+                    <li key={track.id} className={`border-b border-line last:border-b-0 ${isCur ? "bg-eosin-soft" : ""}`}>
+                      <button onClick={() => (isCur && playing ? setPlaying(false) : isCur ? setPlaying(true) : playIndex(meta.kind, i))} className="flex w-full items-center gap-4 px-4 py-3 text-start transition hover:bg-slide/70">
                         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-sm font-semibold text-ink ring-1 ring-line">
                           {isCur && playing ? (
                             <span className="eq text-eosin" aria-hidden><i /><i /><i /></span>
@@ -406,13 +404,13 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
                           )}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block font-semibold leading-tight text-ink">{t.title}</span>
+                          <span className="block font-semibold leading-tight text-ink">{t(track.title)}</span>
                         </span>
                         <span className="shrink-0 text-sm tabular-nums text-ink/70">{isCur ? `${fmtTime(elapsed)} / ${fmtTime(d)}` : fmtTime(d)}</span>
                       </button>
                       {isCur && (
                         <div className="px-4 pb-3">
-                          <div className="h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-line" role="progressbar" aria-valuemin={0} aria-valuemax={Math.round(d)} aria-valuenow={Math.round(elapsed)} aria-label="Avancement du morceau">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-white ring-1 ring-line" role="progressbar" aria-valuemin={0} aria-valuemax={Math.round(d)} aria-valuenow={Math.round(elapsed)} aria-label={t("Avancement du morceau")}>
                             <div className="h-full rounded-full bg-eosin transition-[width] duration-300" style={{ width: `${Math.min(100, (elapsed / d) * 100)}%` }} />
                           </div>
                         </div>
@@ -424,36 +422,30 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
             )}
 
             <div className="flex flex-wrap items-center gap-3 border-t border-line bg-slide/60 px-4 py-3">
-              <button onClick={() => stepTrack(-1)} disabled={!current} aria-label="Morceau précédent" className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white text-ink transition hover:border-ink disabled:opacity-40">
+              <button onClick={() => stepTrack(-1)} disabled={!current} aria-label={t("Morceau précédent")} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white text-ink transition hover:border-ink disabled:opacity-40">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h2v14H6zM20 5v14L9 12z" /></svg>
               </button>
               <button
                 onClick={() => (current ? setPlaying((p) => !p) : playIndex(meta.kind, shuffle ? otherIndex(listTracks.length, -1) : 0))}
-                aria-label={current && playing ? "Pause" : "Lire la playlist"}
+                aria-label={current && playing ? t("Pause") : t("Lire la playlist")}
                 className="rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-eosin hover:text-ink"
               >
-                {current && playing ? "Pause" : current ? "Reprendre" : "Lire la playlist"}
+                {current && playing ? t("Pause") : current ? t("Reprendre") : t("Lire la playlist")}
               </button>
-              <button onClick={() => stepTrack(1)} disabled={!current} aria-label="Morceau suivant" className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white text-ink transition hover:border-ink disabled:opacity-40">
+              <button onClick={() => stepTrack(1)} disabled={!current} aria-label={t("Morceau suivant")} className="grid h-10 w-10 place-items-center rounded-full border border-line bg-white text-ink transition hover:border-ink disabled:opacity-40">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M16 5h2v14h-2zM4 5v14l11-7z" /></svg>
               </button>
-              <button onClick={() => setShuffle((v) => !v)} aria-pressed={shuffle} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${shuffle ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/80 hover:border-ink"}`}>
-                Aléatoire
-              </button>
+              <button onClick={() => setShuffle((v) => !v)} aria-pressed={shuffle} className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${shuffle ? "border-ink bg-ink text-white" : "border-line bg-white text-ink/80 hover:border-ink"}`}>{t("Aléatoire")}</button>
               <button
                 onClick={() => setRepeat((r) => (r === "all" ? "one" : r === "one" ? "off" : "all"))}
                 className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${repeat === "off" ? "border-line bg-white text-ink/80 hover:border-ink" : "border-ink bg-ink text-white"}`}
               >
-                {repeat === "all" ? "Répéter la playlist" : repeat === "one" ? "Répéter ce morceau" : "Pas de répétition"}
+                {repeat === "all" ? t("Répéter la playlist") : repeat === "one" ? t("Répéter ce morceau") : t("Pas de répétition")}
               </button>
               {current && (
-                <button onClick={stopMusic} className="rounded-full border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/80 transition hover:border-ink">
-                  Arrêter la musique
-                </button>
+                <button onClick={stopMusic} className="rounded-full border border-line bg-white px-4 py-2 text-sm font-semibold text-ink/80 transition hover:border-ink">{t("Arrêter la musique")}</button>
               )}
-              <label className="ml-auto flex items-center gap-2 text-sm font-semibold text-ink/70">
-                Volume musique
-                <input type="range" min={0} max={100} value={Math.round(musicVol * 100)} onChange={(e) => setMusicVol(Number(e.target.value) / 100)} aria-label="Volume de la musique" className="w-28 accent-[var(--eosin)]" />
+              <label className="ms-auto flex items-center gap-2 text-sm font-semibold text-ink/70">{t("Volume musique")}<input type="range" min={0} max={100} value={Math.round(musicVol * 100)} onChange={(e) => setMusicVol(Number(e.target.value) / 100)} aria-label={t("Volume de la musique")} className="w-28 accent-[var(--eosin)]" />
               </label>
             </div>
           </div>
@@ -461,10 +453,10 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
 
         {/* Sons de la nature et bruits de fond */}
         <div>
-          <p className="label text-muted">Sons à mélanger · plusieurs à la fois, par-dessus la musique si tu veux</p>
+          <p className="label text-muted">{t("Sons à mélanger · plusieurs à la fois, par-dessus la musique si tu veux")}</p>
           {GROUPS.map((g) => (
             <div key={g.id} className="mt-5">
-              <p className="text-sm font-semibold text-ink">{g.title}</p>
+              <p className="text-sm font-semibold text-ink">{t(g.title)}</p>
               <ul className="mt-2.5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                 {allSounds.filter((s) => s.group === g.id).map((s) => {
                   const v = mix[s.id] ?? 0;
@@ -472,13 +464,13 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
                   return (
                     <li key={s.id}>
                       <div className={`rounded-2xl border p-4 transition ${on ? "border-ink bg-ink text-white" : "border-line bg-white text-ink hover:border-ink/40"}`}>
-                        <button onClick={() => setLevel(s.id, on ? 0 : 0.6)} aria-pressed={on} className="flex w-full items-center gap-3 text-left">
+                        <button onClick={() => setLevel(s.id, on ? 0 : 0.6)} aria-pressed={on} className="flex w-full items-center gap-3 text-start">
                           <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${on ? "bg-white/10 text-eosin" : "bg-slide text-ink/70"}`}>
                             <Svg id={s.id} />
                           </span>
                           <span className="min-w-0">
-                            <span className="block font-semibold leading-tight">{s.label}</span>
-                            <span className={`block truncate text-xs ${on ? "text-white/60" : "text-muted"}`}>{s.hint}</span>
+                            <span className="block font-semibold leading-tight">{t(s.label)}</span>
+                            <span className={`block truncate text-xs ${on ? "text-white/60" : "text-muted"}`}>{t(s.hint)}</span>
                           </span>
                         </button>
                         {on && (
@@ -488,7 +480,7 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
                             max={100}
                             value={Math.round(v * 100)}
                             onChange={(e) => setLevel(s.id, Number(e.target.value) / 100)}
-                            aria-label={`Volume : ${s.label}`}
+                            aria-label={t("Volume : {a}", { a: s.label })}
                             className="mt-3 w-full accent-[var(--eosin)]"
                           />
                         )}
@@ -502,8 +494,7 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
         </div>
 
         <label className="flex items-center gap-3 border-t border-line pt-5 text-sm text-ink/80">
-          <input type="checkbox" checked={muteBreak} onChange={(e) => setMuteBreak(e.target.checked)} className="h-4 w-4 accent-[var(--eosin)]" />
-          Mettre le son en pause pendant les pauses du minuteur <span className="text-muted">(sinon il continue jusqu&apos;à ce que tu l&apos;arrêtes)</span>
+          <input type="checkbox" checked={muteBreak} onChange={(e) => setMuteBreak(e.target.checked)} className="h-4 w-4 accent-[var(--eosin)]" />{t("Mettre le son en pause pendant les pauses du minuteur")}{" "}<span className="text-muted">{t("(sinon il continue jusqu'à ce que tu l'arrêtes)")}</span>
         </label>
       </div>
     </section>

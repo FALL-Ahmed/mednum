@@ -6,6 +6,7 @@ import { HeroDemo } from "./hero-demo";
 import { getPublicOffers } from "@/lib/offers";
 import { getPublicStats } from "@/lib/stats";
 import { prefix as pfx, SITE, type Lang } from "@/lib/site-i18n";
+import { LangSync } from "@/components/lang-sync";
 
 // « Essayer gratuitement » = créer son espace avec Google (pas de téléchargement).
 
@@ -168,6 +169,7 @@ export async function Landing({ lang }: { lang: Lang }) {
 
   return (
     <>
+      {lang === "fr" && <LangSync lang="fr" onlyIf="l=fr" />}
       <header className={`${WRAP} flex items-center justify-between py-5`}>
         <a href="#top" aria-label="Axone, accueil">
           <Logo />

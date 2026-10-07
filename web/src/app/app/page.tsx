@@ -8,11 +8,16 @@ import { IconCheck, IconPlus } from "@/components/icons";
 import { addDays, jourCourt, toISO, todayISO } from "@/lib/dates";
 import { useFlag } from "@/lib/flags";
 import { getSupabase } from "@/lib/supabase";
+import { getAppLang, useT } from "@/lib/app-i18n";
 
 type Planned = { id: string; time: string | null; matiere: string | null; sous_matiere: string | null; done: boolean };
 
-const fmtMin = (min: number) =>
-  min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
+const fmtMin = (min: number) => {
+  const ar = getAppLang() === "ar";
+  const mu = ar ? "د" : "min";
+  const hu = ar ? "س" : "h";
+  return min < 60 ? `${min} ${mu}` : `${Math.floor(min / 60)} ${hu}${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
+};
 
 /** Carte d'usage : ce qu'il reste aujourd'hui, avec une alerte quand la limite approche. */
 function Usage({
@@ -28,17 +33,18 @@ function Usage({
   unit?: string;
   fem?: boolean;
 }) {
+  const t = useT();
   const used = left !== null && total ? total - left : 0;
   const pct = total ? Math.min(100, (used / total) * 100) : 0;
   const empty = left === 0;
   return (
     <div className={`rounded-2xl border bg-white p-5 ${empty ? "border-[#ffb74d]" : "border-line"}`}>
-      <p className="text-sm font-medium text-muted">{label}</p>
+      <p className="text-sm font-medium text-muted">{t(label)}</p>
       <p className="mt-2 flex items-baseline gap-1.5">
         <span className="display text-3xl text-ink">{left === null ? "–" : left}</span>
         <span className="text-sm text-muted">
           {total !== null
-            ? `restant${fem ? "e" : ""}${(left ?? 0) > 1 ? "s" : ""} sur ${unit === "∞" ? "∞" : total}`
+            ? t(`restant${fem ? "e" : ""}${(left ?? 0) > 1 ? "s" : ""} sur {c}`, { c: unit === "∞" ? "∞" : total })
             : ""}
         </span>
       </p>
@@ -50,6 +56,7 @@ function Usage({
 }
 
 export default function Accueil() {
+  const t = useT();
   const { user, profile, quota, docs, standardPrice } = useApp();
   const [today, setToday] = useState<Planned[] | null>(null);
   const [plannedTotal, setPlannedTotal] = useState<number | null>(null);
@@ -128,25 +135,22 @@ export default function Accueil() {
           href="/app/chat"
           className="flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-eosin hover:text-ink"
         >
-          <IconPlus className="h-4 w-4" />
-          Nouvelle discussion
-        </Link>
+          <IconPlus className="h-4 w-4" />{t("Nouvelle discussion")}</Link>
       </div>
 
       {/* Bandeau */}
       <section className="relative overflow-hidden rounded-2xl bg-ink text-white">
         <div className="relative z-10 max-w-lg p-6 sm:p-8">
           <p className="text-sm font-medium text-white/60">
-            {[profile.promotion_name, profile.country].filter(Boolean).join(" · ")}
+            {[profile.promotion_name, profile.country ? t(profile.country) : null].filter(Boolean).join(" · ")}
           </p>
-          <h2 className="display mt-1 text-3xl sm:text-4xl">Bonjour {profile.name}.</h2>
+          <h2 className="display mt-1 text-3xl sm:text-4xl">{t("Bonjour {a}.", { a: profile.name })}</h2>
           <p className="mt-2 text-white/75">
             {latest ? (
-              <>
-                Tu en étais à <span className="font-semibold text-white">{latest.name}</span>.
+              <>{t("Tu en étais à")}{" "}<span className="font-semibold text-white">{latest.name}</span>.
               </>
             ) : (
-              "Ajoute ton premier cours pour commencer à réviser."
+              t("Ajoute ton premier cours pour commencer à réviser.")
             )}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
@@ -154,17 +158,15 @@ export default function Accueil() {
               href={latest ? `/app/cours/${encodeURIComponent(latest.id)}` : "/app/cours"}
               className="rounded-full bg-eosin px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-white"
             >
-              {latest ? "Reprendre" : "Ajouter un cours"}
+              {latest ? t("Reprendre") : t("Ajouter un cours")}
             </Link>
             <Link
               href="/app/chat"
               className="rounded-full border border-white/25 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
-            >
-              Poser une question
-            </Link>
+            >{t("Poser une question")}</Link>
           </div>
         </div>
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-72 sm:block" aria-hidden>
+        <div className="pointer-events-none absolute inset-y-0 end-0 hidden w-72 sm:block" aria-hidden>
           <Image
             src="/dr-ahmed-v2.webp"
             alt=""
@@ -180,35 +182,29 @@ export default function Accueil() {
       {limitHit && !paid && (
         <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#ffb74d] bg-[#fff6e6] p-5">
           <div>
-            <p className="font-bold text-ink">Tu as utilisé toutes tes questions du jour.</p>
-            <p className="mt-0.5 text-sm text-ink/75">
-              Elles reviennent demain. Avec Standard, tu en as 30 par jour.
-            </p>
+            <p className="font-bold text-ink">{t("Tu as utilisé toutes tes questions du jour.")}</p>
+            <p className="mt-0.5 text-sm text-ink/75">{t("Elles reviennent demain. Avec Standard, tu en as 30 par jour.")}</p>
           </div>
           <Link
             href="/app/abonnement"
             className="rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-eosin hover:text-ink"
-          >
-            Passer à Standard
-          </Link>
+          >{t("Passer à Standard")}</Link>
         </section>
       )}
 
       {/* Usage du jour */}
       <section>
         <div className="mb-3 flex items-baseline justify-between">
-          <h3 className="font-bold text-ink">Ton usage aujourd&apos;hui</h3>
+          <h3 className="font-bold text-ink">{t("Ton usage aujourd'hui")}</h3>
           {!paid && (
-            <Link href="/app/abonnement" className="text-sm font-semibold text-ink/70 hover:text-ink">
-              Augmenter mes limites →
-            </Link>
+            <Link href="/app/abonnement" className="text-sm font-semibold text-ink/70 hover:text-ink">{t("Augmenter mes limites →")}</Link>
           )}
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Usage label="Questions" left={qLeft} total={quota?.daily_limit ?? null} fem />
-          <Usage label="Séries de QCM" left={qcmLeft} total={lim?.qcm ?? null} />
+          <Usage label={t("Questions")} left={qLeft} total={quota?.daily_limit ?? null} fem />
+          <Usage label={t("Séries de QCM")} left={qcmLeft} total={lim?.qcm ?? null} />
           <Usage
-            label="Documents"
+            label={t("Documents")}
             left={docsLeft}
             total={maxDocs}
             unit={lim && maxDocs === null ? "∞" : undefined}
@@ -220,24 +216,22 @@ export default function Accueil() {
         {/* Semaine */}
         <section className="rounded-2xl border border-line bg-white p-5 sm:p-6 lg:col-span-3">
           <div className="flex items-baseline justify-between gap-3">
-            <h3 className="font-bold text-ink">Ta semaine</h3>
-            <p className="text-sm text-muted">{study ? `${fmtMin(weekTotal)} de Pomodoro` : ""}</p>
+            <h3 className="font-bold text-ink">{t("Ta semaine")}</h3>
+            <p className="text-sm text-muted">{study ? t("{a} de Pomodoro", { a: fmtMin(weekTotal) }) : ""}</p>
           </div>
           {study === null ? (
-            <p className="mt-6 text-muted">Chargement…</p>
+            <p className="mt-6 text-muted">{t("Chargement…")}</p>
           ) : weekTotal === 0 ? (
             <div className="mt-5 rounded-xl bg-slide p-5">
-              <p className="font-semibold text-ink">Rien encore cette semaine.</p>
-              <p className="mt-1 text-sm text-muted">Lance un Pomodoro : chaque bloc terminé s&apos;affiche ici.</p>
+              <p className="font-semibold text-ink">{t("Rien encore cette semaine.")}</p>
+              <p className="mt-1 text-sm text-muted">{t("Lance un Pomodoro : chaque bloc terminé s'affiche ici.")}</p>
               <Link
                 href="/app/pomodoro"
                 className="mt-3 inline-block rounded-full bg-ink px-4 py-2 text-sm font-bold text-white transition hover:bg-eosin hover:text-ink"
-              >
-                Lancer un Pomodoro
-              </Link>
+              >{t("Lancer un Pomodoro")}</Link>
             </div>
           ) : (
-            <div className="mt-5 flex h-36 items-end gap-2" role="img" aria-label={`${fmtMin(weekTotal)} travaillées ces 7 derniers jours`}>
+            <div className="mt-5 flex h-36 items-end gap-2" role="img" aria-label={t("{a} travaillées ces 7 derniers jours", { a: fmtMin(weekTotal) })}>
               {study.map((d) => {
                 const isToday = d.day === todayISO();
                 return (
@@ -258,22 +252,20 @@ export default function Accueil() {
         {/* Aujourd'hui */}
         <section className="rounded-2xl border border-line bg-white p-5 sm:p-6 lg:col-span-2">
           <div className="flex items-baseline justify-between gap-3">
-            <h3 className="font-bold text-ink">Aujourd&apos;hui</h3>
-            <Link href="/app/planning" className="text-sm font-semibold text-ink/70 hover:text-ink">
-              Planning →
-            </Link>
+            <h3 className="font-bold text-ink">{t("Aujourd'hui")}</h3>
+            <Link href="/app/planning" className="text-sm font-semibold text-ink/70 hover:text-ink">{t("Planning →")}</Link>
           </div>
           {today === null ? (
-            <p className="mt-5 text-muted">Chargement…</p>
+            <p className="mt-5 text-muted">{t("Chargement…")}</p>
           ) : today.length === 0 ? (
-            <p className="mt-5 text-muted">Aucune session prévue. Planifie-en une pour garder le rythme.</p>
+            <p className="mt-5 text-muted">{t("Aucune session prévue. Planifie-en une pour garder le rythme.")}</p>
           ) : (
             <ul className="mt-3 divide-y divide-line">
               {today.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 py-3">
                   <span className="label w-12 shrink-0 text-muted">{s.time ?? "–"}</span>
                   <span className={`flex-1 ${s.done ? "text-muted line-through" : "text-ink"}`}>
-                    {[s.matiere, s.sous_matiere].filter(Boolean).join(" · ") || "Session de révision"}
+                    {[s.matiere, s.sous_matiere].filter(Boolean).join(" · ") || t("Session de révision")}
                   </span>
                 </li>
               ))}
@@ -286,10 +278,8 @@ export default function Accueil() {
       {showSteps && (
         <section className="rounded-2xl border border-line bg-white p-5 sm:p-6">
           <div className="flex items-baseline justify-between gap-3">
-            <h3 className="font-bold text-ink">Premiers pas</h3>
-            <p className="text-sm text-muted">
-              {doneCount} sur {steps.length}
-            </p>
+            <h3 className="font-bold text-ink">{t("Premiers pas")}</h3>
+            <p className="text-sm text-muted">{t("{a} sur {b}", { a: doneCount, b: steps.length })}</p>
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slide">
             <div className="h-full rounded-full bg-eosin" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
@@ -310,7 +300,7 @@ export default function Accueil() {
                   >
                     <IconCheck className="h-3.5 w-3.5" />
                   </span>
-                  <span className={s.done ? "text-muted line-through" : "font-medium text-ink"}>{s.label}</span>
+                  <span className={s.done ? "text-muted line-through" : "font-medium text-ink"}>{t(s.label)}</span>
                 </Link>
               </li>
             ))}
@@ -323,17 +313,13 @@ export default function Accueil() {
         <section className="rounded-2xl bg-ink p-6 text-white sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-md">
-              <h3 className="display text-2xl sm:text-3xl">Passe à Standard</h3>
+              <h3 className="display text-2xl sm:text-3xl">{t("Passe à Standard")}</h3>
               <p className="mt-2 text-white/70">
-                {standardPrice ? `${standardPrice.toLocaleString("fr-FR")} MRU par mois. ` : ""}Le même abonnement
-                marche sur le site et dans l&apos;application.
-              </p>
+                {standardPrice ? t("{a} MRU par mois. ", { a: standardPrice.toLocaleString("fr-FR") }) : ""}{t("Le même abonnement marche sur le site et dans l'application.")}</p>
               <Link
                 href="/app/abonnement"
                 className="mt-5 inline-block rounded-full bg-eosin px-6 py-3 text-sm font-extrabold text-ink transition hover:bg-white"
-              >
-                Voir les offres
-              </Link>
+              >{t("Voir les offres")}</Link>
             </div>
             <dl className="grid w-full grid-cols-3 gap-3 text-center sm:w-auto sm:min-w-[22rem]">
               {[
@@ -342,7 +328,7 @@ export default function Accueil() {
                 ["Documents", lim?.max_documents ?? 1, 5],
               ].map(([label, from, to]) => (
                 <div key={label as string} className="rounded-xl bg-white/8 p-3">
-                  <dt className="text-xs text-white/60">{label} par jour</dt>
+                  <dt className="text-xs text-white/60">{t("{a} par jour", { a: label })}</dt>
                   <dd className="mt-1 text-sm text-white/50 line-through">{from}</dd>
                   <dd className="display text-2xl text-eosin">{to}</dd>
                 </div>

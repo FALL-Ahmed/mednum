@@ -19,6 +19,7 @@ import { useApp } from "./app-context";
 import { ConfirmDialog } from "./confirm-dialog";
 import { LimitNotice } from "./limit-notice";
 import { ReportButton } from "./report-button";
+import { formatDate, useT } from "@/lib/app-i18n";
 
 type Active = {
   id: string | null;
@@ -29,7 +30,7 @@ type Active = {
 };
 
 const dateShort = (iso: string) =>
-  new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  formatDate(new Date(iso), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 const pointsOf = (a: Active) =>
   a.questions.reduce((sum, q, i) => (a.answers[i]?.done ? sum + scoreQcm(a.answers[i].sel, q.bonnesReponses).points : sum), 0);
@@ -40,6 +41,7 @@ const btnLine =
   "rounded-full border border-ink/25 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-40";
 
 export function QcmTab({ doc }: { doc: DocumentRow }) {
+  const t = useT();
   const { user, profile, quota, refreshQuota } = useApp();
   const router = useRouter();
   const isDuo = quota?.plan === "premium";
@@ -108,10 +110,10 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
       }
       setError(
         e instanceof Error && e.message === "format"
-            ? "Les QCM n'ont pas pu être générés. Réessaie."
+            ? t("Les QCM n'ont pas pu être générés. Réessaie.")
             : e instanceof Error
               ? e.message
-              : "Une erreur est survenue.",
+              : t("Une erreur est survenue."),
       );
     } finally {
       setLoading(false);
@@ -192,8 +194,8 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
   if (chapters.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-line bg-white p-8">
-        <p className="display text-2xl text-ink">Ce document n&apos;a pas assez de texte pour des QCM.</p>
-        <p className="mt-2 max-w-lg text-muted">Ajoute un document plus complet, ou des photos plus nettes de tes pages.</p>
+        <p className="display text-2xl text-ink">{t("Ce document n'a pas assez de texte pour des QCM.")}</p>
+        <p className="mt-2 max-w-lg text-muted">{t("Ajoute un document plus complet, ou des photos plus nettes de tes pages.")}</p>
       </div>
     );
   }
@@ -203,10 +205,8 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
     return (
       <div className="space-y-6">
         <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-          <p className="display text-2xl text-ink">Nouvelle série de QCM</p>
-          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="chapter">
-            Chapitre
-          </label>
+          <p className="display text-2xl text-ink">{t("Nouvelle série de QCM")}</p>
+          <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="chapter">{t("Chapitre")}</label>
           <select
             id="chapter"
             value={chapter}
@@ -215,14 +215,14 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
           >
             {chapters.map((c, i) => (
               <option key={i} value={i}>
-                {c.title}
+                {t(c.title)}
               </option>
             ))}
           </select>
           <button onClick={generate} disabled={loading} className={`mt-5 ${btnDark}`}>
-            {loading ? "Dr. Ahmed prépare tes QCM…" : "Générer 5 QCM"}
+            {loading ? t("Dr. Ahmed prépare tes QCM…") : t("Générer 5 QCM")}
           </button>
-          {loading && <p className="mt-3 text-sm text-muted">Ça prend en général 20 à 30 secondes. Ne ferme pas la page.</p>}
+          {loading && <p className="mt-3 text-sm text-muted">{t("Ça prend en général 20 à 30 secondes. Ne ferme pas la page.")}</p>}
           {limit && (
             <div className="mt-5">
               <LimitNotice kind="qcm" onClose={() => setLimit(false)} />
@@ -230,21 +230,19 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
           )}
           {error && (
             <p role="alert" className="mt-4 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-              {error}
+              {t(error)}
             </p>
           )}
         </div>
 
         <div>
-          <h3 className="display text-2xl text-ink">Tes séries précédentes</h3>
+          <h3 className="display text-2xl text-ink">{t("Tes séries précédentes")}</h3>
           {history === null ? (
-            <p className="mt-3 text-muted">Chargement…</p>
+            <p className="mt-3 text-muted">{t("Chargement…")}</p>
           ) : !historyOk ? (
-            <p className="mt-3 max-w-xl rounded-2xl border border-dashed border-line bg-white p-5 text-muted">
-              L&apos;historique des QCM n&apos;est pas encore activé sur ce compte. Tes séries ne sont pas enregistrées pour le moment.
-            </p>
+            <p className="mt-3 max-w-xl rounded-2xl border border-dashed border-line bg-white p-5 text-muted">{t("L'historique des QCM n'est pas encore activé sur ce compte. Tes séries ne sont pas enregistrées pour le moment.")}</p>
           ) : history.length === 0 ? (
-            <p className="mt-3 text-muted">Aucune série pour l&apos;instant. Tes QCM seront enregistrés ici pour les réviser plus tard.</p>
+            <p className="mt-3 text-muted">{t("Aucune série pour l'instant. Tes QCM seront enregistrés ici pour les réviser plus tard.")}</p>
           ) : (
             <ul className="mt-4 grid gap-4 sm:grid-cols-2">
               {history.map((h) => {
@@ -256,16 +254,14 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="label text-muted">{dateShort(h.created_at)}</p>
-                        <p className="mt-1.5 font-semibold leading-snug text-ink">{h.chapter_title}</p>
+                        <p dir="auto" className="mt-1.5 font-semibold leading-snug text-ink">{h.chapter_title}</p>
                       </div>
                       <button
                         onClick={() => setToDelete(h)}
-                        aria-label="Supprimer cette série"
-                        title="Supprimer"
+                        aria-label={t("Supprimer cette série")}
+                        title={t("Supprimer")}
                         className="shrink-0 rounded-lg px-2 py-1 text-sm text-muted transition hover:bg-slide hover:text-[#a3271c]"
-                      >
-                        Supprimer
-                      </button>
+                      >{t("Supprimer")}</button>
                     </div>
                     {h.finished ? (
                       <p className="mt-4 flex items-baseline gap-2">
@@ -273,19 +269,17 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
                         <span className="text-muted">/ {h.total} · {pct} %</span>
                       </p>
                     ) : (
-                      <p className="mt-4 text-muted">
-                        En cours · {answered} validée{answered > 1 ? "s" : ""} sur {total}
-                      </p>
+                      <p className="mt-4 text-muted">{t(answered > 1 ? "En cours · {a} validées sur {b}" : "En cours · {a} validée sur {b}", { a: answered, b: total })}</p>
                     )}
                     <button onClick={() => open(h)} className={`mt-4 w-full ${h.finished ? btnLine : btnDark}`}>
-                      {h.finished ? "Revoir la correction" : "Reprendre"}
+                      {h.finished ? t("Revoir la correction") : t("Reprendre")}
                     </button>
                     <button
                       onClick={() => startDuo(h.chapter_title, h.questions)}
                       disabled={duoBusy}
                       className="mt-2 w-full rounded-full px-6 py-2.5 text-sm font-semibold text-ink/80 transition hover:bg-eosin-soft hover:text-ink disabled:opacity-40"
                     >
-                      {duoBusy ? "Création de la session…" : "Réviser à deux"}
+                      {duoBusy ? t("Création de la session…") : t("Réviser à deux")}
                     </button>
                   </li>
                 );
@@ -296,29 +290,25 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
 
         {duoMsg && (
           <p role="alert" className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-            {duoMsg}
+            {t(duoMsg)}
           </p>
         )}
         {duoUpsell && (
           <div className="rounded-2xl bg-eosin-soft p-5">
-            <p className="font-semibold text-ink">Réviser à deux est réservé au plan Duo.</p>
-            <p className="mt-1 text-ink/80">Tu invites un ami, qui participe gratuitement, et vous comparez vos réponses.</p>
+            <p className="font-semibold text-ink">{t("Réviser à deux est réservé au plan Duo.")}</p>
+            <p className="mt-1 text-ink/80">{t("Tu invites un ami, qui participe gratuitement, et vous comparez vos réponses.")}</p>
             <div className="mt-3 flex flex-wrap gap-3">
-              <Link href="/app/abonnement" className={btnDark}>
-                Voir le plan Duo
-              </Link>
-              <button onClick={() => setDuoUpsell(false)} className={btnLine}>
-                Plus tard
-              </button>
+              <Link href="/app/abonnement" className={btnDark}>{t("Voir le plan Duo")}</Link>
+              <button onClick={() => setDuoUpsell(false)} className={btnLine}>{t("Plus tard")}</button>
             </div>
           </div>
         )}
 
         {toDelete && (
           <ConfirmDialog
-            title="Supprimer cette série ?"
-            text={`La série « ${toDelete.chapter_title} » du ${dateShort(toDelete.created_at)} sera supprimée définitivement.`}
-            confirmLabel="Supprimer la série"
+            title={t("Supprimer cette série ?")}
+            text={t("La série « {a} » du {b} sera supprimée définitivement.", { a: toDelete.chapter_title, b: dateShort(toDelete.created_at) })}
+            confirmLabel={t("Supprimer la série")}
             danger
             onConfirm={confirmDelete}
             onCancel={() => setToDelete(null)}
@@ -334,7 +324,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
     const pts = pointsOf(active);
     return (
       <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
-        <p className="label text-muted">Résultat · {active.chapter}</p>
+        <p className="label text-muted">{t("Résultat · {a}", { a: active.chapter })}</p>
         <p className="display mt-3 text-6xl text-ink">
           {pts}
           <span className="text-2xl text-muted"> / {total * 10}</span>
@@ -349,7 +339,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
                     setIdx(i);
                     setShowResult(false);
                   }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slide"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-start transition hover:bg-slide"
                 >
                   <span
                     className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${
@@ -358,9 +348,9 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
                   >
                     {i + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-ink/85">{q.question}</span>
+                  <span dir="auto" className="min-w-0 flex-1 truncate text-ink/85">{q.question}</span>
                   <span className="shrink-0 text-sm font-semibold text-ink">
-                    {!r ? "Sans réponse" : `${r.points} pts`}
+                    {!r ? t("Sans réponse") : `${r.points} pts`}
                   </span>
                 </button>
               </li>
@@ -374,12 +364,8 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
               setShowResult(false);
             }}
             className={btnLine}
-          >
-            Revoir la correction
-          </button>
-          <button onClick={leave} className={btnDark}>
-            Terminer
-          </button>
+          >{t("Revoir la correction")}</button>
+          <button onClick={leave} className={btnDark}>{t("Terminer")}</button>
         </div>
       </div>
     );
@@ -396,36 +382,30 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
   return (
     <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button onClick={leave} className="text-sm font-semibold text-ink/70 transition hover:text-ink">
-          ← Mes séries
-        </button>
+        <button onClick={leave} className="text-sm font-semibold text-ink/70 transition hover:text-ink">{t("← Mes séries")}</button>
         <div className="flex items-center gap-3">
-          <p className="label text-muted">{active.chapter}</p>
+          <p dir="auto" className="label text-muted">{active.chapter}</p>
           <button
             onClick={() => startDuo(active.chapter, active.questions)}
             disabled={duoBusy}
             className="rounded-full border border-ink/25 px-4 py-1.5 text-sm font-semibold text-ink transition hover:border-ink disabled:opacity-40"
           >
-            {duoBusy ? "Création…" : "Réviser à deux"}
+            {duoBusy ? t("Création…") : t("Réviser à deux")}
           </button>
         </div>
       </div>
       {duoMsg && (
         <p role="alert" className="mt-3 rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
-          {duoMsg}
+          {t(duoMsg)}
         </p>
       )}
       {duoUpsell && (
-        <p className="mt-3 rounded-2xl bg-eosin-soft px-4 py-3 text-ink">
-          Réviser à deux est réservé au plan Duo.{" "}
-          <Link href="/app/abonnement" className="font-semibold underline">
-            Voir le plan Duo
-          </Link>
+        <p className="mt-3 rounded-2xl bg-eosin-soft px-4 py-3 text-ink">{t("Réviser à deux est réservé au plan Duo.")}<Link href="/app/abonnement" className="font-semibold underline">{t("Voir le plan Duo")}</Link>
         </p>
       )}
 
       {/* Navigation libre entre les questions */}
-      <nav aria-label="Questions" className="mt-4 flex flex-wrap gap-2">
+      <nav aria-label={t("Questions")} className="mt-4 flex flex-wrap gap-2">
         {active.questions.map((qq, i) => {
           const a = active.answers[i];
           const r = a.done ? scoreQcm(a.sel, qq.bonnesReponses).result : null;
@@ -445,7 +425,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
             <button
               key={i}
               onClick={() => setIdx(i)}
-              aria-label={`Question ${i + 1}`}
+              aria-label={t("Question {a}", { a: i + 1 })}
               aria-current={i === idx ? "step" : undefined}
               className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold transition ${tone}`}
             >
@@ -455,11 +435,9 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
         })}
       </nav>
 
-      <p className="label mt-6 text-muted">
-        Question {idx + 1} sur {total}
-      </p>
-      <p className="display mt-3 text-2xl leading-snug text-ink">{q.question}</p>
-      <p className="mt-2 text-sm text-muted">Une ou plusieurs propositions sont exactes.</p>
+      <p className="label mt-6 text-muted">{t("Question {a} sur {b}", { a: idx + 1, b: total })}</p>
+      <p dir="auto" className="display mt-3 text-2xl leading-snug text-ink">{q.question}</p>
+      <p className="mt-2 text-sm text-muted">{t("Une ou plusieurs propositions sont exactes.")}</p>
 
       <div className="mt-5 space-y-2.5">
         {KEYS.map((k) => {
@@ -480,10 +458,10 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
               disabled={revealed}
               onClick={() => toggle(k)}
               aria-pressed={isPicked}
-              className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-left text-[15px] transition ${style}`}
+              className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-start text-[15px] transition ${style}`}
             >
               <span className="label mt-0.5 w-4 shrink-0">{k}</span>
-              <span className="flex-1">
+              <span dir="auto" className="flex-1">
                 {q.propositions[k]}
                 {revealed && <span className="mt-1.5 block text-sm text-muted">{q.explication[k]}</span>}
               </span>
@@ -505,54 +483,38 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
           }`}
         >
           {ans.sel.length === 0
-            ? "Sans réponse · 0 point"
+            ? t("Sans réponse · 0 point")
             : `${result === "COMPLET" ? "Complet" : result === "PARTIEL" ? "Partiel" : "Faux"} · ${gained} points`}
         </p>
       )}
 
       {revealed && (
         <div className="mt-3">
-          <ReportButton docId={doc.id} kind="qcm" itemRef={`${active.chapter} · Q${idx + 1}`} snapshot={q} label="Signaler une erreur dans cette question" />
+          <ReportButton docId={doc.id} kind="qcm" itemRef={`${active.chapter} · Q${idx + 1}`} snapshot={q} label={t("Signaler une erreur dans cette question")} />
         </div>
       )}
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className={btnLine}>
-          ← Précédente
-        </button>
+        <button onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0} className={btnLine}>{t("← Précédente")}</button>
         {!revealed && (
-          <button onClick={validate} disabled={ans.sel.length === 0} className={btnDark}>
-            Valider
-          </button>
+          <button onClick={validate} disabled={ans.sel.length === 0} className={btnDark}>{t("Valider")}</button>
         )}
         {!last ? (
-          <button onClick={() => setIdx((i) => Math.min(total - 1, i + 1))} className={revealed ? btnDark : btnLine}>
-            Suivante →
-          </button>
+          <button onClick={() => setIdx((i) => Math.min(total - 1, i + 1))} className={revealed ? btnDark : btnLine}>{t("Suivante →")}</button>
         ) : active.finished ? (
-          <button onClick={() => setShowResult(true)} className={btnDark}>
-            Voir mon résultat
-          </button>
+          <button onClick={() => setShowResult(true)} className={btnDark}>{t("Voir mon résultat")}</button>
         ) : (
-          <button onClick={finish} className={revealed ? btnDark : btnLine}>
-            Terminer
-          </button>
+          <button onClick={finish} className={revealed ? btnDark : btnLine}>{t("Terminer")}</button>
         )}
         {!active.finished && !last && (
-          <button onClick={finish} className="ml-auto text-sm font-semibold text-ink/70 transition hover:text-ink">
-            Terminer maintenant
-          </button>
+          <button onClick={finish} className="ms-auto text-sm font-semibold text-ink/70 transition hover:text-ink">{t("Terminer maintenant")}</button>
         )}
       </div>
       {!active.finished && pending > 0 && last && (
-        <p className="mt-3 text-sm text-muted">
-          {pending} question{pending > 1 ? "s" : ""} pas encore validée{pending > 1 ? "s" : ""} : elle{pending > 1 ? "s" : ""} compteront 0 point si tu termines maintenant.
-        </p>
+        <p className="mt-3 text-sm text-muted">{t(pending > 1 ? "{a} questions pas encore validées : elles compteront 0 point si tu termines maintenant." : "{a} question pas encore validée : elle comptera 0 point si tu termines maintenant.", { a: pending })}</p>
       )}
       {active.finished && (
-        <button onClick={() => setShowResult(true)} className="mt-4 text-sm font-semibold text-ink/70 transition hover:text-ink">
-          Voir le résultat de la série
-        </button>
+        <button onClick={() => setShowResult(true)} className="mt-4 text-sm font-semibold text-ink/70 transition hover:text-ink">{t("Voir le résultat de la série")}</button>
       )}
     </div>
   );
