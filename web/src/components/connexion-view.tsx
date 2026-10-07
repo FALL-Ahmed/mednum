@@ -4,6 +4,7 @@ import { SITE, type Lang } from "@/lib/site-i18n";
 import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
+import { Clarity } from "./clarity";
 import { HeroDemo } from "@/app/hero-demo";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
@@ -133,6 +134,7 @@ export function ConnexionView({ lang = "fr" }: { lang?: Lang }) {
 
   return (
     <main className="grid min-h-screen md:grid-cols-2">
+      <Clarity />
       <section className="flex flex-col justify-center px-5 py-14 sm:px-12 md:px-10 lg:px-16 xl:px-24">
       <div className="w-full max-w-md">
       {GOOGLE_CLIENT_ID && (

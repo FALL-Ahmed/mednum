@@ -4,6 +4,7 @@ import { IconBook, IconCalendar, IconChat, IconFile, IconSpark, IconTimer, IconU
 import { Pricing } from "./pricing";
 import { HeroDemo } from "./hero-demo";
 import { LiveNow } from "./live-now";
+import { Clarity } from "@/components/clarity";
 import { getPublicOffers } from "@/lib/offers";
 import { getPublicStats } from "@/lib/stats";
 import { prefix as pfx, SITE, type Lang } from "@/lib/site-i18n";
@@ -192,6 +193,7 @@ export async function Landing({ lang }: { lang: Lang }) {
       </header>
 
       <LiveNow lang={lang} />
+      <Clarity />
 
       <main id="top">
         {/* Hero */}

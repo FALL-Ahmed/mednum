@@ -49,14 +49,14 @@ const privacyFr: LegalDoc = {
     {
       h: "5. Les services qui nous aident",
       p: [
-        "Supabase héberge la base de données et les fichiers. Google gère la connexion et la mesure d'audience du site. Les paiements en ligne passent par des prestataires de paiement (PayDunya, KitPay) quand ils sont disponibles ; les paiements par reçu sont vérifiés par notre équipe. Le site est hébergé par un prestataire d'hébergement web.",
+        "Supabase héberge la base de données et les fichiers. Google gère la connexion et la mesure d'audience du site. Microsoft Clarity enregistre de façon anonyme les clics et les parcours des visiteurs sur les pages publiques (accueil, connexion), jamais dans ton espace de travail. Les paiements en ligne passent par des prestataires de paiement (PayDunya, KitPay) quand ils sont disponibles ; les paiements par reçu sont vérifiés par notre équipe. Le site est hébergé par un prestataire d'hébergement web.",
         "Ces services peuvent traiter des données hors de ton pays.",
       ],
     },
     {
       h: "6. Cookies et stockage dans ton navigateur",
       p: [
-        "Axone garde dans ton navigateur ce qui est nécessaire : ta session de connexion et tes préférences (langue, repères de progression). Google Analytics mesure la fréquentation du site. Tu peux bloquer ou effacer ces données dans les réglages de ton navigateur ; la connexion ne fonctionnera alors plus.",
+        "Axone garde dans ton navigateur ce qui est nécessaire : ta session de connexion et tes préférences (langue, repères de progression). Google Analytics et Microsoft Clarity mesurent la fréquentation et l'usage des pages publiques. Tu peux bloquer ou effacer ces données dans les réglages de ton navigateur ; la connexion ne fonctionnera alors plus.",
       ],
     },
     {
@@ -200,14 +200,14 @@ const privacyAr: LegalDoc = {
     {
       h: "5. الخدمات التي تساعدنا",
       p: [
-        "تستضيف Supabase قاعدة البيانات والملفات. وتدير Google تسجيل الدخول وقياس زيارات الموقع. تمرّ المدفوعات عبر الإنترنت عبر مزوّدي دفع (PayDunya وKitPay) عند توفرهم؛ أما الدفع بالإيصال فيتحقق منه فريقنا. يُستضاف الموقع لدى مزوّد استضافة.",
+        "تستضيف Supabase قاعدة البيانات والملفات. وتدير Google تسجيل الدخول وقياس زيارات الموقع. وتسجّل Microsoft Clarity بشكل مجهول النقرات وتنقّل الزوار في الصفحات العامة (الرئيسية وتسجيل الدخول)، ولا تسجّل أبدًا داخل مساحة عملك. تمرّ المدفوعات عبر الإنترنت عبر مزوّدي دفع (PayDunya وKitPay) عند توفرهم؛ أما الدفع بالإيصال فيتحقق منه فريقنا. يُستضاف الموقع لدى مزوّد استضافة.",
         "قد تعالج هذه الخدمات البيانات خارج بلدك.",
       ],
     },
     {
       h: "6. ملفات الارتباط والتخزين في متصفحك",
       p: [
-        "يحتفظ أكسون في متصفحك بما هو ضروري: جلسة تسجيل الدخول وتفضيلاتك (اللغة وعلامات التقدّم). وتقيس Google Analytics عدد زيارات الموقع. يمكنك حظر هذه البيانات أو حذفها من إعدادات المتصفح، وعندها لن يعمل تسجيل الدخول.",
+        "يحتفظ أكسون في متصفحك بما هو ضروري: جلسة تسجيل الدخول وتفضيلاتك (اللغة وعلامات التقدّم). وتقيس Google Analytics وMicrosoft Clarity زيارات الصفحات العامة واستخدامها. يمكنك حظر هذه البيانات أو حذفها من إعدادات المتصفح، وعندها لن يعمل تسجيل الدخول.",
       ],
     },
     {
