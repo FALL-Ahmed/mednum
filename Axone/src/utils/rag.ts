@@ -1179,15 +1179,21 @@ ${chunk.content.slice(0, 150000)}
 
 export type FlashcardData = { front: string; back: string };
 
+/** Même règle que sur le site : l'essentiel du cours, 30 cartes au maximum (environ 1 carte pour 330 mots, entre 8 et 30). */
+export const MAX_FLASHCARDS = 30;
+export const flashcardBudget = (words: number) =>
+  Math.min(MAX_FLASHCARDS, Math.max(8, Math.round(words / 330)));
+
 export async function generateFlashcards(
   content: string,
   courseName: string,
   niveauEtudiant: string,
   filiere: FiliereType = 'medecine'
 ): Promise<FlashcardData[]> {
+  const count = flashcardBudget(content.split(/\s+/).filter(Boolean).length);
   const prompt = `Tu es Dr. Ahmed, senior en ${filiereProfession(filiere)} et tuteur de révision pour les étudiants de la FMPOS/UNAM Nouakchott, filière ${filiereProfession(filiere)}.
 
-Génère une série de flashcards de révision à partir du cours ci-dessous — recto/verso, format classique de mémorisation active (comme Anki).
+Génère une série de flashcards de révision à partir du cours ci-dessous — recto/verso, format classique de mémorisation active (comme Anki). Ce sont les cartes de l'ESSENTIEL : ce qu'il faut absolument retenir, pas le détail.
 
 CONTEXTE ÉTUDIANT :
 - Niveau : ${niveauEtudiant}
@@ -1200,7 +1206,7 @@ RÈGLES ABSOLUES :
 4. Le verso (back) est la réponse exacte, dense, sans blabla — 1 à 3 phrases maximum, ou une liste courte si pertinent.
 5. Adapte la difficulté au niveau ${niveauEtudiant} : plus P1/P2 → bases et définitions ; plus P4/P5/Résidanat → pièges, valeurs seuils, diagnostics différentiels, associations à connaître.
 6. Priorise ce qui est vraiment testable à l'examen : définitions clés, mécanismes, valeurs seuils, classifications, signes cliniques, traitements de première intention.
-7. Génère entre 12 et 20 cartes selon la richesse du cours — ne remplis pas artificiellement avec des cartes redondantes.
+7. Génère EXACTEMENT ${count} cartes, ni plus ni moins : les ${count} notions les plus importantes, dans l'ordre du cours. Aucune carte redondante.
 8. Varie les formats : définition → terme, terme → définition, mécanisme cause → conséquence, "quelle est la valeur seuil de...", "cite les signes de...".
 
 Réponds UNIQUEMENT avec le JSON valide, sans balise markdown, sans aucun texte avant ou après :
@@ -1235,7 +1241,7 @@ ${content.slice(0, 150000)}
   );
 
   if (valid.length === 0) throw new Error('Aucune flashcard valide générée.');
-  return valid;
+  return valid.slice(0, MAX_FLASHCARDS);
 }
 
 // ─── Cas clinique interactif ──────────────────────────────────────────────────
