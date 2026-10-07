@@ -102,7 +102,8 @@ export function ConnexionView({ lang = "fr" }: { lang?: Lang }) {
       shape: "pill",
       text: "continue_with",
       locale: t.googleLocale,
-      width: 360,
+      // Le bouton de Google a une largeur fixe (200 à 400 px) : on l'ajuste à la place disponible pour qu'il ne déborde pas sur petit écran
+      width: Math.max(200, Math.min(360, Math.floor(buttonRef.current.parentElement?.clientWidth ?? 360))),
     });
     setGsiReady(true);
   }, [router, t]);

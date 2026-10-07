@@ -25,7 +25,7 @@ const privacyFr: LegalDoc = {
       p: [
         "Ton compte : le nom et l'adresse e-mail de ton compte Google, utilisés pour te connecter. Nous ne voyons jamais ton mot de passe Google.",
         "Ton profil : ton prénom, ton pays, ta filière, ton année et, si tu le renseignes, ton université.",
-        "Ce que tu déposes et ce que tu fais : tes cours (PDF, images, texte), tes questions à Dr. Ahmed et l'historique des discussions, les fiches, flashcards, QCM et cas cliniques créés, ta progression, tes planning et sessions à deux.",
+        "Ce que tu déposes et ce que tu fais : tes cours (PDF, images, texte) et le fichier d'origine de chaque cours, tes questions à Dr. Ahmed et l'historique des discussions, les fiches, flashcards, QCM et cas cliniques créés, ta progression, tes planning et sessions à deux.",
         "Ton abonnement : le plan choisi, le montant, le moyen de paiement, la référence, la capture du reçu que tu envoies et, si tu le saisis, le numéro avec lequel tu paies.",
         "Des données techniques : ton navigateur, ton appareil, les erreurs rencontrées dans l'application et des statistiques d'utilisation (pages visitées, étapes franchies) pour améliorer le service.",
       ],
@@ -37,6 +37,7 @@ const privacyFr: LegalDoc = {
         "Pour vérifier tes paiements et activer ton abonnement.",
         "Pour te prévenir quand ton abonnement se termine, répondre à ton support et corriger les erreurs.",
         "Pour comprendre comment le produit est utilisé et l'améliorer, de façon globale.",
+        "Les cours que tu déposes alimentent une banque de cours interne : nous en conservons une copie du fichier d'origine, de façon confidentielle (jamais visible par les autres étudiants, seule l'équipe d'Axone y accède) afin d'améliorer nos services : qualité des fiches et des QCM, lecture des documents scannés, contenus proposés.",
         "Nous ne vendons pas tes données et nous n'affichons pas de publicité.",
       ],
     },
@@ -62,7 +63,7 @@ const privacyFr: LegalDoc = {
     {
       h: "7. Combien de temps",
       p: [
-        "Nous gardons tes données tant que ton compte existe. Si tu supprimes ton compte, ton profil, tes cours, tes historiques et tes créations sont effacés.",
+        "Nous gardons tes données tant que ton compte existe. Si tu supprimes un cours, la copie de son fichier est supprimée avec lui. Si tu supprimes ton compte, ton profil, tes cours (et leurs fichiers), tes historiques et tes créations sont effacés.",
         "Les enregistrements de paiement (montant, date, offre) sont conservés sans ton nom ni ton reçu, pour notre comptabilité. Les journaux d'erreurs sont gardés une durée limitée.",
       ],
     },
@@ -127,7 +128,7 @@ const termsFr: LegalDoc = {
     {
       h: "6. Ce que tu t'engages à faire",
       p: [
-        "Déposer uniquement des contenus que tu as le droit d'utiliser pour tes études. Tes cours restent à toi ; tu nous autorises seulement à les traiter pour te fournir le service.",
+        "Déposer uniquement des contenus que tu as le droit d'utiliser pour tes études. Tes cours restent à toi ; tu nous autorises à les traiter pour te fournir le service et à en conserver une copie, en toute confidentialité, pour améliorer Axone.",
         "Ne pas tenter de contourner les limites, de copier le service, de surcharger les serveurs, ni de déposer des contenus illégaux ou qui portent atteinte à d'autres.",
       ],
     },
@@ -176,7 +177,7 @@ const privacyAr: LegalDoc = {
       p: [
         "حسابك: اسم وبريد حساب جوجل المستخدم لتسجيل الدخول. لا نرى كلمة مرور جوجل أبدًا.",
         "ملفك: اسمك الأول وبلدك وتخصصك وسنتك الدراسية وجامعتك إن أدخلتها.",
-        "ما ترفعه وما تفعله: دروسك (ملفات PDF وصور ونصوص)، أسئلتك لـ Dr. Ahmed وسجل المحادثات، والملخصات والبطاقات والأسئلة متعددة الاختيارات والحالات السريرية التي أُنشئت، وتقدّمك وجدولك وجلسات المراجعة الثنائية.",
+        "ما ترفعه وما تفعله: دروسك (ملفات PDF وصور ونصوص) والملف الأصلي لكل درس، أسئلتك لـ Dr. Ahmed وسجل المحادثات، والملخصات والبطاقات والأسئلة متعددة الاختيارات والحالات السريرية التي أُنشئت، وتقدّمك وجدولك وجلسات المراجعة الثنائية.",
         "اشتراكك: الخطة المختارة والمبلغ ووسيلة الدفع والمرجع ولقطة الإيصال التي ترسلها، والرقم الذي تدفع به إن أدخلته.",
         "بيانات تقنية: المتصفح والجهاز والأخطاء التي تظهر في التطبيق وإحصاءات الاستخدام (الصفحات والخطوات) لتحسين الخدمة.",
       ],
@@ -188,6 +189,7 @@ const privacyAr: LegalDoc = {
         "للتحقق من مدفوعاتك وتفعيل اشتراكك.",
         "لتنبيهك عند قرب انتهاء الاشتراك، والرد على الدعم وإصلاح الأخطاء.",
         "لفهم كيفية استخدام المنتج وتحسينه بشكل عام.",
+        "الدروس التي ترفعها تغذّي «بنك دروس» داخليًا: نحتفظ بنسخة من الملف الأصلي بشكل سري (لا يراها الطلاب الآخرون، ولا يطّلع عليها إلا فريق أكسون) لتحسين خدماتنا: جودة الملخصات والأسئلة وقراءة المستندات الممسوحة ضوئيًا والمحتويات المقترحة.",
         "لا نبيع بياناتك ولا نعرض إعلانات.",
       ],
     },
@@ -213,7 +215,7 @@ const privacyAr: LegalDoc = {
     {
       h: "7. مدة الاحتفاظ",
       p: [
-        "نحتفظ ببياناتك ما دام حسابك موجودًا. إذا حذفت حسابك تُمحى بياناتك الشخصية ودروسك وسجلاتك وما أنشأته.",
+        "نحتفظ ببياناتك ما دام حسابك موجودًا. إذا حذفت درسًا حُذفت معه نسخة ملفه. وإذا حذفت حسابك تُمحى بياناتك الشخصية ودروسك (وملفاتها) وسجلاتك وما أنشأته.",
         "تُحفظ سجلات الدفع (المبلغ والتاريخ والخطة) دون اسمك ودون إيصالك لأغراض المحاسبة. وتُحفظ سجلات الأخطاء لمدة محدودة.",
       ],
     },
@@ -268,7 +270,7 @@ const termsAr: LegalDoc = {
     {
       h: "6. التزاماتك",
       p: [
-        "ألا ترفع إلا محتوى يحق لك استخدامه في دراستك. دروسك تبقى لك، وتأذن لنا فقط بمعالجتها لتقديم الخدمة.",
+        "ألا ترفع إلا محتوى يحق لك استخدامه في دراستك. دروسك تبقى لك، وتأذن لنا بمعالجتها لتقديم الخدمة وبالاحتفاظ بنسخة منها بشكل سري لتحسين أكسون.",
         "ألا تحاول تجاوز الحدود أو نسخ الخدمة أو إرهاق الخوادم، ولا ترفع محتوى غير قانوني أو يضرّ بالآخرين.",
       ],
     },

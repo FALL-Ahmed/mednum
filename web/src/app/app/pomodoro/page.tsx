@@ -1,10 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useApp } from "@/components/app-context";
-import { Ambiance } from "@/components/ambiance";
-import { addDays, todayISO, toISO } from "@/lib/dates";
-import { getSupabase } from "@/lib/supabase";
+import { AmbianceSlot, usePomodoro } from "@/components/pomodoro-provider";
 import { getAppLang, useT } from "@/lib/app-i18n";
 
 type Mode = "focus" | "pause";
@@ -22,138 +18,12 @@ const fmtDuration = (min: number) => {
   return min < 60 ? `${min} ${mu}` : `${Math.floor(min / 60)} ${hu}${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
 };
 
-function beep() {
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = 880;
-    gain.gain.value = 0.08;
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.35);
-  } catch {
-    /* son indisponible : sans importance */
-  }
-}
-
 export default function Pomodoro() {
   const t = useT();
-  const { user } = useApp();
-  const [focusMin, setFocusMin] = useState(25);
-  const [pauseMin, setPauseMin] = useState(5);
-  const [mode, setMode] = useState<Mode>("focus");
-  const [running, setRunning] = useState(false);
-  const [leftMs, setLeftMs] = useState(25 * 60000);
-  const [cycles, setCycles] = useState(0);
-  const [matiere, setMatiere] = useState("");
-  const [sous, setSous] = useState("");
-  const [stats, setStats] = useState<{ today: number; week: number } | null>(null);
-  const endAtRef = useRef<number | null>(null);
-  const latest = useRef({ mode, focusMin, pauseMin, matiere, sous });
-
-  useEffect(() => {
-    latest.current = { mode, focusMin, pauseMin, matiere, sous };
-  });
-
-  const loadStats = useCallback(async () => {
-    const sb = getSupabase();
-    if (!sb) return;
-    const since = addDays(todayISO(), -6);
-    const { data } = await sb
-      .from("study_sessions")
-      .select("minutes,created_at")
-      .eq("user_id", user.id)
-      .gte("created_at", `${since}T00:00:00`);
-    const rows = (data ?? []) as { minutes: number; created_at: string }[];
-    const today = todayISO();
-    setStats({
-      week: rows.reduce((n, r) => n + r.minutes, 0),
-      today: rows.filter((r) => toISO(new Date(r.created_at)) === today).reduce((n, r) => n + r.minutes, 0),
-    });
-  }, [user.id]);
-
-  useEffect(() => {
-    const t = window.setTimeout(loadStats, 0); // chargement initial, hors du rendu
-    return () => window.clearTimeout(t);
-  }, [loadStats]);
-
-  const finish = useCallback(async () => {
-    const s = latest.current;
-    beep();
-    if (s.mode === "focus") {
-      setCycles((c) => c + 1);
-      setMode("pause");
-      endAtRef.current = Date.now() + s.pauseMin * 60000;
-      setLeftMs(s.pauseMin * 60000);
-      const sb = getSupabase();
-      if (sb) {
-        await sb.from("study_sessions").insert({
-          user_id: user.id,
-          matiere: s.matiere.trim() || null,
-          sous_matiere: s.sous.trim() || null,
-          minutes: s.focusMin,
-        });
-        loadStats();
-      }
-    } else {
-      setMode("focus");
-      endAtRef.current = Date.now() + s.focusMin * 60000;
-      setLeftMs(s.focusMin * 60000);
-    }
-  }, [user.id, loadStats]);
-
-  useEffect(() => {
-    if (!running) return;
-    const id = window.setInterval(() => {
-      const end = endAtRef.current;
-      if (end == null) return;
-      const left = end - Date.now();
-      if (left <= 0) finish();
-      else setLeftMs(left);
-    }, 250);
-    return () => window.clearInterval(id);
-  }, [running, finish]);
-
-  // Le temps restant dans le titre de l'onglet, pour le suivre pendant qu'on travaille.
-  useEffect(() => {
-    if (!running) return;
-    const original = document.title;
-    document.title = `${fmtClock(leftMs)} · ${mode === "focus" ? "Focus" : "Pause"} · Axone`;
-    return () => {
-      document.title = original;
-    };
-  }, [running, leftMs, mode]);
-
-  const start = () => {
-    endAtRef.current = Date.now() + leftMs;
-    setRunning(true);
-  };
-  const pause = () => {
-    if (endAtRef.current != null) setLeftMs(Math.max(0, endAtRef.current - Date.now()));
-    endAtRef.current = null;
-    setRunning(false);
-  };
-  const reset = () => {
-    endAtRef.current = null;
-    setRunning(false);
-    setMode("focus");
-    setLeftMs(focusMin * 60000);
-  };
-
-  const chooseFocus = (m: number) => {
-    setFocusMin(m);
-    if (!running && mode === "focus") setLeftMs(m * 60000);
-  };
-  const choosePause = (m: number) => {
-    setPauseMin(m);
-    if (!running && mode === "pause") setLeftMs(m * 60000);
-  };
-
-  const total = (mode === "focus" ? focusMin : pauseMin) * 60000;
-  const progress = Math.min(1, Math.max(0, 1 - leftMs / total));
+  const {
+    focusMin, pauseMin, mode, running, leftMs, cycles, matiere, sous, stats, total, progress,
+    setMatiere, setSous, start, pause, reset, chooseFocus, choosePause,
+  } = usePomodoro();
   const R = 120;
   const C = 2 * Math.PI * R;
 
@@ -304,7 +174,7 @@ export default function Pomodoro() {
       </div>
 
       <div className="mt-5">
-        <Ambiance inBreak={mode === "pause"} />
+        <AmbianceSlot />
       </div>
     </div>
   );

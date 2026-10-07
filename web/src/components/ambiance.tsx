@@ -88,7 +88,17 @@ function otherIndex(length: number, except: number): number {
 type Current = { kind: TrackKind; index: number } | null;
 
 /** Ambiance sonore : playlists de musique + sons de la nature à mélanger. L'élève choisit et lance quand il veut. */
-export function Ambiance({ inBreak }: { inBreak: boolean }) {
+export function Ambiance({
+  inBreak,
+  onState,
+  registerStop,
+}: {
+  inBreak: boolean;
+  /** Prévient le mini-lecteur quand de la musique ou des sons jouent. */
+  onState?: (s: { playing: boolean; count: number }) => void;
+  /** Donne au mini-lecteur le moyen de tout couper. */
+  registerStop?: (fn: (() => void) | null) => void;
+}) {
   const t = useT();
   const scape = useRef<Soundscape | null>(null);
   const [mix, setMix] = useState<Mix>({});
@@ -249,6 +259,20 @@ export function Ambiance({ inBreak }: { inBreak: boolean }) {
     stopMusic();
     setPlaying(false);
   };
+
+  const stopAllRef = useRef(stopAll);
+  useEffect(() => {
+    stopAllRef.current = stopAll;
+  });
+  useEffect(() => {
+    registerStop?.(() => stopAllRef.current());
+    return () => registerStop?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    onState?.({ playing, count });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing, count]);
 
   const presetOn = (p: (typeof PRESETS)[number]) =>
     count > 0 && sameMix(mix, p.mix) && (p.music ? current?.kind === p.music : current === null);

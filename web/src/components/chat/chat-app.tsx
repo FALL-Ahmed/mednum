@@ -23,6 +23,8 @@ import { chatSystem, pickChunks, splitSuggestions, type DocumentRow } from "@/li
 import type { PreparedImage } from "@/lib/images";
 import { getSupabase } from "@/lib/supabase";
 import { setFlag } from "@/lib/flags";
+import { CardDialog } from "../card-dialog";
+import { draftFromChat, type CardDraft } from "@/lib/user-cards";
 import { useApp } from "../app-context";
 import { ConfirmDialog } from "../confirm-dialog";
 import { LimitNotice } from "../limit-notice";
@@ -92,6 +94,7 @@ export function ChatApp() {
   const [rooms, setRooms] = useState<DuoListItem[]>([]);
   const [historyOk, setHistoryOk] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [cardDraft, setCardDraft] = useState<CardDraft | null>(null);
   const [msgs, setMsgs] = useState<UiMsg[]>([]);
   const [loadingConv, setLoadingConv] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -529,6 +532,18 @@ export function ChatApp() {
                               <IconCopy />
                               {copied === m.id ? t("Copié") : t("Copier")}
                             </button>
+                            <button
+                              onClick={() => {
+                                const asked = [...msgs.slice(0, idx)].reverse().find((x) => x.role === "user");
+                                setCardDraft(draftFromChat(asked?.text ?? "", m.text, docCtx?.id ?? null));
+                              }}
+                              aria-label={t("Créer une carte")}
+                              title={t("Créer une carte")}
+                              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-semibold transition hover:bg-slide hover:text-ink"
+                            >
+                              ＋ {t("Carte")}
+                            </button>
+                            {cardDraft && <CardDialog draft={cardDraft} onClose={() => setCardDraft(null)} />}
                             {idx === msgs.length - 1 && canRegenerate && (
                               <button
                                 onClick={regenerate}

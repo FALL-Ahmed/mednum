@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadSrs, saveSrs, type SrsMap } from "@/lib/flashcard-store";
-import { isDue, isMastered, reviewCard, type Rating } from "@/lib/srs";
+import { isDue, isMastered, reviewCard, type Rating, type SRSState } from "@/lib/srs";
 import { ReportButton } from "./report-button";
 import { useT } from "@/lib/app-i18n";
 
@@ -25,7 +25,27 @@ const btnDark =
 const btnLine =
   "rounded-full border border-ink/25 px-6 py-3 font-semibold text-ink transition hover:border-ink disabled:opacity-40";
 
-export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userId: string; cards: Card[] }) {
+/** Stockage de la progression : par défaut celui des cartes de l'IA ; « Mes cartes » fournit le sien. */
+export type CardStore = {
+  load: () => Promise<{ map: SrsMap; cloud: boolean }>;
+  save: (index: number, state: SRSState, all: SrsMap) => void;
+};
+
+export function FlashcardPlayer({
+  docId,
+  userId,
+  cards,
+  store,
+  reportable = true,
+}: {
+  docId: string;
+  userId: string;
+  cards: Card[];
+  /** Pour « Mes cartes » (progression indexée par position dans `cards`). À mémoriser côté appelant. */
+  store?: CardStore;
+  /** Le bouton « Signaler une erreur » n'a de sens que pour les cartes de l'IA. */
+  reportable?: boolean;
+}) {
   const t = useT();
   const [srs, setSrs] = useState<SrsMap | null>(null);
   const [cloud, setCloud] = useState(true);
@@ -52,7 +72,7 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
   useEffect(() => {
     let cancelled = false;
     const t = window.setTimeout(async () => {
-      const r = await loadSrs(userId, docId);
+      const r = store ? await store.load() : await loadSrs(userId, docId);
       if (cancelled) return;
       setSrs(r.map);
       setCloud(r.cloud);
@@ -62,7 +82,7 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [userId, docId, cards, startDeck]);
+  }, [userId, docId, cards, startDeck, store]);
 
   const rate = useCallback(
     (rating: Rating) => {
@@ -71,7 +91,8 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
       const next = reviewCard(srs[idx], rating);
       const map = { ...srs, [idx]: next };
       setSrs(map);
-      saveSrs(userId, docId, idx, next, map);
+      if (store) store.save(idx, next, map);
+      else saveSrs(userId, docId, idx, next, map);
       setStats((s) => ({ ...s, [rating]: s[rating] + 1 }));
       if (rating === "again") setAgain((a) => (a.includes(idx) ? a : [...a, idx]));
       if (pos + 1 >= deck.length) {
@@ -81,7 +102,7 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
         setFlipped(false);
       }
     },
-    [srs, deck, pos, userId, docId],
+    [srs, deck, pos, userId, docId, store],
   );
 
   const browse = useCallback(
@@ -210,7 +231,11 @@ export function FlashcardPlayer({ docId, userId, cards }: { docId: string; userI
 
       <div className="mt-3 flex items-center justify-between gap-3">
         <button onClick={() => browse(-1)} disabled={pos === 0} className={btnLine}>{t("← Précédente")}</button>
-        <ReportButton docId={docId} kind="flashcard" itemRef={String(idx + 1)} snapshot={card} label={t("Signaler une erreur")} />
+        {reportable ? (
+          <ReportButton docId={docId} kind="flashcard" itemRef={String(idx + 1)} snapshot={card} label={t("Signaler une erreur")} />
+        ) : (
+          <span />
+        )}
         <button onClick={() => browse(1)} disabled={pos + 1 >= deck.length} className={btnLine}>{t("Suivante →")}</button>
       </div>
 

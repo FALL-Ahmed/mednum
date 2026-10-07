@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { QuotaError } from "@/lib/ai";
 import type { DocumentRow } from "@/lib/course";
 import { generateCases, generateFiche, generateFlashcards, saveToDocument, studentCtx } from "@/lib/generate";
 import { useApp } from "./app-context";
 import { FicheView } from "./fiche-view";
+import { CardDialog } from "./card-dialog";
+import { SelectionToCard } from "./selection-card";
+import { MyCards } from "./my-cards";
+import { listCards, usageOf, type CardDraft, type UserCard } from "@/lib/user-cards";
 import { StartDuoButton } from "./duo/start-duo-button";
 import { FlashcardPlayer, type Card } from "./flashcard-player";
 import { LimitNotice } from "./limit-notice";
@@ -95,6 +99,7 @@ function GenerateCard({
 export function Fiche({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => void }) {
   const t = useT();
   const { user, profile } = useApp();
+  const [cardDraft, setCardDraft] = useState<CardDraft | null>(null);
 
   if (!doc.fiche) {
     return (
@@ -114,7 +119,11 @@ export function Fiche({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => vo
 
   return (
     <div>
-      <FicheView text={doc.fiche} />
+      <p className="mb-3 text-sm text-muted">{t("Astuce : sélectionne un passage de la fiche pour en faire une carte.")}</p>
+      <SelectionToCard onPick={(text) => setCardDraft({ front: "", back: text.slice(0, 1500), document_id: doc.id, chapter: doc.name, source: "selection" })}>
+        <FicheView text={doc.fiche} />
+      </SelectionToCard>
+      {cardDraft && <CardDialog draft={cardDraft} onClose={() => setCardDraft(null)} />}
       <div className="mt-4 text-end">
         <ReportButton docId={doc.id} kind="fiche" snapshot={{ fiche: doc.fiche }} label={t("Signaler une erreur dans cette fiche")} />
       </div>
@@ -122,12 +131,16 @@ export function Fiche({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => vo
   );
 }
 
-/* ——— Flashcards (générées dans l'application, affichées ici) ——— */
+/* ——— Flashcards : générées par Dr. Ahmed OU créées par l'étudiant, pour ce cours ——— */
 
 export function Flashcards({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => void }) {
   const t = useT();
   const { user, profile } = useApp();
   const raw = doc.flashcards ?? null;
+  const [mine, setMine] = useState<UserCard[] | null>(null);
+  const [usage, setUsage] = useState({ total: 0, month: 0 });
+  const [view, setView] = useState<"ai" | "mine" | null>(null);
+  const [firstCard, setFirstCard] = useState(false);
 
   // Analysé une seule fois par jeu de cartes : le lecteur garde sa session tant que les cartes ne changent pas.
   const cards = useMemo<Card[]>(() => {
@@ -141,34 +154,105 @@ export function Flashcards({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) 
     }
   }, [raw]);
 
-  if (cards.length === 0) {
+  // Les cartes créées par l'étudiant pour ce cours
+  const reload = useCallback(async () => {
+    const all = await listCards();
+    setMine(all.filter((c) => c.document_id === doc.id));
+    setUsage(usageOf(all));
+  }, [doc.id]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const generate = (
+    <GenerateCard
+      title={t("Génère les flashcards de ce cours.")}
+      text={t("Jusqu'à 30 cartes question / réponse sur l'essentiel de ton cours, dans l'ordre des chapitres. Elles sont enregistrées : tu les génères une seule fois.")}
+      button={t("Générer les flashcards")}
+      busy={t("Dr. Ahmed prépare tes cartes…")}
+      run={async (progress) => {
+        const flashcards = await generateFlashcards(
+          doc.name,
+          doc.content,
+          doc.chunks ?? [],
+          studentCtx(profile),
+          (d, total) => progress(t("Chapitre {a} sur {b}…", { a: Math.min(d + 1, total), b: total })),
+        );
+        await saveToDocument(doc.id, user.id, { flashcards });
+        onSaved({ flashcards });
+      }}
+    />
+  );
+
+  /* ——— Rien encore : deux façons de commencer ——— */
+  if (cards.length === 0 && mine !== null && mine.length === 0) {
     return (
-      <GenerateCard
-        title={t("Génère les flashcards de ce cours.")}
-        text={t("Jusqu'à 30 cartes question / réponse sur l'essentiel de ton cours, dans l'ordre des chapitres. Elles sont enregistrées : tu les génères une seule fois.")}
-        button={t("Générer les flashcards")}
-        busy={t("Dr. Ahmed prépare tes cartes…")}
-        run={async (progress) => {
-          const flashcards = await generateFlashcards(
-            doc.name,
-            doc.content,
-            doc.chunks ?? [],
-            studentCtx(profile),
-            (d, total) => progress(t("Chapitre {a} sur {b}…", { a: Math.min(d + 1, total), b: total })),
-          );
-          await saveToDocument(doc.id, user.id, { flashcards });
-          onSaved({ flashcards });
-        }}
-      />
+      <div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {generate}
+          <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
+            <p className="display text-2xl text-ink">{t("Ou crée tes propres cartes.")}</p>
+            <p className="mt-2 max-w-lg text-muted">
+              {t("Écris toi-même tes questions et tes réponses : on retient mieux ce qu'on formule soi-même. Tu peux aussi en créer depuis la fiche, une discussion ou un QCM.")}
+            </p>
+            <button
+              onClick={() => setFirstCard(true)}
+              className="mt-5 rounded-full border border-ink/25 px-7 py-3.5 font-semibold text-ink transition hover:border-ink"
+            >
+              ＋ {t("Créer ma première carte")}
+            </button>
+          </div>
+        </div>
+        {firstCard && (
+          <CardDialog
+            draft={{ front: "", back: "", document_id: doc.id, chapter: doc.name, source: "manual" }}
+            onClose={() => setFirstCard(false)}
+            onSaved={() => {
+              setView("mine");
+              reload();
+            }}
+          />
+        )}
+      </div>
     );
   }
 
+  /* ——— Deux onglets : les cartes de Dr. Ahmed et les miennes ——— */
+  const active = view ?? (cards.length > 0 ? "ai" : "mine");
+  const seg = (id: "ai" | "mine", label: string, n: number | null) => (
+    <button
+      key={id}
+      role="tab"
+      aria-selected={active === id}
+      onClick={() => setView(id)}
+      className={`rounded-full px-5 py-2.5 text-[15px] font-semibold transition ${active === id ? "bg-ink text-white" : "text-ink/70 hover:text-ink"}`}
+    >
+      {label}
+      {n !== null && <span className={`ms-2 text-sm ${active === id ? "text-white/70" : "text-muted"}`}>{n}</span>}
+    </button>
+  );
+
   return (
     <div>
-      <div className="mb-4 flex justify-end">
-        <StartDuoButton kind="flashcards" title={doc.name} payload={cards.slice(0, 30)} label="Réviser ces cartes à deux" />
+      <div role="tablist" aria-label={t("Type de cartes")} className="mb-5 inline-flex rounded-full border border-line bg-white p-1">
+        {seg("ai", t("Cartes de Dr. Ahmed"), cards.length || null)}
+        {seg("mine", t("Mes cartes"), mine ? mine.length : null)}
       </div>
-      <FlashcardPlayer docId={doc.id} userId={user.id} cards={cards} />
+
+      {active === "ai" ? (
+        cards.length === 0 ? (
+          generate
+        ) : (
+          <div>
+            <div className="mb-4 flex justify-end">
+              <StartDuoButton kind="flashcards" title={doc.name} payload={cards.slice(0, 30)} label="Réviser ces cartes à deux" />
+            </div>
+            <FlashcardPlayer docId={doc.id} userId={user.id} cards={cards} />
+          </div>
+        )
+      ) : (
+        <MyCards doc={{ id: doc.id, name: doc.name }} cards={mine ?? []} usage={usage} reload={reload} />
+      )}
     </div>
   );
 }

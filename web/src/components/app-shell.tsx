@@ -32,6 +32,8 @@ import {
 } from "./icons";
 import { formatDate, useT } from "@/lib/app-i18n";
 import { ExpiryNotices } from "./expiry-notices";
+import { PomodoroProvider } from "./pomodoro-provider";
+import { MiniPomodoro } from "./mini-pomodoro";
 
 type NavItem = {
   href: string;
@@ -71,6 +73,7 @@ const ALL = GROUPS.flatMap((g) => g.items);
 
 function titleFor(pathname: string): string {
   if (pathname.startsWith("/app/cours/")) return "Cours";
+  if (pathname.startsWith("/app/erreurs")) return "Mes erreurs";
   const hit = ALL.filter((n) => (n.exact ? pathname === n.href : pathname.startsWith(n.href))).pop();
   return hit?.label ?? "Axone";
 }
@@ -253,7 +256,7 @@ export function AppFrame({
 
       <nav className="mt-2 flex-1 overflow-hidden px-3" aria-label={t("Navigation principale")}>
         <div className="space-y-0.5">
-          {ALL.map((n) => {
+          {ALL.filter((n) => n.href !== "/app/abonnement").map((n) => {
             const active = n.exact ? pathname === n.href : pathname.startsWith(n.href);
             const Icon = n.icon;
             const badge =
@@ -391,6 +394,8 @@ export function AppFrame({
     <AppContext.Provider
       value={{ user, profile, quotaKey, quota, docs, standardPrice: standardPrice ?? null, refreshQuota, refreshDocs, refreshProfile }}
     >
+      <PomodoroProvider>
+      <MiniPomodoro />
       <div className="min-h-screen bg-slide">
         <ExpiryNotices banner={false} />
         {/* Barre latérale (ordinateur) */}
@@ -475,6 +480,7 @@ export function AppFrame({
           )}
         </div>
       </div>
+      </PomodoroProvider>
     </AppContext.Provider>
   );
 }

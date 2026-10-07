@@ -818,3 +818,44 @@ body { font-family:var(--f-body); font-size:14px; -webkit-font-smoothing:antiali
 .id-msg { white-space:pre-line; color:var(--t1); font-size:14px; line-height:1.55; overflow-wrap:anywhere }
 .id-note { width:100% }
 .id-act { display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+
+/* Banque de cours */
+.bk-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px }
+.bk-group { margin-bottom:14px }
+.bk-head { width:100%; display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 4px; border:none; background:none; text-align:left; font-size:15px; color:var(--t1) }
+.bk-chev { display:inline-block; transition:transform .15s; color:var(--t4) }
+.bk-chev.on { transform:rotate(90deg) }
+
+.bk-filters { padding:16px; display:flex; flex-direction:column; gap:12px; margin-bottom:14px }
+.bk-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px }
+.bk-f { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--t3); font-weight:600 }
+.bk-f .ad-select, .bk-f .ad-input { width:100%; border-radius:10px; padding:9px 12px; font-size:14px }
+.bk-cards { display:none }
+.bk-card { padding:14px 16px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px }
+.bk-card h4 { margin:0; font-size:16px; line-height:1.25 }
+.bk-card p { margin:0 }
+.bk-tags { display:flex; gap:6px; flex-wrap:wrap }
+@media (max-width: 760px) {
+  .bk-tbl { display:none }
+  .bk-cards { display:block }
+  .bk-grid { grid-template-columns:1fr 1fr }
+  .bk-bar .fp, .bk-bar .btn-g { padding:9px 14px }
+  .bk-card .btn-s { width:100%; padding:11px 14px; border-radius:12px }
+  .bk-head { padding:12px 2px }
+  .bk-head strong { font-size:17px }
+}
+
+/* Tableau par module */
+.ms-sort { background:none; border:none; padding:0; font:inherit; color:inherit; font-weight:600; cursor:pointer }
+.ms-sort.on { color:var(--t1) }
+.ms-row { cursor:pointer }
+.ms-row:hover td { background:var(--blue-bg) }
+.ms-bar { display:block; height:6px; border-radius:999px; background:var(--bdr); overflow:hidden; margin-bottom:4px }
+.ms-bar > span { display:block; height:100%; background:var(--blue); border-radius:999px }
+.ms-cards { display:none }
+.ms-card { display:flex; flex-direction:column; gap:8px; width:100%; text-align:left; padding:14px 16px; margin-bottom:10px; cursor:pointer }
+.ms-card-top { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:16px }
+@media (max-width: 760px) {
+  .ms-tbl { display:none }
+  .ms-cards { display:block }
+}

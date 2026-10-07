@@ -19,7 +19,11 @@ import { useApp } from "./app-context";
 import { ConfirmDialog } from "./confirm-dialog";
 import { LimitNotice } from "./limit-notice";
 import { UpgradeNudge } from "./upgrade-nudge";
+import { CardDialog } from "./card-dialog";
+import { draftFromQcm, type CardDraft } from "@/lib/user-cards";
 import { ReportButton } from "./report-button";
+import { ErrorsEntry } from "./errors-entry";
+import { recordAnswer } from "@/lib/qcm-review";
 import { formatDate, useT } from "@/lib/app-i18n";
 
 type Active = {
@@ -57,6 +61,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
   const [active, setActive] = useState<Active | null>(null);
   const [idx, setIdx] = useState(0);
   const [showResult, setShowResult] = useState(false);
+  const [cardDraft, setCardDraft] = useState<CardDraft | null>(null);
   const [history, setHistory] = useState<QcmSetRow[] | null>(null);
   const [historyOk, setHistoryOk] = useState(true);
   const [toDelete, setToDelete] = useState<QcmSetRow | null>(null);
@@ -164,10 +169,17 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
     const next = { ...active, answers: active.answers.map((x, i) => (i === idx ? { ...x, done: true } : x)) };
     setActive(next);
     persist(next);
+    // Une question ratée (faux ou partiel) entre dans « Mes erreurs »
+    recordAnswer(doc, active.chapter, active.questions[idx], active.answers[idx].sel);
   }
 
   function finish() {
     if (!active) return;
+    // Les questions cochées mais pas validées une à une comptent aussi
+    active.questions.forEach((qq, i) => {
+      const a = active.answers[i];
+      if (!a.done && a.sel.length > 0) recordAnswer(doc, active.chapter, qq, a.sel);
+    });
     const next = {
       ...active,
       finished: true,
@@ -205,6 +217,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
   if (!active) {
     return (
       <div className="space-y-6">
+        <ErrorsEntry docId={doc.id} />
         <div className="rounded-2xl border border-line bg-white p-6 sm:p-8">
           <p className="display text-2xl text-ink">{t("Nouvelle série de QCM")}</p>
           <label className="mt-4 block text-sm font-semibold text-ink" htmlFor="chapter">{t("Chapitre")}</label>
@@ -498,7 +511,14 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
       )}
 
       {revealed && (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <button
+            onClick={() => setCardDraft(draftFromQcm(q, active.chapter, doc.id))}
+            className="text-sm font-semibold text-ink underline underline-offset-2 transition hover:text-eosin"
+          >
+            ＋ {t("Ajouter à mes cartes")}
+          </button>
+          {cardDraft && <CardDialog draft={cardDraft} onClose={() => setCardDraft(null)} />}
           <ReportButton docId={doc.id} kind="qcm" itemRef={`${active.chapter} · Q${idx + 1}`} snapshot={q} label={t("Signaler une erreur dans cette question")} />
         </div>
       )}

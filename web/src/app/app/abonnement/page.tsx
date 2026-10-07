@@ -729,16 +729,18 @@ function Abonnement() {
         )}
         <div className="grid gap-5 md:grid-cols-2">
           {plans.map((p) => {
-            const main = p.plan === "standard";
+            const main = p.plan === "premium";
             return (
               <div
                 key={p.plan}
-                className={`flex flex-col rounded-2xl border-2 bg-white p-7 ${main ? "border-eosin" : "border-line"}`}
+                className={`relative flex flex-col rounded-2xl border-2 bg-white p-7 ${main ? "border-eosin shadow-[0_18px_50px_rgba(0,0,0,0.12)] md:-translate-y-1" : "border-line"}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted">{t(p.label)}</span>
                   {main && (
-                    <span className="rounded-full bg-eosin-soft px-3 py-1 text-xs font-bold" style={{ color: "var(--eosin-text)" }}>{t("Le plus choisi")}</span>
+                    <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-eosin px-5 py-1.5 text-sm font-extrabold text-ink shadow-[0_6px_18px_rgba(0,0,0,0.18)]">
+                      ★ {t("Le plus choisi")}
+                    </span>
                   )}
                 </div>
                 <p className="display mt-3 flex flex-wrap items-baseline gap-x-3 text-5xl text-ink">
