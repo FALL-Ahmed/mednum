@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { ChatPanel } from "@/components/chat-panel";
+import { roomPayload, StartDuoButton } from "@/components/duo/start-duo-button";
 import { Cas, Fiche, Flashcards, type Patch } from "@/components/doc-tabs";
 import { QcmTab } from "@/components/qcm-tab";
 import type { DocumentRow } from "@/lib/course";
@@ -143,7 +144,14 @@ export default function CoursPage() {
           )}
 
           <div className="mt-8">
-            {tab === "questions" && <ChatPanel doc={doc} />}
+            {tab === "questions" && (
+              <>
+                <div className="mb-4 flex justify-end">
+                  <StartDuoButton kind="room" title={doc.name} payload={roomPayload(doc)} label="Ouvrir une salle à deux avec Dr. Ahmed" />
+                </div>
+                <ChatPanel doc={doc} />
+              </>
+            )}
             {tab === "fiche" && <Fiche doc={doc} onSaved={onSaved} />}
             {tab === "qcm" && <QcmTab doc={doc} />}
             {tab === "flashcards" && <Flashcards doc={doc} onSaved={onSaved} />}

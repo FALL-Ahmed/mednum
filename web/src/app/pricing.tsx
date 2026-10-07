@@ -87,7 +87,7 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
         {plans.map((p) => {
           const main = "main" in p && p.main;
           const price = p.key === "free" ? 0 : c.prices[p.key];
-          const name = p.key === "free" ? T.free.name : p.key === "standard" ? "Standard" : "Duo";
+          const name = p.key === "free" ? T.free.name : p.key === "standard" ? "Standard" : "Premium";
           const text = p.key === "free" ? T.free.text : p.key === "standard" ? T.standardText : T.duoText;
           const limits = offers ? offers.limits[keyOf[p.key]] : FALLBACK[keyOf[p.key]];
           const items = itemsFor(limits, lang, p.key === "premium");

@@ -66,7 +66,7 @@ export const AR2: Record<string, string> = {
   "Lance une session": "ابدأ جلسة",
   "Lancer le son": "تشغيل الصوت",
   "Lancer un Pomodoro": "بدء بومودورو",
-  "Lancer une session est réservé au plan Duo.": "بدء جلسة مخصّص لاشتراك Duo.",
+  "Lancer une session est réservé au plan Premium.": "بدء جلسة مخصّص لاشتراك Premium.",
   "Langue de la dictée : {a}. Changer.": "لغة الإملاء: {a}. اضغط للتغيير.",
   "Langue de la dictée (automatique, français ou arabe)": "لغة الإملاء (تلقائي، فرنسية أو عربية)",
   "Le code a 6 caractères (lettres et chiffres).": "الرمز مكوّن من 6 أحرف (حروف وأرقام).",

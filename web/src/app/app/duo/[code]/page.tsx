@@ -5,6 +5,9 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { KEYS, scoreQcm, type Key } from "@/lib/course";
 import { answerDuo, duoLink, getDuoState, sendDuo, type DuoAnswer, type DuoState } from "@/lib/duo";
 import { useT } from "@/lib/app-i18n";
+import { DuoCaseSession } from "@/components/duo/duo-case";
+import { DuoFlash } from "@/components/duo/duo-flash";
+import { DuoRoom } from "@/components/duo/duo-room";
 
 const btnDark =
   "rounded-full bg-ink px-6 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40";
@@ -99,12 +102,20 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
   }
   if (!st || !d) return <p className="text-muted">{t("Chargement de la session…")}</p>;
 
+  // Les autres façons de réviser à deux ont leur propre écran ; les QCM restent ici.
+  if (st.kind && st.kind !== "qcm") {
+    const common = { st, refresh, expired, error, setError };
+    if (st.kind === "flashcards") return <DuoFlash {...common} />;
+    if (st.kind === "case") return <DuoCaseSession {...common} />;
+    return <DuoRoom {...common} />;
+  }
+
   const total = st.questions.length;
   const otherName = d.other?.name.trim() || t("Ton partenaire");
   const myDone = d.mine.size >= total;
   const q = st.questions[idx];
   const validated = d.mine.has(idx);
-  const chosen: Key[] = validated ? d.mine.get(idx)!.sel : (drafts[idx] ?? []);
+  const chosen: Key[] = validated ? (d.mine.get(idx)!.sel as Key[]) : (drafts[idx] ?? []);
   const theirAns = validated ? d.theirs.get(idx) : undefined;
 
   async function validate() {
@@ -244,7 +255,7 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
           <nav aria-label={t("Questions")} className="flex flex-wrap gap-2">
             {st.questions.map((qq, i) => {
               const a = d.mine.get(i);
-              const r = a ? scoreQcm(a.sel, qq.bonnesReponses).result : null;
+              const r = a ? scoreQcm(a.sel as Key[], qq.bonnesReponses).result : null;
               const tone =
                 i === idx
                   ? "bg-ink text-white"
@@ -313,12 +324,12 @@ export default function DuoSession({ params }: { params: Promise<{ code: string 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <p className="rounded-2xl bg-slide px-4 py-3 text-ink">
                 <span className="block text-sm text-muted">{t("Toi")}</span>
-                <span className="font-semibold">{t("{a} · {b} pts", { a: picks(d.mine.get(idx)!.sel, t("Sans réponse")), b: d.mine.get(idx)!.points })}</span>
+                <span className="font-semibold">{t("{a} · {b} pts", { a: picks(d.mine.get(idx)!.sel as Key[], t("Sans réponse")), b: d.mine.get(idx)!.points })}</span>
               </p>
               <p className="rounded-2xl bg-slide px-4 py-3 text-ink">
                 <span className="block text-sm text-muted">{otherName}</span>
                 <span className="font-semibold">
-                  {theirAns ? t("{a} · {b} pts", { a: picks(theirAns.sel, t("Sans réponse")), b: theirAns.points }) : d.other ? t("Pas encore répondu") : "—"}
+                  {theirAns ? t("{a} · {b} pts", { a: picks(theirAns.sel as Key[], t("Sans réponse")), b: theirAns.points }) : d.other ? t("Pas encore répondu") : "—"}
                 </span>
               </p>
             </div>

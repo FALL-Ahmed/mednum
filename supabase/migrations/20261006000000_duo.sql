@@ -10,7 +10,7 @@
 -- À APPLIQUER MANUELLEMENT, un seul bloc, dans l'éditeur SQL du tableau de bord.
 
 -- Le plan « premium » s'appelle Duo à l'écran (la clé interne reste « premium »).
-update public.plans set label = 'Duo' where plan = 'premium';
+update public.plans set label = 'Premium' where plan = 'premium';
 
 create table if not exists public.duo_sessions (
   id          uuid        primary key default gen_random_uuid(),

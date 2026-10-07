@@ -155,7 +155,7 @@ function Guarded({ children }: { children: React.ReactNode }) {
     return () => window.clearTimeout(t);
   }, [uid, refreshProfile, refreshQuota, refreshDocs]);
 
-  // Invitation Duo reçue avant la connexion : une fois le profil prêt, on va rejoindre la session.
+  // Invitation à une révision à deux reçue avant la connexion : une fois le profil prêt, on va rejoindre la session.
   useEffect(() => {
     if (!profile || pathname.startsWith("/app/duo")) return;
     try {

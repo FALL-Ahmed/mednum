@@ -209,7 +209,7 @@ export const AR1: Record<string, string> = {
   "Dr. Ahmed réfléchit…": "الدكتور أحمد يفكّر…",
   "Dr. Ahmed répond à partir de ton cours, avec les pages à relire.": "يجيب الدكتور أحمد انطلاقًا من درسك، مع الصفحات التي يجب إعادة قراءتها.",
   "Dr. Ahmed t'aide à réviser et peut se tromper : vérifie les points importants avec ton cours.": "يساعدك الدكتور أحمد على المراجعة وقد يخطئ: تحقّق من النقاط المهمة مع درسك.",
-  "Duo": "Duo",
+  "Premium": "Premium",
   "Durée": "المدة",
   "Durée de focus": "مدة التركيز",
   "Durée de pause": "مدة الاستراحة",

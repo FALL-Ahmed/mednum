@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/app-context";
 import { cleanCode, duoError, joinDuo, listDuo, PENDING_KEY, type DuoListItem } from "@/lib/duo";
 import { formatDate, useT } from "@/lib/app-i18n";
+import { duoKindLabel } from "@/components/duo/duo-shell";
 
 const btnDark =
   "rounded-full bg-ink px-6 py-3 font-semibold text-white transition hover:bg-eosin hover:text-ink disabled:opacity-40";
@@ -62,15 +63,15 @@ export default function DuoHome() {
   return (
     <div className="max-w-3xl">
       <p className="display text-3xl text-ink sm:text-4xl">{t("Révision à deux")}</p>
-      <p className="mt-3 max-w-2xl text-lg text-muted">{t("Une série de QCM, deux personnes. Chacun répond à son rythme, vous voyez où en est l'autre, puis vous comparez vos réponses question par question.")}</p>
+      <p className="mt-3 max-w-2xl text-lg text-muted">{t("Révisez à deux : des QCM, des flashcards, un cas clinique ou une salle avec Dr. Ahmed. Chacun avance à son rythme, vous voyez où en est l'autre, puis vous comparez vos réponses.")}</p>
 
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <section className="rounded-2xl border border-line bg-white p-6">
           <p className="label text-muted">{t("Inviter quelqu'un")}</p>
           <p className="display mt-2 text-2xl text-ink">{t("Lance une session")}</p>
           <ol className="mt-3 list-inside list-decimal space-y-1.5 text-ink/80">
-            <li>{t("Ouvre un cours, onglet QCM.")}</li>
-            <li>{t("Choisis une série, puis « Réviser à deux ».")}</li>
+            <li>{t("Ouvre un cours et choisis QCM, flashcards, cas cliniques ou questions.")}</li>
+            <li>{t("Clique sur « Réviser à deux » (ou « Salle à deux »).")}</li>
             <li>{t("Envoie le lien à ton partenaire (WhatsApp, par exemple).")}</li>
           </ol>
           <p className="mt-3 text-sm text-muted">{t("Ton partenaire n'a pas besoin d'abonnement : l'invitation est gratuite.")}</p>
@@ -78,8 +79,8 @@ export default function DuoHome() {
             <Link href="/app/cours" className={`mt-5 inline-block ${btnDark}`}>{t("Choisir un cours")}</Link>
           ) : (
             <div className="mt-5 rounded-2xl bg-eosin-soft p-4">
-              <p className="font-semibold text-ink">{t("Lancer une session est réservé au plan Duo.")}</p>
-              <Link href="/app/abonnement" className={`mt-3 inline-block ${btnDark}`}>{t("Voir le plan Duo")}</Link>
+              <p className="font-semibold text-ink">{t("Lancer une session est réservé au plan Premium.")}</p>
+              <Link href="/app/abonnement" className={`mt-3 inline-block ${btnDark}`}>{t("Voir le plan Premium")}</Link>
             </div>
           )}
         </section>
@@ -131,9 +132,9 @@ export default function DuoHome() {
                 <p className="label text-muted">
                   {dateShort(s.created_at)} · {s.is_host ? t("Tu as invité") : t("Tu as rejoint")}
                 </p>
-                <p className="mt-1.5 font-semibold leading-snug text-ink">{s.title || t("Série de QCM")}</p>
+                <p className="mt-1.5 font-semibold leading-snug text-ink">{s.title || t(duoKindLabel(s.kind))}</p>
                 <p className="mt-2 text-sm text-muted">
-                  {s.partner ? t("Avec {a}", { a: s.partner }) : t("En attente d'un partenaire")} · {t("{a}/{b} répondues · {c} pts", { a: s.answered, b: s.total, c: s.points })}</p>
+                  {s.partner ? t("Avec {a}", { a: s.partner }) : t("En attente d'un partenaire")} · {s.total > 0 ? t("{a}/{b} répondues · {c} pts", { a: s.answered, b: s.total, c: s.points }) : t("Salle avec Dr. Ahmed")}</p>
                 <Link
                   href={`/app/duo/${s.code}`}
                   className="mt-4 rounded-full border border-ink/25 px-6 py-3 text-center font-semibold text-ink transition hover:border-ink"

@@ -64,7 +64,7 @@ export const PLAN_LABEL: Record<string, string> = {
   trial: "Gratuit",
   freemium: "Gratuit",
   standard: "Standard",
-  premium: "Duo",
+  premium: "Premium",
   one_subject: "1 matière",
   three_subjects: "3 matières",
   full: "Accès complet",

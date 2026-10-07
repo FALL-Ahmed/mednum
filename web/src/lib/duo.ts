@@ -2,13 +2,30 @@ import type { Key, Qcm } from "./course";
 import { getSupabase } from "./supabase";
 
 export type DuoMember = { user_id: string; name: string; is_host: boolean; finished: boolean; answered: number };
-export type DuoAnswer = { user_id: string; idx: number; sel: Key[]; points: number };
-export type DuoMessage = { id: number; user_id: string; body: string; created_at: string };
+export type DuoKind = "qcm" | "room" | "case" | "flashcards";
+/** Réponse : pour un QCM, les lettres choisies ; pour un cas clinique, un texte ; pour les flashcards, ["known"] ou ["unknown"]. */
+export type DuoAnswer = { user_id: string; idx: number; sel: Key[] | string; points: number };
+export type DuoMessage = { id: number; user_id: string | null; body: string; created_at: string; is_ai?: boolean; tag?: string | null };
+
+export type DuoCard = { front: string; back: string; chapter?: string };
+export type DuoCase = {
+  title: string;
+  context: string;
+  stages: { label: string; reveal: string; prompt: string }[];
+  diagnosis: string;
+  differentials?: string;
+  reasoning: string;
+  management: string;
+};
+export type DuoRoomPayload = { name: string; chunks: { title: string; content: string }[] };
 
 export type DuoState = {
   code: string;
+  kind: DuoKind;
   title: string;
   questions: Qcm[];
+  /** Contenu des sessions autres que les QCM : cartes, cas clinique ou cours de la salle. */
+  payload: unknown;
   expires_at: string;
   me: string;
   members: DuoMember[];
@@ -18,6 +35,7 @@ export type DuoState = {
 
 export type DuoListItem = {
   code: string;
+  kind: DuoKind;
   title: string;
   created_at: string;
   expires_at: string;
@@ -39,7 +57,7 @@ export function duoLink(code: string): string {
 }
 
 const MESSAGES: Record<string, string> = {
-  duo_plan_required: "La révision à deux est réservée au plan Duo.",
+  duo_plan_required: "La révision à deux est réservée au plan Premium.",
   duo_daily_limit: "Tu as déjà créé 10 sessions aujourd'hui. Reprends une session en cours ou réessaie demain.",
   duo_not_found: "Ce code ne correspond à aucune session. Vérifie-le avec ton partenaire.",
   duo_expired: "Cette session est terminée (elle dure 48 heures).",
@@ -47,6 +65,10 @@ const MESSAGES: Record<string, string> = {
   duo_not_member: "Tu ne fais pas partie de cette session.",
   duo_chat_full: "La discussion de cette session est pleine.",
   not_authenticated: "Connecte-toi pour continuer.",
+  quota_exceeded: "Le quota du jour de l'abonné Premium est atteint. Réessayez demain.",
+  ai_failed: "Dr. Ahmed est indisponible pour le moment. Réessaie dans un instant.",
+  not_finished: "Vous devez tous les deux avoir terminé le cas.",
+  invalid_payload: "Ce contenu ne peut pas être partagé.",
 };
 
 export function duoError(e: unknown): string {
@@ -76,3 +98,37 @@ export const answerDuo = (code: string, idx: number, sel: Key[]) =>
 export const sendDuo = (code: string, body: string) => call<null>("duo_send", { p_code: code, p_body: body });
 
 export const listDuo = () => call<DuoListItem[]>("duo_list");
+
+export const createDuoV2 = (kind: Exclude<DuoKind, "qcm">, title: string, payload: unknown, name: string) =>
+  call<string>("duo_create_v2", { p_kind: kind, p_title: title, p_payload: payload, p_name: name });
+
+/** Cas clinique : réponse écrite à une étape (0 à 3) ou diagnostic final (4). */
+export const submitDuoText = (code: string, idx: number, text: string) =>
+  call<null>("duo_submit_text", { p_code: code, p_idx: idx, p_text: text });
+
+/** Flashcards : « je savais » ou « je ne savais pas ». */
+export const rateDuo = (code: string, idx: number, known: boolean) =>
+  call<null>("duo_rate", { p_code: code, p_idx: idx, p_known: known });
+
+/** Dr. Ahmed dans la session : une question dans la salle, ou la comparaison des raisonnements d'un cas. */
+export async function askDuoAi(code: string, action: "ask" | "case_feedback", text?: string): Promise<{ error: string | null }> {
+  const sb = getSupabase();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!sb || !url || !anon) return { error: "Le service n'est pas configuré." };
+  const { data } = await sb.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { error: MESSAGES.not_authenticated };
+  try {
+    const res = await fetch(`${url}/functions/v1/duo-ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: anon, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ code, action, text }),
+    });
+    if (res.ok) return { error: null };
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    return { error: duoError(new Error(j.error ?? "ai_failed")) };
+  } catch {
+    return { error: MESSAGES.ai_failed };
+  }
+}

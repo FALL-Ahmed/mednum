@@ -295,10 +295,10 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
         )}
         {duoUpsell && (
           <div className="rounded-2xl bg-eosin-soft p-5">
-            <p className="font-semibold text-ink">{t("Réviser à deux est réservé au plan Duo.")}</p>
+            <p className="font-semibold text-ink">{t("Réviser à deux est réservé au plan Premium.")}</p>
             <p className="mt-1 text-ink/80">{t("Tu invites un ami, qui participe gratuitement, et vous comparez vos réponses.")}</p>
             <div className="mt-3 flex flex-wrap gap-3">
-              <Link href="/app/abonnement" className={btnDark}>{t("Voir le plan Duo")}</Link>
+              <Link href="/app/abonnement" className={btnDark}>{t("Voir le plan Premium")}</Link>
               <button onClick={() => setDuoUpsell(false)} className={btnLine}>{t("Plus tard")}</button>
             </div>
           </div>
@@ -400,7 +400,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
         </p>
       )}
       {duoUpsell && (
-        <p className="mt-3 rounded-2xl bg-eosin-soft px-4 py-3 text-ink">{t("Réviser à deux est réservé au plan Duo.")}<Link href="/app/abonnement" className="font-semibold underline">{t("Voir le plan Duo")}</Link>
+        <p className="mt-3 rounded-2xl bg-eosin-soft px-4 py-3 text-ink">{t("Réviser à deux est réservé au plan Premium.")}<Link href="/app/abonnement" className="font-semibold underline">{t("Voir le plan Premium")}</Link>
         </p>
       )}
 

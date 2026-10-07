@@ -6,6 +6,7 @@ import type { DocumentRow } from "@/lib/course";
 import { generateCases, generateFiche, generateFlashcards, saveToDocument, studentCtx } from "@/lib/generate";
 import { useApp } from "./app-context";
 import { FicheView } from "./fiche-view";
+import { StartDuoButton } from "./duo/start-duo-button";
 import { FlashcardPlayer, type Card } from "./flashcard-player";
 import { LimitNotice } from "./limit-notice";
 import { ReportButton } from "./report-button";
@@ -162,7 +163,14 @@ export function Flashcards({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) 
     );
   }
 
-  return <FlashcardPlayer docId={doc.id} userId={user.id} cards={cards} />;
+  return (
+    <div>
+      <div className="mb-4 flex justify-end">
+        <StartDuoButton kind="flashcards" title={doc.name} payload={cards.slice(0, 30)} label="Réviser ces cartes à deux" />
+      </div>
+      <FlashcardPlayer docId={doc.id} userId={user.id} cards={cards} />
+    </div>
+  );
 }
 
 /* ——— Cas cliniques (générés dans l'application, affichés ici) ——— */
@@ -237,6 +245,7 @@ export function Cas({ doc, onSaved }: { doc: GenDoc; onSaved: (p: Patch) => void
       <div dir={dirOf(cas.title + (cas.context ?? ""))} className="rounded-2xl border border-line bg-white p-6 sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="label text-muted">{t("Cas clinique · fictif, à visée pédagogique")}</p>
+          <StartDuoButton kind="case" title={cas.title} payload={cas} label="Faire ce cas à deux" />
           <ReportButton docId={doc.id} kind="case" itemRef={String(c + 1)} snapshot={cas} label={t("Signaler une erreur dans ce cas")} />
         </div>
         <p className="display mt-2 text-3xl leading-tight text-ink">{cas.title}</p>

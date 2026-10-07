@@ -7,7 +7,7 @@ import {
 import { derive, type PageProps } from '../lib/derive'
 
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0)
-const PLAN: Record<string, string> = { freemium: 'Gratuit', trial: 'Gratuit', standard: 'Standard', premium: 'Duo' }
+const PLAN: Record<string, string> = { freemium: 'Gratuit', trial: 'Gratuit', standard: 'Standard', premium: 'Premium' }
 const planKey = (p: string) => (p === 'trial' ? 'freemium' : p)
 
 function feeRate(ov: PageProps['ov'], s: Settings): number {
@@ -210,7 +210,7 @@ export default function Finance({ ov, settings, days }: PageProps) {
             {([
               ['free', 'Élèves gratuits actifs', simVals.free],
               ['std', 'Abonnés Standard', simVals.std],
-              ['prem', 'Abonnés Duo', simVals.prem],
+              ['prem', 'Abonnés Premium', simVals.prem],
             ] as const).map(([k, label, v]) => (
               <label key={k} className="sim-row">
                 <span>{label}</span>

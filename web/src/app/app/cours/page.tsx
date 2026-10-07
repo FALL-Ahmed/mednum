@@ -29,7 +29,7 @@ export default function Cours() {
   const max = quota?.limits?.max_documents ?? null;
   const full = max !== null && (docs?.length ?? 0) >= max;
   // Message d'invitation : supprimer un ancien cours suffit, ou passer au plan d'au-dessus.
-  const upgradeTo = quota?.plan === "standard" ? "Duo" : "Standard";
+  const upgradeTo = quota?.plan === "standard" ? "Premium" : "Standard";
   const limitMessage = (n: number | null) =>
     t(
       n === null
