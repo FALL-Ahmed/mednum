@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createDuoV2, type DuoKind } from "@/lib/duo";
 import { useApp } from "../app-context";
+import { IconUsers } from "../icons";
 import { useT } from "@/lib/app-i18n";
 
 /**
@@ -54,8 +55,9 @@ export function StartDuoButton({
         type="button"
         onClick={start}
         disabled={busy}
-        className={`rounded-full border border-ink/25 px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-ink disabled:opacity-40 ${className}`}
+        className={`inline-flex items-center gap-2 rounded-full border border-eosin bg-eosin-soft px-5 py-2.5 text-sm font-semibold text-ink transition hover:bg-eosin disabled:opacity-40 ${className}`}
       >
+        <IconUsers className="h-4 w-4" />
         {busy ? t("Création de la session…") : t(label)}
       </button>
       {msg && (

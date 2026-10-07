@@ -112,6 +112,16 @@ export default function CoursPage() {
                   );
                 })}
               </ul>
+              <Link
+                href={`/app/duo?cours=${encodeURIComponent(doc.id)}`}
+                className="mt-4 flex items-center justify-between gap-4 rounded-2xl bg-ink p-6 text-white transition hover:bg-eosin hover:text-ink"
+              >
+                <span>
+                  <span className="display block text-2xl">Réviser à deux</span>
+                  <span className="mt-1 block opacity-80">Invite un ami : QCM, flashcards, cas clinique ou salle avec Dr. Ahmed.</span>
+                </span>
+                <span aria-hidden className="inline-block text-2xl rtl:-scale-x-100">→</span>
+              </Link>
             </section>
           ) : (
             <button
