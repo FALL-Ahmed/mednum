@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { PublicLimits, PublicOffers } from "@/lib/offers";
 import { SITE, type Lang } from "@/lib/site-i18n";
-import { discounted, promoFor, type PromoCountry } from "@/lib/promos";
+import { promoFor, promoPrice, type PromoCountry } from "@/lib/promos";
 
 /*
   Prix par pays. Mauritanie : PRD v2.0 (à valider).
@@ -60,6 +60,10 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
         },
       }
     : base;
+  // Bandeau : la plus forte promotion en cours pour ce pays.
+  const banner = (offers?.promos ?? [])
+    .filter((x) => x.countries.includes(id) && +new Date(x.ends_at) > Date.now())
+    .sort((x, y) => y.discount_percent - x.discount_percent)[0] ?? null;
   const keyOf = { free: "freemium", standard: "standard", premium: "premium" } as const;
 
   return (
@@ -84,13 +88,23 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
         ))}
       </div>
 
-      <div className="mt-8 grid gap-5 md:grid-cols-3">
+      {banner && (
+        <p className="mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-[#ffb74d] bg-[#ffb74d]/25 px-5 py-3 text-center text-[15px] font-semibold text-ink">
+          <span className="rounded-full bg-[#ffb74d] px-3 py-1 text-base font-extrabold leading-none">−{banner.discount_percent} %</span>
+          <span>
+            {banner.label ? `${banner.label} · ` : ""}
+            {T.promoUntil(new Date(banner.ends_at).toLocaleDateString(lang === "ar" ? "ar-u-nu-latn" : "fr-FR", { day: "numeric", month: "long", timeZone: "UTC" }))}
+          </span>
+        </p>
+      )}
+
+      <div className={`${banner ? "mt-5" : "mt-8"} grid gap-5 md:grid-cols-3`}>
         {plans.map((p) => {
           const main = "main" in p && p.main;
           const price = p.key === "free" ? 0 : c.prices[p.key];
           // Promotion en cours (lancée depuis l'administration) : le prix mensuel est barré et remplacé.
           const promo = p.key === "free" ? null : promoFor(offers?.promos ?? [], p.key, "monthly", id as PromoCountry);
-          const shown = promo ? discounted(price, promo.discount_percent) : price;
+          const shown = promo ? promoPrice(promo, p.key, id as PromoCountry, "monthly", price) : price;
           const name = p.key === "free" ? T.free.name : p.key === "standard" ? "Standard" : "Premium";
           const text = p.key === "free" ? T.free.text : p.key === "standard" ? T.standardText : T.duoText;
           const limits = offers ? offers.limits[keyOf[p.key]] : FALLBACK[keyOf[p.key]];
@@ -128,12 +142,8 @@ export function Pricing({ offers = null, lang = "fr" }: { offers?: PublicOffers 
                 {price > 0 ? `${c.unit} ${T.perMonth}` : ""}
               </p>
               {promo && (
-                <p className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold">
-                  <span className="rounded-full bg-[#ffb74d] px-2.5 py-1 text-ink">−{promo.discount_percent} %</span>
-                  <span className={main ? "text-white/85" : "text-ink/80"}>
-                    {promo.label ? `${promo.label} · ` : ""}
-                    {T.promoUntil(new Date(promo.ends_at).toLocaleDateString(lang === "ar" ? "ar-u-nu-latn" : "fr-FR", { day: "numeric", month: "long", timeZone: "UTC" }))}
-                  </span>
+                <p className="mt-3">
+                  <span className="rounded-full bg-[#ffb74d] px-4 py-1.5 text-xl font-extrabold leading-none text-ink">−{promo.discount_percent} %</span>
                 </p>
               )}
               <p className={`mt-6 font-semibold ${main ? "text-white" : "text-ink"}`}>{text}</p>

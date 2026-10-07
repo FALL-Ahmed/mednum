@@ -21,7 +21,7 @@ import {
 } from "@/lib/payments";
 import { getSupabase } from "@/lib/supabase";
 import { formatDate, useT } from "@/lib/app-i18n";
-import { discounted, fetchPromos, promoFor, type Promo, type PromoCountry } from "@/lib/promos";
+import { fetchPromos, promoFor, promoPrice, type Promo, type PromoCountry } from "@/lib/promos";
 
 type PlanRow = { plan: string; label: string; price_monthly: number; price_yearly: number | null };
 type Account = { method: string; account_number: string };
@@ -256,11 +256,16 @@ function Abonnement() {
     return duration === "yearly" ? (p.price_yearly ?? p.price_monthly * 10) : p.price_monthly;
   };
   // Promotion en cours : même calcul que le serveur, qui recalcule de toute façon le montant à payer.
-  const promoOf = (p: PlanRow) => promoFor(promos, p.plan, duration, unit === "MRU" ? "mr" : (ck as PromoCountry));
+  const promoCountry = (unit === "MRU" ? "mr" : ck) as PromoCountry;
+  const promoOf = (p: PlanRow) => promoFor(promos, p.plan, duration, promoCountry);
   const priceOf = (p: PlanRow) => {
     const pr = promoOf(p);
-    return pr ? discounted(baseOf(p), pr.discount_percent) : baseOf(p);
+    return pr ? promoPrice(pr, p.plan, promoCountry, duration, baseOf(p)) : baseOf(p);
   };
+  // Bandeau de l'étape 1 : la plus forte promotion en cours pour ce pays.
+  const stepBanner = promos
+    .filter((x) => x.countries.includes(promoCountry) && +new Date(x.ends_at) > Date.now())
+    .sort((x, y) => y.discount_percent - x.discount_percent)[0] ?? null;
   const amount = plan ? priceOf(plan) : 0;
   const planPromo = plan ? promoOf(plan) : null;
   const account = accounts?.find((a) => a.method === method) ?? null;
@@ -563,6 +568,11 @@ function Abonnement() {
           <section className="rounded-2xl border border-line bg-white p-6 sm:p-8">
             <h2 className="display text-2xl text-ink">{t("Comment veux-tu payer ?")}</h2>
             {methodGrid}
+            {!account && (
+              <p className="mt-5 rounded-xl bg-slide px-4 py-3 text-sm text-muted">
+                {t("Choisis ton moyen de paiement ci-dessus : le numéro où envoyer l'argent s'affichera ici, puis tu ajouteras la capture de ton reçu.")}
+              </p>
+            )}
           </section>
 
           {account && (
@@ -655,8 +665,7 @@ function Abonnement() {
             </p>
             {planPromo && (
               <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
-                <span className="rounded-full bg-[#ffb74d] px-2.5 py-1">{`−${planPromo.discount_percent} %`}</span>
-                {t("{a} jusqu'au {b}", { a: planPromo.label || t("Promotion"), b: promoEnd(planPromo.ends_at) })}
+                <span className="rounded-full bg-[#ffb74d] px-4 py-1.5 text-xl font-extrabold leading-none">{`−${planPromo.discount_percent} %`}</span>
               </p>
             )}
             <ul className="mt-4 space-y-2 border-t border-line pt-4 text-sm text-ink/80">
@@ -708,6 +717,13 @@ function Abonnement() {
       {plans === null ? (
         <p className="text-muted">{t("Chargement des offres…")}</p>
       ) : (
+        <>
+        {stepBanner && (
+          <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-[#ffb74d] bg-[#ffb74d]/25 px-5 py-3 text-center text-[15px] font-semibold text-ink">
+            <span className="rounded-full bg-[#ffb74d] px-3 py-1 text-base font-extrabold leading-none">{`−${stepBanner.discount_percent} %`}</span>
+            <span>{t("{a} jusqu'au {b}", { a: stepBanner.label || t("Promotion"), b: promoEnd(stepBanner.ends_at) })}</span>
+          </p>
+        )}
         <div className="grid gap-5 md:grid-cols-2">
           {plans.map((p) => {
             const main = p.plan === "standard";
@@ -729,8 +745,7 @@ function Abonnement() {
                 <p className="text-sm text-muted">{unit} / {duration === "yearly" ? "an" : "mois"}</p>
                 {promoOf(p) && (
                   <p className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
-                    <span className="rounded-full bg-[#ffb74d] px-2.5 py-1">{`−${promoOf(p)!.discount_percent} %`}</span>
-                    {t("{a} jusqu'au {b}", { a: promoOf(p)!.label || t("Promotion"), b: promoEnd(promoOf(p)!.ends_at) })}
+                    <span className="rounded-full bg-[#ffb74d] px-4 py-1.5 text-xl font-extrabold leading-none">{`−${promoOf(p)!.discount_percent} %`}</span>
                   </p>
                 )}
                 <ul className="mt-5 flex-1 divide-y divide-line border-t border-line">
@@ -753,6 +768,7 @@ function Abonnement() {
             );
           })}
         </div>
+        </>
       )}
     </div>
   );

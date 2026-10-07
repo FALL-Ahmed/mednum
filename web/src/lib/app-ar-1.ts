@@ -154,6 +154,7 @@ export const AR1: Record<string, string> = {
   "Colle le code à 6 caractères reçu de ton partenaire. C'est gratuit.": "الصق الرمز المكوّن من 6 أحرف الذي وصلك من صديقك. الأمر مجاني.",
   "Commencer à réviser": "ابدأ المراجعة",
   "Comment veux-tu payer ?": "كيف تريد أن تدفع؟",
+  "Choisis ton moyen de paiement ci-dessus : le numéro où envoyer l'argent s'affichera ici, puis tu ajouteras la capture de ton reçu.": "اختر وسيلة الدفع أعلاه: سيظهر هنا الرقم الذي ترسل إليه المبلغ، ثم تضيف لقطة شاشة إيصالك.",
   "Compris": "فهمت",
   "Compte Google": "حساب Google",
   "Concentration profonde": "تركيز عميق",
