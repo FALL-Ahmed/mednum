@@ -24,7 +24,7 @@ const plans = [
 /** Liste de secours (si les offres du panneau d'administration ne sont pas lisibles). */
 const FALLBACK: Record<"freemium" | "standard" | "premium", PublicLimits> = {
   freemium: { max_documents: 1, daily_questions: 5, daily_contents: 1, daily_qcm: 1, pdf_export: false, history_days: 7 },
-  standard: { max_documents: 5, daily_questions: 40, daily_contents: 5, daily_qcm: 10, pdf_export: true, history_days: 30 },
+  standard: { max_documents: 50, daily_questions: 40, daily_contents: 5, daily_qcm: 10, pdf_export: true, history_days: 30 },
   premium: { max_documents: null, daily_questions: 100, daily_contents: 20, daily_qcm: 30, pdf_export: true, history_days: null },
 };
 

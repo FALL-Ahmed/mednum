@@ -307,7 +307,7 @@ export const fr = {
     unlimited247: 'toutes tes matières · 24h/24',
     planStandardFeatures: [
       '40 questions par jour à Dr. Ahmed',
-      '5 documents actifs',
+      '50 documents actifs',
       '5 fiches, flashcards ou cas cliniques par jour',
       '50 questions de QCM par jour',
       'Export des fiches en PDF',
@@ -685,7 +685,7 @@ export const ar: TranslationShape = {
     unlimited247: 'جميع موادك · 24/24',
     planStandardFeatures: [
       '40 سؤالًا يوميًا للدكتور أحمد',
-      '5 مستندات نشطة',
+      '50 مستندًا نشطًا',
       '5 بطاقات مراجعة أو بطاقات تعليمية أو حالات سريرية يوميًا',
       '50 سؤالًا من أسئلة الاختيار من متعدد يوميًا',
       'تصدير البطاقات بصيغة PDF',

@@ -30,7 +30,7 @@ type Step = 1 | 2 | 3;
 const FEATURES: Record<string, string[]> = {
   standard: [
     "40 questions par jour à Dr. Ahmed",
-    "5 documents actifs",
+    "50 documents actifs",
     "5 fiches, flashcards ou cas cliniques par jour",
     "50 questions de QCM par jour",
     "Export des fiches en PDF",
