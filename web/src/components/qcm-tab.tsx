@@ -193,7 +193,7 @@ export function QcmTab({ doc }: { doc: DocumentRow }) {
     return (
       <div className="rounded-2xl border border-dashed border-line bg-white p-8">
         <p className="display text-2xl text-ink">Ce document n&apos;a pas assez de texte pour des QCM.</p>
-        <p className="mt-2 max-w-lg text-muted">Vérifie que le PDF contient du texte sélectionnable (pas un scan).</p>
+        <p className="mt-2 max-w-lg text-muted">Ajoute un document plus complet, ou des photos plus nettes de tes pages.</p>
       </div>
     );
   }

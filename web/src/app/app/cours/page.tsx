@@ -7,6 +7,7 @@ import { useApp } from "@/components/app-context";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { IconPlus, IconTrash } from "@/components/icons";
 import { autoChunk, extractPdf, UnreadablePdfError, type Heading } from "@/lib/pdf";
+import { isImageFile, MAX_OCR_PAGES, OcrLimitError, ocrPages, pdfPagesToJpeg, photosToJpeg, TooManyPagesError } from "@/lib/ocr";
 import { getSupabase } from "@/lib/supabase";
 
 export default function Cours() {
@@ -30,7 +31,7 @@ export default function Cours() {
   const limitMessage = (n: number | null) =>
     `Ton plan permet ${n ?? "un nombre limité de"} document${(n ?? 0) > 1 ? "s" : ""}. Supprime un ancien cours pour en ajouter un nouveau, ou passe au plan ${upgradeTo} pour en avoir plus.`;
 
-  async function onFile(file: File) {
+  async function onFiles(files: File[]) {
     const sb = getSupabase();
     if (!sb) return;
     setError(null);
@@ -41,12 +42,32 @@ export default function Cours() {
       return;
     }
     try {
-      const isTxt = /\.txt$/i.test(file.name);
+      const file = files[0];
+      const photos = files.every(isImageFile);
+      if (files.length > 1 && !photos) {
+        setError("Choisis un seul PDF ou fichier texte à la fois. Pour plusieurs pages, envoie des photos.");
+        return;
+      }
+      const isTxt = !photos && /\.txt$/i.test(file.name);
       setUploading("Lecture du fichier…");
       let text: string;
       let pages: number;
       let headings: Heading[] = [];
-      if (isTxt) {
+      let label = file.name.replace(/\.(pdf|txt|jpe?g|png|webp|heic|heif)$/i, "");
+
+      const progress = (d: number, n: number) => setUploading(`Lecture de la page ${d} sur ${n}…`);
+      const readByOcr = async (source: AsyncIterable<string>, n: number) => {
+        const r = await ocrPages(source, n, progress);
+        if (r.failed > n / 2) throw new Error("ocr_failed");
+        return r.text;
+      };
+
+      if (photos) {
+        if (files.length > MAX_OCR_PAGES) throw new TooManyPagesError(files.length);
+        pages = files.length;
+        text = await readByOcr(photosToJpeg(files), files.length);
+        if (files.length > 1) label = `Photos de cours du ${new Date().toLocaleDateString("fr-FR")}`;
+      } else if (isTxt) {
         text = await file.text();
         pages = Math.max(1, Math.round(text.split(/\s+/).length / 400));
       } else {
@@ -54,17 +75,25 @@ export default function Cours() {
         text = r.text;
         pages = r.pages;
         headings = r.headings;
+        if (text.trim().length < 500) {
+          // Presque pas de texte : c'est un scan. On lit les pages comme des images.
+          if (r.pages > MAX_OCR_PAGES) throw new TooManyPagesError(r.pages);
+          setUploading("Ce PDF est un scan, lecture des pages…");
+          const all = Array.from({ length: r.pages }, (_, i) => i + 1);
+          text = await readByOcr(pdfPagesToJpeg(file, all), r.pages);
+          headings = [];
+        }
       }
-      if (text.trim().length < 500) throw new UnreadablePdfError(text.trim().length, pages);
+      if (text.trim().length < (photos ? 200 : 500)) throw new UnreadablePdfError(text.trim().length, pages);
 
       setUploading("Découpage en parties…");
       const id = Date.now().toString();
       const { error: e } = await sb.from("documents").insert({
         id,
         user_id: user.id,
-        name: file.name.replace(/\.(pdf|txt)$/i, ""),
+        name: label,
         subject_name: "",
-        file_name: file.name,
+        file_name: photos && files.length > 1 ? `${files.length} photos` : file.name,
         pages,
         content: text,
         chunks: autoChunk(text, headings),
@@ -82,8 +111,12 @@ export default function Cours() {
     } catch (err) {
       setError(
         err instanceof UnreadablePdfError
-          ? "Ce PDF ne contient pas assez de texte. C'est probablement un scan (une image) : il faut un PDF dont le texte est sélectionnable."
-          : "Impossible d'ajouter ce fichier. Vérifie qu'il s'agit d'un PDF ou d'un fichier .txt, puis réessaie.",
+          ? "Je n'arrive pas à lire assez de texte. Prends la page bien à plat, dans une bonne lumière, sans reflet, puis réessaie."
+          : err instanceof TooManyPagesError
+            ? `Ce document a ${err.pages} pages : la lecture d'un scan ou de photos est limitée à ${MAX_OCR_PAGES} pages à la fois. Découpe-le en plusieurs parties.`
+            : err instanceof OcrLimitError
+              ? `Tu as atteint la limite de pages lues aujourd'hui${err.cap ? ` (${err.cap})` : ""}. Réessaie demain, ou passe à un plan supérieur pour en lire davantage.`
+              : "Impossible d'ajouter ce fichier. Vérifie qu'il s'agit d'un PDF, d'un fichier .txt ou de photos de ton cours, puis réessaie.",
       );
       setUploading(null);
     }
@@ -118,13 +151,14 @@ export default function Cours() {
           <input
             ref={fileRef}
             type="file"
-            accept=".pdf,.txt,application/pdf,text/plain"
+            accept=".pdf,.txt,application/pdf,text/plain,image/*"
+            multiple
             className="sr-only"
             aria-label="Ajouter un document"
             onChange={(e) => {
-              const f = e.target.files?.[0];
+              const list = Array.from(e.target.files ?? []);
               e.target.value = "";
-              if (f) onFile(f);
+              if (list.length > 0) onFiles(list);
             }}
           />
           <button
@@ -153,7 +187,7 @@ export default function Cours() {
         <div className="mt-8 rounded-2xl border border-dashed border-line bg-white p-8 sm:p-12">
           <p className="display text-3xl text-ink">Dépose ton premier cours.</p>
           <p className="mt-3 max-w-lg text-muted">
-            Ajoute un PDF dont le texte est sélectionnable (pas un scan) ou un fichier .txt. Une fois lu, tu choisis
+            Ajoute un PDF (même scanné), des photos de tes pages de cours ou un fichier .txt. Une fois lu, tu choisis
             quoi en faire : poser des questions, une fiche, des QCM, des flashcards ou un cas clinique.
           </p>
           <button
