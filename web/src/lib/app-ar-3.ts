@@ -171,7 +171,7 @@ export const AR3: Record<string, string> = {
   "50 questions de QCM par jour": "50 سؤال QCM يوميًا",
   "Export des fiches en PDF": "تصدير الملخّصات بصيغة PDF",
   "Historique de 30 jours": "سجل لمدة 30 يومًا",
-  "Révision à deux : QCM partagés avec un ami, invité gratuit": "المراجعة مع صديق: سلاسل QCM مشتركة، والمدعو مجانًا",
+  "Révision à deux : QCM, flashcards, cas cliniques et salle avec Dr. Ahmed (invité gratuit)": "المراجعة مع صديق: QCM وبطاقات مراجعة وحالات سريرية وغرفة مع الدكتور أحمد (المدعو مجانًا)",
   "100 questions par jour à Dr. Ahmed": "100 سؤال يوميًا للدكتور أحمد",
   "Documents illimités": "مستندات غير محدودة",
   "20 fiches, flashcards ou cas cliniques par jour": "20 ملخّصًا أو بطاقة مراجعة أو حالة سريرية يوميًا",

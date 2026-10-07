@@ -38,7 +38,7 @@ const FEATURES: Record<string, string[]> = {
     "Historique de 30 jours",
   ],
   premium: [
-    "Révision à deux : QCM partagés avec un ami, invité gratuit",
+    "Révision à deux : QCM, flashcards, cas cliniques et salle avec Dr. Ahmed (invité gratuit)",
     "100 questions par jour à Dr. Ahmed",
     "Documents illimités",
     "20 fiches, flashcards ou cas cliniques par jour",

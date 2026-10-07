@@ -87,7 +87,7 @@ const FR = {
       qcm: (n: number) => `${n * 5} questions de QCM par jour`,
       pdf: "Export des fiches en PDF",
       history: (d: number | null) => (d === null ? "Historique illimité" : `Historique de ${d} jours`),
-      duo: "Révision à deux : QCM partagés avec un ami, invité gratuit",
+      duo: "Révision à deux : QCM, flashcards, cas cliniques et salle avec Dr. Ahmed (invité gratuit)",
     },
   },
   demo: {
@@ -230,7 +230,7 @@ const AR: SiteDict = {
       qcm: (n: number) => `${arCount(n * 5, "سؤال QCM واحد", "سؤالا QCM", "أسئلة QCM", "سؤال QCM")} يوميًا`,
       pdf: "تصدير الملخّصات بصيغة PDF",
       history: (d: number | null) => (d === null ? "سجل غير محدود" : `سجل ${arCount(d, "يوم واحد", "يومين", "أيام", "يومًا")}`),
-      duo: "المراجعة مع صديق: سلاسل QCM مشتركة، والمدعو مجانًا",
+      duo: "المراجعة مع صديق: QCM وبطاقات مراجعة وحالات سريرية وغرفة مع الدكتور أحمد (المدعو مجانًا)",
     },
   },
   demo: {
