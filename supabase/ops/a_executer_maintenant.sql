@@ -371,3 +371,159 @@ drop policy if exists "admin_push_admin_all" on public.admin_push_subscriptions;
 create policy "admin_push_admin_all" on public.admin_push_subscriptions
   for all using (public.is_admin() and user_id = auth.uid())
   with check (public.is_admin() and user_id = auth.uid());
+
+-- ═══ 20261016000000_client_errors ═══
+-- Suivi des erreurs : le site et l'application envoient ici les erreurs rencontrées par les étudiants
+-- (visibles dans l'admin, page « Erreurs »). Aucun contenu de cours ni donnée personnelle : seulement le message,
+-- la page, le type d'appareil et, si connecté, l'identifiant du compte.
+create table if not exists public.client_errors (
+  id         uuid        primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  user_id    uuid,
+  kind       text        not null,
+  message    text        not null check (char_length(message) between 1 and 500),
+  stack      text        check (stack is null or char_length(stack) <= 2000),
+  url        text        check (url is null or char_length(url) <= 200),
+  user_agent text        check (user_agent is null or char_length(user_agent) <= 200),
+  context    jsonb
+);
+
+create index if not exists client_errors_created_idx on public.client_errors (created_at desc);
+
+alter table public.client_errors enable row level security;
+
+-- N'importe quel visiteur peut signaler une erreur (jamais en lire).
+drop policy if exists "client_errors_insert" on public.client_errors;
+create policy "client_errors_insert" on public.client_errors
+  for insert to anon, authenticated
+  with check (user_id is null or user_id = auth.uid());
+
+drop policy if exists "client_errors_admin_read" on public.client_errors;
+create policy "client_errors_admin_read" on public.client_errors
+  for select using (public.is_admin());
+
+drop policy if exists "client_errors_admin_delete" on public.client_errors;
+create policy "client_errors_admin_delete" on public.client_errors
+  for delete using (public.is_admin());
+
+
+-- ═══ 20261017000000_suggestions ═══
+-- Messages à l'équipe : une lettre privée que l'étudiant écrit depuis l'application (idée, problème, demande).
+-- L'équipe la lit dans l'admin (page « Messages ») avec le nom et l'e-mail de l'auteur, et répond par e-mail.
+create table if not exists public.suggestions (
+  id          uuid        primary key default gen_random_uuid(),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  user_id     uuid        not null references auth.users(id) on delete cascade,
+  email       text,
+  kind        text        not null check (kind in ('idea', 'bug', 'exam', 'other')),
+  message     text        not null check (char_length(message) between 5 and 2000),
+  file_path   text,
+  file_name   text,
+  status      text        not null default 'new' check (status in ('new', 'planned', 'done', 'dismissed')),
+  admin_note  text        check (admin_note is null or char_length(admin_note) <= 500)
+);
+
+-- Si la table existait déjà sans l'e-mail
+alter table public.suggestions add column if not exists email text;
+
+create index if not exists suggestions_created_idx on public.suggestions (created_at desc);
+
+alter table public.suggestions enable row level security;
+
+-- Un étudiant envoie en son nom, au plus 10 messages par jour (anti-abus).
+drop policy if exists "suggestions_insert_own" on public.suggestions;
+create policy "suggestions_insert_own" on public.suggestions
+  for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and status = 'new'
+    and (select count(*) from public.suggestions s where s.user_id = auth.uid() and s.created_at > now() - interval '1 day') < 10
+  );
+
+-- Il relit ses envois (et la réponse de l'équipe) ; l'administrateur lit tout.
+drop policy if exists "suggestions_select" on public.suggestions;
+create policy "suggestions_select" on public.suggestions
+  for select to authenticated
+  using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "suggestions_admin_update" on public.suggestions;
+create policy "suggestions_admin_update" on public.suggestions
+  for update to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "suggestions_admin_delete" on public.suggestions;
+create policy "suggestions_admin_delete" on public.suggestions
+  for delete to authenticated
+  using (public.is_admin());
+
+-- Fichiers joints (photos, PDF) : espace privé, un dossier par étudiant, 10 Mo maximum.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('suggestion-files', 'suggestion-files', false, 10485760,
+        array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'])
+on conflict (id) do nothing;
+
+drop policy if exists "suggestion_files_insert" on storage.objects;
+create policy "suggestion_files_insert" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'suggestion-files' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "suggestion_files_select" on storage.objects;
+create policy "suggestion_files_select" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'suggestion-files' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
+
+
+-- ═══ 20261018000000_emails ═══
+-- E-mails automatiques (via Resend) : bienvenue, relance du premier cours, fin d'abonnement proche.
+-- email_log garde ce qui a déjà été envoyé : un même e-mail ne part jamais deux fois à la même personne.
+create table if not exists public.email_log (
+  user_id uuid        not null references auth.users(id) on delete cascade,
+  kind    text        not null,
+  ref     text        not null default '',
+  sent_at timestamptz not null default now(),
+  primary key (user_id, kind, ref)
+);
+
+-- Aucune politique : seule l'Edge Function (clé de service) lit et écrit ce journal.
+alter table public.email_log enable row level security;
+
+-- Les e-mails à envoyer maintenant (appelée chaque jour par l'Edge Function send-email).
+create or replace function public.emails_due()
+returns table (user_id uuid, email text, name text, kind text, ref text, plan text, expires_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  -- Relance : inscrit depuis 2 à 14 jours et n'a encore déposé aucun cours
+  select u.id, u.email::text, s.name, 'nudge_no_course'::text, ''::text, null::text, null::timestamptz
+    from public.students s
+    join auth.users u on u.id::text = s.user_id
+   where u.email is not null
+     and s.created_at < now() - interval '2 days'
+     and s.created_at > now() - interval '14 days'
+     and not exists (select 1 from public.documents d where d.user_id::text = s.user_id)
+     and not exists (select 1 from public.email_log l where l.user_id = u.id and l.kind = 'nudge_no_course')
+
+  union all
+
+  -- Fin d'abonnement dans les 3 jours, sans renouvellement déjà en place
+  select u.id, u.email::text, st.name, 'expiry_soon'::text, to_char(sub.expires_at, 'YYYY-MM-DD'), sub.plan, sub.expires_at
+    from public.subscriptions sub
+    left join public.device_links dl on dl.device_id = sub.user_id
+    join auth.users u on u.id::text = coalesce(dl.user_id::text, sub.user_id)
+    left join public.students st on st.user_id = u.id::text
+   where u.email is not null
+     and sub.status = 'active'
+     and sub.expires_at > now() and sub.expires_at <= now() + interval '3 days'
+     and not exists (
+       select 1 from public.subscriptions n
+        where n.user_id = sub.user_id and n.status = 'active' and n.expires_at > sub.expires_at)
+     and not exists (
+       select 1 from public.email_log l
+        where l.user_id = u.id and l.kind = 'expiry_soon' and l.ref = to_char(sub.expires_at, 'YYYY-MM-DD'));
+$$;
+
+revoke all on function public.emails_due() from public, anon, authenticated;
+grant execute on function public.emails_due() to service_role;

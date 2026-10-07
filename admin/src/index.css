@@ -798,3 +798,23 @@ body { font-family:var(--f-body); font-size:14px; -webkit-font-smoothing:antiali
   .tbl-bar { gap:8px }
   .sbar { max-width:none; min-width:0; width:100% }
 }
+
+/* Page Erreurs */
+.er-list { display:grid; gap:8px }
+.er-item { border:1px solid var(--bdr); border-radius:12px; background:#fff; overflow:hidden }
+.er-head { width:100%; display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border:none; background:none; text-align:left }
+.er-head:hover { background:var(--bg) }
+.er-n { flex-shrink:0; min-width:38px; padding:2px 8px; border-radius:999px; background:#FFF1F0; color:#A3271C; font-weight:700; font-size:12.5px; text-align:center }
+.er-msg { display:grid; gap:2px; min-width:0 }
+.er-msg strong { font-size:13.5px; color:var(--t1); overflow-wrap:anywhere }
+.er-msg small { font-size:12px; color:var(--t4) }
+.er-body { padding:4px 14px 14px; display:grid; gap:6px; border-top:1px solid var(--bdr2) }
+.er-body pre { margin:0; padding:10px; background:var(--bg); border-radius:8px; font-size:11.5px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; max-height:220px; overflow:auto }
+
+/* Page Idées */
+.id-list { display:grid; gap:12px }
+.id-card { background:#fff; border:1px solid var(--bdr); border-radius:14px; padding:16px 18px; display:grid; gap:10px; box-shadow:var(--sh) }
+.id-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+.id-msg { white-space:pre-line; color:var(--t1); font-size:14px; line-height:1.55; overflow-wrap:anywhere }
+.id-note { width:100% }
+.id-act { display:flex; gap:8px; flex-wrap:wrap; align-items:center }

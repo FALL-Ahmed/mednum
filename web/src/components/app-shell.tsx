@@ -27,6 +27,7 @@ import {
   IconMenu,
   IconTimer,
   IconUser,
+  IconSpark,
   IconUsers,
 } from "./icons";
 import { formatDate, useT } from "@/lib/app-i18n";
@@ -60,6 +61,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Mon compte",
     items: [
       { href: "/app/abonnement", label: "Abonnement", icon: IconCard },
+      { href: "/app/idees", label: "Écrire à l'équipe", icon: IconSpark },
       { href: "/app/compte", label: "Profil", icon: IconUser },
     ],
   },

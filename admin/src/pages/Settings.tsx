@@ -306,6 +306,33 @@ function NumberRows({
   )
 }
 
+/** Envoie à ton adresse l'e-mail de bienvenue : pour vérifier que Resend est bien configuré. */
+function MailTest() {
+  const [busy, setBusy] = useState(false)
+  const [to, setTo] = useState('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  async function test() {
+    setBusy(true)
+    setMsg(null)
+    const { data, error } = await supabase.functions.invoke('send-email', { body: { type: 'test', all: true, to: to.trim() || undefined } })
+    setBusy(false)
+    if (error) {
+      let detail = error.message
+      try { detail = (await (error as unknown as { context: Response }).context.json()).error ?? detail } catch { /* corps illisible */ }
+      setMsg({ ok: false, text: /resend_not_configured/.test(detail) ? "La clé Resend n'est pas encore enregistrée : lance la commande supabase secrets set RESEND_API_KEY=… puis déploie la fonction send-email." : `L'envoi a échoué : ${detail}` })
+    } else setMsg({ ok: true, text: `3 e-mails de test envoyés à ${(data as { to?: string })?.to ?? 'ton adresse'} (bienvenue, relance, fin d'abonnement). Regarde ta boîte et les courriers indésirables.` })
+  }
+  return (
+    <Panel title="E-mails automatiques" sub="Bienvenue après l'inscription, relance du premier cours après 2 jours, et rappel 3 jours avant la fin d'un abonnement. Envoyés avec Resend.">
+      {msg && <div className={`ad-note ${msg.ok ? '' : 'bad'}`} style={{ margin: '0 0 12px' }}>{msg.text}</div>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input className="ad-input" style={{ width: 280, maxWidth: '100%' }} type="email" placeholder="Envoyer à (vide = ton adresse de connexion)" value={to} onChange={e => setTo(e.target.value)} />
+        <button className="btn-s" disabled={busy} onClick={test}>{busy ? 'Envoi…' : "Envoyer les 3 e-mails de test"}</button>
+      </div>
+    </Panel>
+  )
+}
+
 export default function SettingsPage({ settings, onSaved, email }: { settings: S; onSaved: () => void; email: string }) {
   const [tab, setTab] = useState<Tab>('offers')
   const save = (list: { key: string; value: number }[]) =>
@@ -380,9 +407,12 @@ export default function SettingsPage({ settings, onSaved, email }: { settings: S
       )}
 
       {tab === 'account' && (
+        <>
         <Panel title="Ton accès">
           <p className="ad-mut">Connecté en tant que <strong style={{ color: 'var(--t1)' }}>{email}</strong>. Seuls les comptes listés dans la table <code>admin_users</code> voient les chiffres de ce panneau.</p>
         </Panel>
+        <MailTest />
+        </>
       )}
     </div>
   )

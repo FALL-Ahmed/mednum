@@ -3,7 +3,7 @@ import { costUsd, toMru, type Overview, type Settings } from './admin'
 export type Page =
   | 'overview' | 'growth' | 'finance'
   | 'students' | 'payments' | 'activity' | 'promotions'
-  | 'documents' | 'reports'
+  | 'documents' | 'reports' | 'errors' | 'ideas'
   | 'settings'
 
 export type PageProps = {

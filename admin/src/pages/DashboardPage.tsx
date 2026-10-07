@@ -9,8 +9,10 @@ import { supabase } from '../lib/supabase'
 import { disablePush, enablePush, pushState, sendTestPush, type PushState } from '../lib/push'
 import Activity from './Activity'
 import Documents from './Documents'
+import Errors from './Errors'
 import Finance from './Finance'
 import Growth from './Growth'
+import Ideas from './Ideas'
 import OverviewPage from './Overview'
 import Payments from './Payments'
 import Promotions from './Promotions'
@@ -44,10 +46,17 @@ const NAV: { title: string; items: Item[] }[] = [
     title: 'Contenu',
     items: [
       { id: 'documents', label: 'Cours des élèves', Icon: Icons.Doc },
+      { id: 'ideas', label: 'Messages', Icon: Icons.Pulse },
       { id: 'reports', label: 'Signalements', Icon: Icons.Flag },
     ],
   },
-  { title: 'Système', items: [{ id: 'settings', label: 'Paramètres', Icon: Icons.Cog }] },
+  {
+    title: 'Système',
+    items: [
+      { id: 'errors', label: 'Erreurs', Icon: Icons.Flag },
+      { id: 'settings', label: 'Paramètres', Icon: Icons.Cog },
+    ],
+  },
 ]
 
 const PERIODIC: Page[] = ['overview', 'growth', 'finance', 'activity']
@@ -61,6 +70,8 @@ export default function DashboardPage({ session }: { session: Session }) {
   const [err, setErr] = useState<string | null>(null)
   const [reportsNew, setReportsNew] = useState(0)
   const [pendingN, setPendingN] = useState(0)
+  const [errorsN, setErrorsN] = useState(0)
+  const [ideasN, setIdeasN] = useState(0)
   const [push, setPush] = useState<PushState>('off')
   const [pushMsg, setPushMsg] = useState<string | null>(null)
 
@@ -117,6 +128,10 @@ export default function DashboardPage({ session }: { session: Session }) {
     setReportsNew(count ?? 0)
     const pend = await supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
     setPendingN(pend.count ?? 0)
+    const errs = await supabase.from('client_errors').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 86400000).toISOString())
+    setErrorsN(errs.count ?? 0)
+    const ideas = await supabase.from('suggestions').select('id', { count: 'exact', head: true }).eq('status', 'new')
+    setIdeasN(ideas.count ?? 0)
     setBusy(false)
   }, [days])
 
@@ -137,7 +152,7 @@ export default function DashboardPage({ session }: { session: Session }) {
     </label>
   )
   const pending = Math.max(pendingN, ov?.totals.pending ?? 0)
-  const badge = (id: Page) => (id === 'payments' ? pending : id === 'reports' ? reportsNew : 0)
+  const badge = (id: Page) => (id === 'payments' ? pending : id === 'reports' ? reportsNew : id === 'errors' ? errorsN : id === 'ideas' ? ideasN : 0)
 
   const forbidden = !!err && /forbidden/i.test(err)
   const missing = !!err && /(could not find|schema cache|does not exist)/i.test(err)
@@ -250,6 +265,8 @@ export default function DashboardPage({ session }: { session: Session }) {
               {page === 'promotions' && <Promotions />}
               {page === 'documents' && <Documents />}
               {page === 'reports' && <Reports />}
+              {page === 'errors' && <Errors />}
+              {page === 'ideas' && <Ideas />}
               {page === 'settings' && <SettingsPage settings={settings} onSaved={refresh} email={email} />}
             </>
           )}
