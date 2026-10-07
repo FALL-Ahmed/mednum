@@ -291,7 +291,7 @@ export function AppFrame({
 
                 {/* Raccourcis vers les derniers cours : seulement si l'écran est assez haut pour ne jamais défiler */}
                 {n.href === "/app/cours" && (
-                  <div className="hidden [@media(min-height:860px)]:block">
+                  <div className="hidden lg:[@media(min-height:860px)]:block">
                     {recent.map((d) => {
                       const dActive = pathname === `/app/cours/${d.id}`;
                       return (
