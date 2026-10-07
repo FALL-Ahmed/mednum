@@ -1,23 +1,29 @@
 import { Bars, HBars, Lines } from '../components/charts'
 import { Grid, Kpi, KpiRow, Notice, PageHead, Panel } from '../components/ui'
-import { dayShort, fmt, fmtMru, pct } from '../lib/admin'
+import { curLabel, dayShort, fmt, fmtMru, fromMru, pct } from '../lib/admin'
 import { derive, type PageProps } from '../lib/derive'
 
-export default function Overview({ ov, settings, days, go, reportsNew }: PageProps) {
+export default function Overview({ ov, settings, days, go, reportsNew, pending = 0 }: PageProps) {
   const d = derive(ov, settings)
   const t = ov.totals
   const labels = ov.daily.map(x => dayShort(x.day))
   return (
     <div>
-      <PageHead title="Vue d'ensemble" sub={`Les ${days} derniers jours · tous les montants sont convertis en ouguiyas (MRU)`} />
+      <PageHead title="Vue d'ensemble" sub={`Les ${days} derniers jours · tous les montants sont convertis dans la devise choisie en haut à droite`} />
 
-      {(t.pending > 0 || reportsNew > 0) && (
+      {pending > 0 && (
+        <button className="ad-banner" onClick={() => go('payments')}>
+          <span className="ad-banner-n">{pending}</span>
+          <span className="ad-banner-t">
+            <strong>{pending > 1 ? `${pending} abonnements attendent ta validation` : '1 abonnement attend ta validation'}</strong>
+            <small>Vérifie le reçu de l&apos;élève, puis valide, refuse ou offre l&apos;abonnement.</small>
+          </span>
+          <span className="ad-banner-go">Voir →</span>
+        </button>
+      )}
+
+      {reportsNew > 0 && (
         <div className="ad-alerts">
-          {t.pending > 0 && (
-            <button className="ad-alert warn" onClick={() => go('payments')}>
-              <strong>{t.pending}</strong> paiement{t.pending > 1 ? 's' : ''} à valider →
-            </button>
-          )}
           {reportsNew > 0 && (
             <button className="ad-alert bad" onClick={() => go('reports')}>
               <strong>{reportsNew}</strong> erreur{reportsNew > 1 ? 's' : ''} signalée{reportsNew > 1 ? 's' : ''} à traiter →
@@ -48,13 +54,13 @@ export default function Overview({ ov, settings, days, go, reportsNew }: PagePro
         </Panel>
       </Grid>
 
-      <Panel title="Chiffre d'affaires et coût de l'IA par jour" sub="En ouguiyas (MRU)">
+      <Panel title="Chiffre d'affaires et coût de l'IA par jour" sub="Dans la devise choisie en haut à droite">
         <Bars
           labels={labels}
-          unit="MRU"
+          unit={curLabel()}
           series={[
-            { name: "Chiffre d'affaires", color: '#07A997', values: d.revByDay },
-            { name: "Coût de l'IA", color: '#F59E0B', values: d.costByDay },
+            { name: "Chiffre d'affaires", color: '#07A997', values: d.revByDay.map(fromMru) },
+            { name: "Coût de l'IA", color: '#F59E0B', values: d.costByDay.map(fromMru) },
           ]}
         />
       </Panel>

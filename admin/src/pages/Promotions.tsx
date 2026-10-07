@@ -8,6 +8,8 @@ type Promo = {
   id: string; name: string; label: string; discount_percent: number
   plans: string[]; durations: string[]; countries: string[]
   starts_at: string; ends_at: string; active: boolean; created_at: string
+  /** Prix promo arrondis à la main : clé « offre:pays:durée » → prix final. Vide = calcul automatique. */
+  price_overrides?: Record<string, number> | null
 }
 
 const PLANS = [{ id: 'standard', label: 'Standard' }, { id: 'premium', label: 'Premium' }]
@@ -57,6 +59,7 @@ export default function Promotions() {
   const [countries, setCountries] = useState<string[]>(['mr', 'sn', 'ma'])
   const [start, setStart] = useState(() => toLocalInput(new Date()))
   const [end, setEnd] = useState(() => toLocalInput(new Date(Date.now() + 7 * 86400000)))
+  const [overrides, setOverrides] = useState<Record<string, string>>({})
 
   const load = useCallback(() => {
     supabase.from('price_promotions').select('*').order('created_at', { ascending: false }).then(({ data, error }) => {
@@ -76,7 +79,8 @@ export default function Promotions() {
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter(x => x !== id) : [...list, id])
   const percent = Number(pct)
-  const valid = name.trim().length > 0 && Number.isInteger(percent) && percent >= 1 && percent <= 90 && plans.length > 0 && durations.length > 0 && countries.length > 0 && +new Date(end) > +new Date(start)
+  // Changer le pourcentage repart du calcul automatique : les prix arrondis à la main ne seraient plus à jour.
+  const changePct = (v: string) => { setPct(v); setOverrides({}) }
 
   function quick(days: number) {
     const s = new Date(start)
@@ -86,33 +90,50 @@ export default function Promotions() {
   // Aperçu : prix de base → prix avec promotion, pour chaque pays et durée choisis
   const preview = useMemo(() => {
     if (!offers || !(percent >= 1 && percent <= 90)) return []
-    const out: { plan: string; country: string; duration: string; base: number; final: number; cur: string }[] = []
+    const out: { key: string; plan: string; country: string; duration: string; base: number; auto: number; cur: string }[] = []
     for (const pl of PLANS.filter(x => plans.includes(x.id))) {
       for (const c of COUNTRIES.filter(x => countries.includes(x.id))) {
         for (const d of DURATIONS.filter(x => durations.includes(x.id))) {
           const pr = offers.prices[pl.id as 'standard' | 'premium']?.[c.cur]
           const base = pr ? (d.id === 'yearly' ? pr.yearly : pr.monthly) : 0
-          if (base > 0) out.push({ plan: pl.label, country: c.label, duration: d.label, base, final: Math.round((base * (100 - percent)) / 100), cur: CUR_LABEL[c.cur] })
+          if (base > 0) out.push({ key: `${pl.id}:${c.id}:${d.id}`, plan: pl.label, country: c.label, duration: d.label, base, auto: Math.round((base * (100 - percent)) / 100), cur: CUR_LABEL[c.cur] })
         }
       }
     }
     return out
   }, [offers, percent, plans, durations, countries])
 
+  // Seuls les prix modifiés à la main sont enregistrés ; ils doivent être entiers, > 0 et ≤ au prix normal.
+  const finalOverrides = useMemo(() => {
+    const out: Record<string, number> = {}
+    let ok = true
+    for (const r of preview) {
+      const raw = overrides[r.key]
+      if (raw === undefined || raw === String(r.auto)) continue
+      const v = Number(raw)
+      if (!raw || !Number.isInteger(v) || v < 1 || v > r.base) ok = false
+      else out[r.key] = v
+    }
+    return { out, ok }
+  }, [preview, overrides])
+
+  const valid = name.trim().length > 0 && Number.isInteger(percent) && percent >= 1 && percent <= 90 && plans.length > 0 && durations.length > 0 && countries.length > 0 && +new Date(end) > +new Date(start) && finalOverrides.ok
+
   async function create() {
     if (!valid || busy) return
     setBusy(true)
     setMsg(null)
     const { error } = await supabase.from('price_promotions').insert({
-      name: name.trim(), label: label.trim(), discount_percent: percent, plans, durations, countries,
+      name: name.trim(), label: label.trim(), discount_percent: percent, plans, durations, countries, price_overrides: finalOverrides.out,
       starts_at: fromLocalInput(start), ends_at: fromLocalInput(end), active: true,
     })
     setBusy(false)
-    if (error) setMsg({ ok: false, text: /price_promotions/.test(error.message) ? "La table des promotions n'existe pas encore : exécute d'abord le bloc SQL des promotions." : error.message })
+    if (error) setMsg({ ok: false, text: /price_overrides/.test(error.message) ? "Il manque une colonne pour les prix arrondis : exécute le fichier 20261011000000_promo_price_overrides.sql dans Supabase (éditeur SQL)." : /price_promotions/.test(error.message) ? "La table des promotions n'existe pas encore : exécute d'abord le fichier 20261010000000_promotions.sql dans Supabase (éditeur SQL), puis 20261011000000_promo_price_overrides.sql." : error.message })
     else {
       setMsg({ ok: true, text: 'Promotion enregistrée. Elle commence à la date choisie et s\'arrête toute seule à la fin.' })
       setName('')
       setLabel('')
+      setOverrides({})
       load()
     }
   }
@@ -141,8 +162,18 @@ export default function Promotions() {
   const over = rows.filter(r => statusOf(r, now).label === 'Terminée').length
 
   const chip = (on: boolean, text: string, click: () => void) => (
-    <button type="button" className={`fp${on ? ' on' : ''}`} onClick={click} aria-pressed={on}>{text}</button>
+    <button key={text} type="button" className={`fp${on ? ' on' : ''}`} onClick={click} aria-pressed={on}>{text}</button>
   )
+
+  const days = Math.round((+new Date(end) - +new Date(start)) / 86400000)
+  const byCountry = COUNTRIES.filter(c => countries.includes(c.id)).map(c => ({
+    c,
+    plans: PLANS.filter(pl => plans.includes(pl.id)).map(pl => ({
+      pl,
+      cells: DURATIONS.filter(d => durations.includes(d.id)).map(d => preview.find(r => r.key === `${pl.id}:${c.id}:${d.id}`)),
+    })),
+  }))
+  const adjusted = preview.filter(r => overrides[r.key] !== undefined && overrides[r.key] !== String(r.auto)).length
 
   return (
     <div>
@@ -151,99 +182,127 @@ export default function Promotions() {
         <Kpi label="En cours" value={fmt(running)} tone={running > 0 ? 'good' : undefined} sub="réduction active maintenant" />
         <Kpi label="Programmées" value={fmt(planned)} sub="commencent plus tard" />
         <Kpi label="Terminées" value={fmt(over)} sub="arrêtées automatiquement" />
-        <Kpi label="Total créées" value={fmt(rows.length)} />
+        <Kpi label="Total créées" value={fmt(rows.length)} sub="depuis le début" />
       </KpiRow>
 
-      <Panel title="Nouvelle promotion" sub="Une seule réduction s'applique à la fois : si plusieurs se recoupent, la plus forte gagne (elles ne se cumulent pas).">
-        <div className="of-grid">
-          <div className="of-f"><span>Nom (interne, pour toi)</span><input className="ad-input" value={name} onChange={e => setName(e.target.value)} placeholder="ex : Offre de rentrée" maxLength={80} /></div>
-          <div className="of-f"><span>Texte affiché aux étudiants (facultatif)</span><input className="ad-input" value={label} onChange={e => setLabel(e.target.value)} placeholder="ex : Offre de rentrée" maxLength={60} /></div>
-          <div className="of-f">
-            <span>Réduction</span>
-            <span className="of-in"><input className="ad-input" style={{ maxWidth: 110 }} inputMode="numeric" value={pct} onChange={e => setPct(e.target.value.replace(/\D/g, '').slice(0, 2))} /><em>% (de 1 à 90)</em></span>
-          </div>
-        </div>
-
-        <div className="of-block">
-          <h4>Sur quoi</h4>
-          <div className="of-grid">
-            <div className="of-f"><span>Offres</span><span className="of-in">{PLANS.map(p => chip(plans.includes(p.id), p.label, () => toggle(plans, setPlans, p.id)))}</span></div>
-            <div className="of-f"><span>Durées</span><span className="of-in">{DURATIONS.map(d => chip(durations.includes(d.id), d.label, () => toggle(durations, setDurations, d.id)))}</span></div>
-            <div className="of-f"><span>Pays</span><span className="of-in">{COUNTRIES.map(c => chip(countries.includes(c.id), c.label, () => toggle(countries, setCountries, c.id)))}</span></div>
-          </div>
-        </div>
-
-        <div className="of-block">
-          <h4>Quand</h4>
-          <div className="of-grid">
-            <div className="of-f"><span>Début</span><input className="ad-input" type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></div>
-            <div className="of-f">
-              <span>Fin (la promotion s&apos;arrête toute seule)</span>
-              <span className="of-in">
-                <input className="ad-input" type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} />
-                {[3, 7, 14, 30].map(d => <button key={d} type="button" className="btn-s" onClick={() => quick(d)}>{d} jours</button>)}
-              </span>
+      <div className="pm-layout">
+        <Panel title="Nouvelle promotion" sub="Une seule réduction s'applique à la fois : si plusieurs se recoupent, la plus forte gagne (elles ne se cumulent pas).">
+          <div className="pm-step">
+            <h3><span className="pm-num">1</span>Réduction</h3>
+            <div className="pm-pct">
+              <label className="pm-pct-box">
+                <input inputMode="numeric" aria-label="Pourcentage de réduction" value={pct} onChange={e => changePct(e.target.value.replace(/\D/g, '').slice(0, 2))} />
+                <b>%</b>
+              </label>
+              <div className="pm-quick">
+                {[10, 20, 30, 50].map(v => <button key={v} type="button" className="btn-s" onClick={() => changePct(String(v))}>−{v} %</button>)}
+              </div>
+            </div>
+            <div className="pm-fields">
+              <label className="pm-field"><span>Nom <small>(interne, pour toi)</small></span><input className="ad-input" value={name} onChange={e => setName(e.target.value)} placeholder="ex : Offre de rentrée" maxLength={80} /></label>
+              <label className="pm-field"><span>Texte affiché aux étudiants <small>(facultatif)</small></span><input className="ad-input" value={label} onChange={e => setLabel(e.target.value)} placeholder="ex : Offre de rentrée" maxLength={60} /></label>
             </div>
           </div>
-        </div>
 
-        {preview.length > 0 && (
-          <div className="of-block">
-            <h4>Prix pendant la promotion</h4>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="dt">
-                <thead><tr><th>Offre</th><th>Pays</th><th>Durée</th><th>Prix normal</th><th>Prix promo</th></tr></thead>
-                <tbody>
-                  {preview.map((r, i) => (
-                    <tr key={i}><td>{r.plan}</td><td>{r.country}</td><td>{r.duration}</td><td className="ad-mut" style={{ textDecoration: 'line-through' }}>{fmt(r.base)} {r.cur}</td><td><strong>{fmt(r.final)} {r.cur}</strong></td></tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="pm-step">
+            <h3><span className="pm-num">2</span>Sur quoi</h3>
+            <div className="pm-scope">
+              <div><span className="pm-lbl">Offres</span><div className="pm-chips">{PLANS.map(p => chip(plans.includes(p.id), p.label, () => toggle(plans, setPlans, p.id)))}</div></div>
+              <div><span className="pm-lbl">Durées</span><div className="pm-chips">{DURATIONS.map(d => chip(durations.includes(d.id), d.label, () => toggle(durations, setDurations, d.id)))}</div></div>
+              <div><span className="pm-lbl">Pays</span><div className="pm-chips">{COUNTRIES.map(c => chip(countries.includes(c.id), c.label, () => toggle(countries, setCountries, c.id)))}</div></div>
             </div>
           </div>
-        )}
 
-        {msg && <div className={`ad-note ${msg.ok ? '' : 'bad'}`} style={{ margin: '12px 0 0' }}>{msg.text}</div>}
-        <div style={{ marginTop: 16 }}>
-          <button className="btn-p" disabled={!valid || busy} onClick={create}>{busy ? 'Enregistrement…' : 'Lancer la promotion'}</button>
-          {!valid && <span className="ad-mut" style={{ marginLeft: 12 }}>Donne un nom, une réduction de 1 à 90 %, au moins une offre, une durée et un pays, et une fin après le début.</span>}
+          <div className="pm-step">
+            <h3><span className="pm-num">3</span>Quand</h3>
+            <div className="pm-dates">
+              <label className="pm-field"><span>Début</span><input className="ad-input" type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></label>
+              <label className="pm-field"><span>Fin <small>(s&apos;arrête toute seule)</small></span><input className="ad-input" type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} /></label>
+            </div>
+            <div className="pm-quick">
+              <span className="ad-mut" style={{ alignSelf: 'center' }}>Durée rapide :</span>
+              {[3, 7, 14, 30].map(d => <button key={d} type="button" className="btn-s" onClick={() => quick(d)}>{d} jours</button>)}
+            </div>
+          </div>
+        </Panel>
+
+        <div className="pm-side">
+          <Panel title="Aperçu" sub="Ce que verront les étudiants. Tu peux modifier chaque prix promo pour arrondir.">
+            <div className="pm-sum">
+              <div className="pm-sum-pct">−{percent >= 1 && percent <= 90 ? percent : '?'} %</div>
+              <div className="pm-sum-t">
+                <b>{name.trim() || 'Sans nom'}</b><br />
+                {+new Date(end) > +new Date(start) ? <>du {dateFr(start)}<br />au {dateFr(end)} · {days} jour{days > 1 ? 's' : ''}</> : 'La fin doit être après le début'}
+              </div>
+            </div>
+            {preview.length === 0 ? (
+              <p className="pm-empty">Choisis au moins une offre, une durée et un pays pour voir les prix.</p>
+            ) : byCountry.map(({ c, plans: ps }) => (
+              <div key={c.id} className="pm-country">
+                <h4>{c.label}</h4>
+                {ps.map(({ pl, cells }) => (
+                  <div key={pl.id} className="pm-row" style={{ gridTemplateColumns: `84px repeat(${Math.max(cells.length, 1)}, minmax(0, 1fr))` }}>
+                    <span>{pl.label}</span>
+                    {cells.map((r, i) => r ? (
+                      <span key={i} className="pm-price">
+                        <i>{r.duration}</i>
+                        <small>{fmt(r.base)} {r.cur}</small>
+                        <span className="pm-pin">
+                          <input
+                            inputMode="numeric"
+                            aria-label={`Prix promo ${pl.label} ${r.country} ${r.duration}`}
+                            value={overrides[r.key] ?? String(r.auto)}
+                            onChange={e => setOverrides(o => ({ ...o, [r.key]: e.target.value.replace(/\D/g, '').slice(0, 7) }))}
+                          />
+                          <em>{r.cur}</em>
+                        </span>
+                      </span>
+                    ) : <span key={i} className="ad-mut">—</span>)}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {adjusted > 0 && (
+              <p className="pm-hint">{adjusted} prix arrondi{adjusted > 1 ? 's' : ''} à la main. <button type="button" className="btn-g" onClick={() => setOverrides({})}>Tout remettre au calcul automatique</button></p>
+            )}
+            {msg && <div className={`ad-note ${msg.ok ? '' : 'bad'}`} style={{ margin: '12px 0 0' }}>{msg.text}</div>}
+            <div className="pm-act">
+              <button className="btn-p blue" disabled={!valid || busy} onClick={create}>{busy ? 'Enregistrement…' : 'Lancer la promotion'}</button>
+              {!valid && <p>Il manque : un nom, une réduction de 1 à 90 %, au moins une offre, une durée et un pays, des prix valides, et une fin après le début.</p>}
+            </div>
+          </Panel>
         </div>
-      </Panel>
+      </div>
 
       <Panel title="Toutes les promotions" sub="Le statut se met à jour tout seul : une promotion terminée n'a plus aucun effet sur les prix.">
         {rows.length === 0 ? (
-          <p className="ad-empty">Aucune promotion pour le moment.</p>
+          <p className="pm-empty">Aucune promotion pour le moment.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="dt">
-              <thead><tr><th>Promotion</th><th>Réduction</th><th>Sur</th><th>Période</th><th>Statut</th><th /></tr></thead>
-              <tbody>
-                {rows.map(r => {
-                  const st = statusOf(r, now)
-                  const live = st.label === 'En cours'
-                  return (
-                    <tr key={r.id}>
-                      <td><strong>{r.name}</strong>{r.label && r.label !== r.name && <div className="ad-mut">« {r.label} »</div>}</td>
-                      <td><strong>−{r.discount_percent} %</strong></td>
-                      <td className="ad-mut">
-                        {r.plans.map(p => PLANS.find(x => x.id === p)?.label ?? p).join(', ')}<br />
-                        {r.durations.map(d => DURATIONS.find(x => x.id === d)?.label ?? d).join(', ')}<br />
-                        {r.countries.map(c => COUNTRIES.find(x => x.id === c)?.label ?? c).join(', ')}
-                      </td>
-                      <td className="ad-mut">{dateFr(r.starts_at)}<br />→ {dateFr(r.ends_at)}{live && <div style={{ color: 'var(--t1)' }}>{remaining(r, now)}</div>}</td>
-                      <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {st.label !== 'Terminée' && (
-                          <button className="btn-s" onClick={() => act(r.id, r.active ? 'suspend' : 'resume')}>{r.active ? 'Suspendre' : 'Réactiver'}</button>
-                        )}{' '}
-                        {live && <button className="btn-s" onClick={() => act(r.id, 'end')}>{armed === `end:${r.id}` ? 'Confirmer la fin' : 'Terminer maintenant'}</button>}{' '}
-                        <button className="btn-s" onClick={() => act(r.id, 'delete')}>{armed === `delete:${r.id}` ? 'Confirmer' : 'Supprimer'}</button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="pm-list">
+            {rows.map(r => {
+              const st = statusOf(r, now)
+              const live = st.label === 'En cours'
+              const nAdj = Object.keys(r.price_overrides ?? {}).length
+              return (
+                <div key={r.id} className={`pm-item${live ? ' live' : ''}`}>
+                  <div className="pm-item-pct">−{r.discount_percent} %</div>
+                  <div>
+                    <div className="pm-item-name">{r.name}<span className={`badge ${st.cls}`}>{st.label}</span>{live && <span className="ad-mut">{remaining(r, now)}</span>}</div>
+                    <div className="pm-item-meta">
+                      {r.label && r.label !== r.name && <>« {r.label} » · </>}
+                      {r.plans.map(p => PLANS.find(x => x.id === p)?.label ?? p).join(', ')} · {r.durations.map(d => DURATIONS.find(x => x.id === d)?.label ?? d).join(', ')} · {r.countries.map(c => COUNTRIES.find(x => x.id === c)?.label ?? c).join(', ')}
+                      {nAdj > 0 && <> · {nAdj} prix arrondi{nAdj > 1 ? 's' : ''}</>}
+                      <br />{dateFr(r.starts_at)} → {dateFr(r.ends_at)}
+                    </div>
+                  </div>
+                  <div className="pm-item-acts">
+                    {st.label !== 'Terminée' && <button className="btn-s" onClick={() => act(r.id, r.active ? 'suspend' : 'resume')}>{r.active ? 'Suspendre' : 'Réactiver'}</button>}
+                    {live && <button className="btn-s" onClick={() => act(r.id, 'end')}>{armed === `end:${r.id}` ? 'Confirmer la fin' : 'Terminer maintenant'}</button>}
+                    <button className="btn-s" onClick={() => act(r.id, 'delete')}>{armed === `delete:${r.id}` ? 'Confirmer' : 'Supprimer'}</button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </Panel>

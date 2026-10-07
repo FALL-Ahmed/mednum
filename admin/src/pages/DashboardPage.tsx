@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { Icons } from '../components/icons'
+import { Logo } from '../components/Logo'
 import { Loading, Notice } from '../components/ui'
-import { DEFAULT_SETTINGS, loadOverview, loadSettings, type Overview, type Settings as SettingsT } from '../lib/admin'
+import { CURRENCIES, DEFAULT_SETTINGS, loadOverview, setDisplayCurrency, type Cur, loadSettings, type Overview, type Settings as SettingsT } from '../lib/admin'
 import type { Page } from '../lib/derive'
 import { supabase } from '../lib/supabase'
+import { disablePush, enablePush, pushState, sendTestPush, type PushState } from '../lib/push'
 import Activity from './Activity'
 import Documents from './Documents'
 import Finance from './Finance'
@@ -58,7 +60,48 @@ export default function DashboardPage({ session }: { session: Session }) {
   const [settings, setSettings] = useState<SettingsT>(DEFAULT_SETTINGS)
   const [err, setErr] = useState<string | null>(null)
   const [reportsNew, setReportsNew] = useState(0)
+  const [pendingN, setPendingN] = useState(0)
+  const [push, setPush] = useState<PushState>('off')
+  const [pushMsg, setPushMsg] = useState<string | null>(null)
+
+  useEffect(() => { pushState().then(setPush) }, [])
+
+  // Ouverture depuis une notification : #payments dans l'adresse, ou message du service worker
+  useEffect(() => {
+    const fromHash = () => { if (window.location.hash === '#payments') { setPage('payments'); history.replaceState(null, '', '/') } }
+    fromHash()
+    const onMsg = (e: MessageEvent) => { if (e.data?.type === 'open' && String(e.data.url).includes('payments')) setPage('payments') }
+    navigator.serviceWorker?.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker?.removeEventListener('message', onMsg)
+  }, [])
+
+  async function togglePush() {
+    setPushMsg(null)
+    if (push === 'on') {
+      await disablePush()
+      setPush(await pushState())
+      return
+    }
+    const err = await enablePush()
+    setPush(await pushState())
+    if (err) setPushMsg(err)
+    else {
+      const t = await sendTestPush()
+      setPushMsg(t ? `Activé, mais l'envoi de test a échoué (${t}). Vérifie que la fonction notify-admin est déployée.` : 'Activé : une notification de test arrive.')
+    }
+  }
   const [busy, setBusy] = useState(false)
+  const [menu, setMenu] = useState(false) // tiroir du menu sur mobile
+  const [cur, setCur] = useState<Cur>(() => {
+    try {
+      const v = localStorage.getItem('ax_admin_cur')
+      return CURRENCIES.some(c => c.id === v) ? (v as Cur) : 'MRU'
+    } catch { return 'MRU' }
+  })
+  const pickCur = (c: Cur) => {
+    setCur(c)
+    try { localStorage.setItem('ax_admin_cur', c) } catch { /* stockage refusé */ }
+  }
 
   const refresh = useCallback(async () => {
     setBusy(true)
@@ -72,6 +115,8 @@ export default function DashboardPage({ session }: { session: Session }) {
     }
     const { count } = await supabase.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'new')
     setReportsNew(count ?? 0)
+    const pend = await supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    setPendingN(pend.count ?? 0)
     setBusy(false)
   }, [days])
 
@@ -79,20 +124,39 @@ export default function DashboardPage({ session }: { session: Session }) {
     refresh()
   }, [refresh])
 
+  // Les pages lisent la devise d'affichage au moment du rendu : on la règle d'abord
+  setDisplayCurrency(cur, settings)
   const email = session.user.email ?? ''
-  const badge = (id: Page) => (id === 'payments' ? ov?.totals.pending ?? 0 : id === 'reports' ? reportsNew : 0)
+
+  const curPicker = (
+    <label className="cur-pick">
+      <span>Devise</span>
+      <select className="ad-select" value={cur} onChange={e => pickCur(e.target.value as Cur)} aria-label="Devise d'affichage">
+        {CURRENCIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+    </label>
+  )
+  const pending = Math.max(pendingN, ov?.totals.pending ?? 0)
+  const badge = (id: Page) => (id === 'payments' ? pending : id === 'reports' ? reportsNew : 0)
 
   const forbidden = !!err && /forbidden/i.test(err)
   const missing = !!err && /(could not find|schema cache|does not exist)/i.test(err)
 
   return (
     <div className="al">
-      <aside className="sb">
+      <header className="mb-top">
+        <button className="mb-burger" onClick={() => setMenu(true)} aria-label="Ouvrir le menu" aria-expanded={menu}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          {pending > 0 && <span className="mb-dot">{pending}</span>}
+        </button>
+        <Logo />
+      </header>
+      {menu && <div className="mb-scrim" onClick={() => setMenu(false)} />}
+      <aside className={`sb${menu ? ' open' : ''}`}>
         <div className="sb-brand">
-          <div className="sb-mark">ax</div>
           <div>
-            <div className="sb-name">Axone</div>
-            <div className="sb-role">Administration</div>
+            <Logo size={22} />
+            <div className="sb-role" style={{ marginTop: 4 }}>Administration</div>
           </div>
         </div>
         <nav className="sb-nav">
@@ -100,16 +164,26 @@ export default function DashboardPage({ session }: { session: Session }) {
             <div key={sec.title} className="sb-sec">
               <span className="sb-sec-lbl">{sec.title}</span>
               {sec.items.map(({ id, label, Icon }) => (
-                <button key={id} className={`ni${page === id ? ' act' : ''}`} onClick={() => setPage(id)}>
+                <button key={id} className={`ni${page === id ? ' act' : ''}`} onClick={() => { setPage(id); setMenu(false) }}>
                   <Icon size={15} />
                   <span style={{ flex: 1 }}>{label}</span>
-                  {badge(id) > 0 && <span className="ni-badge">{badge(id)}</span>}
+                  {badge(id) > 0 && <span className={`ni-badge${id === 'payments' ? ' pulse' : ''}`} aria-label={`${badge(id)} à traiter`}>{badge(id)}</span>}
                 </button>
               ))}
             </div>
           ))}
         </nav>
         <div className="sb-foot">
+          {push !== 'unsupported' && (
+            <>
+              <button className={`sb-notif${push === 'on' ? ' on' : ''}`} onClick={togglePush} disabled={push === 'denied'}>
+                <span aria-hidden>{push === 'on' ? '🔔' : '🔕'}</span>
+                {push === 'on' ? 'Notifications activées' : push === 'denied' ? 'Notifications bloquées' : 'Activer les notifications'}
+              </button>
+              {pushMsg && <p className="sb-notif-msg">{pushMsg}</p>}
+              {push === 'denied' && <p className="sb-notif-msg">Autorise-les dans les réglages du navigateur pour ce site.</p>}
+            </>
+          )}
           <div className="sb-usr">
             <div className="sb-av">{email[0]?.toUpperCase() || 'A'}</div>
             <div style={{ minWidth: 0 }}>
@@ -135,12 +209,16 @@ export default function DashboardPage({ session }: { session: Session }) {
                   </button>
                 ))}
               </div>
-              <button className="btn-s" onClick={refresh} disabled={busy}>
-                <Icons.Refresh />
-                {busy ? 'Actualisation…' : 'Actualiser'}
-              </button>
+              <div className="ad-bar-r">
+                {(page === 'overview' || page === 'finance') && curPicker}
+                <button className="btn-s" onClick={refresh} disabled={busy}>
+                  <Icons.Refresh />
+                  {busy ? 'Actualisation…' : 'Actualiser'}
+                </button>
+              </div>
             </div>
           )}
+          {page === 'settings' && <div className="ad-bar" style={{ justifyContent: 'flex-end' }}>{curPicker}</div>}
 
           {forbidden ? (
             <div className="ad-gate">
@@ -159,7 +237,7 @@ export default function DashboardPage({ session }: { session: Session }) {
           ) : (
             <>
               {err && <Notice tone="bad">{err}</Notice>}
-              {page === 'overview' && ov && <OverviewPage ov={ov} settings={settings} days={days} go={setPage} reportsNew={reportsNew} />}
+              {page === 'overview' && ov && <OverviewPage ov={ov} settings={settings} days={days} go={setPage} reportsNew={reportsNew} pending={pending} />}
               {page === 'growth' && ov && <Growth ov={ov} settings={settings} days={days} go={setPage} reportsNew={reportsNew} />}
               {page === 'finance' && ov && <Finance ov={ov} settings={settings} days={days} go={setPage} reportsNew={reportsNew} />}
               {page === 'activity' && ov && <Activity ov={ov} settings={settings} days={days} go={setPage} reportsNew={reportsNew} />}

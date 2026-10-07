@@ -32,7 +32,7 @@ export default function Payments() {
   }, [])
   useEffect(load, [load])
 
-  async function act(id: string, kind: 'activate' | 'reject') {
+  async function act(id: string, kind: 'activate' | 'reject' | 'gift') {
     const key = `${kind}:${id}`
     if (armed !== key) {
       setArmed(key)
@@ -41,9 +41,9 @@ export default function Payments() {
     }
     setArmed(null)
     setBusy(id)
-    const { error } = await supabase.rpc(kind === 'activate' ? 'activate_subscription' : 'reject_subscription', { p_id: id })
+    const { error } = await supabase.rpc(kind === 'activate' ? 'activate_subscription' : kind === 'gift' ? 'gift_subscription' : 'reject_subscription', { p_id: id })
     setBusy(null)
-    if (error) setErr(error.message)
+    if (error) setErr(/gift_subscription/.test(error.message) ? "La fonction « offrir » n'existe pas encore : exécute le fichier 20261013000000_gift_subscription.sql dans Supabase (éditeur SQL)." : error.message)
     else {
       setErr(null)
       load()
@@ -92,7 +92,7 @@ export default function Payments() {
         <Kpi label="Total enregistrés" value={fmt(rows.length)} />
       </KpiRow>
 
-      <Panel title="Paiements à valider" sub="Vérifie le reçu et le montant, puis valide : le plan de l'élève s'active tout de suite.">
+      <Panel title="Paiements à valider" sub="Vérifie le reçu et le montant, puis valide : le plan de l'élève s'active tout de suite. « Offrir » active l'abonnement sans compter d'argent.">
         {pending.length === 0 ? (
           <p className="ad-empty">Aucun paiement en attente.</p>
         ) : (
@@ -104,7 +104,12 @@ export default function Payments() {
                   <div className="ad-mut">
                     {fmt(Number(r.amount ?? 0))} {r.currency} · {r.method ?? '—'}{r.provider !== 'manual' ? ` (${r.provider}, confirmation automatique en attente)` : ''} · réf. {r.reference_code ?? '—'} · {dateTime(r.created_at)}
                   </div>
-                  {r.receipt_url && <a href={r.receipt_url} target="_blank" rel="noopener noreferrer" className="ad-link">Voir le reçu ↗</a>}
+                  {r.receipt_url ? (
+                    <a href={r.receipt_url} target="_blank" rel="noopener noreferrer" className="ad-receipt" title="Ouvrir le reçu en grand">
+                      <img src={r.receipt_url} alt="Reçu de paiement" loading="lazy" />
+                      <span>Agrandir ↗</span>
+                    </a>
+                  ) : <div className="ad-mut">Aucun reçu joint</div>}
                 </div>
                 <div className="ad-pay-act">
                   <button className="btn-p" disabled={busy === r.id} onClick={() => act(r.id, 'activate')}>
@@ -112,6 +117,9 @@ export default function Payments() {
                   </button>
                   <button className="btn-s" disabled={busy === r.id} onClick={() => act(r.id, 'reject')}>
                     {armed === `reject:${r.id}` ? 'Confirmer le refus' : 'Refuser'}
+                  </button>
+                  <button className="btn-s" disabled={busy === r.id} onClick={() => act(r.id, 'gift')} title="Active l'abonnement sans paiement : aucun revenu comptabilisé">
+                    {armed === `gift:${r.id}` ? "Confirmer l'offre" : 'Offrir'}
                   </button>
                 </div>
               </div>
@@ -161,7 +169,7 @@ export default function Payments() {
                 <td><strong>{r.student_name ?? '—'}</strong><div className="ad-mut">réf. {r.reference_code ?? '—'}</div></td>
                 <td><PlanBadge plan={r.plan} /></td>
                 <td>{fmt(Number(r.amount ?? 0))} {r.currency}</td>
-                <td>{r.method ?? '—'}<div className="ad-mut">{r.provider}</div></td>
+                <td>{r.provider === 'gift' ? 'Offert' : r.method ?? '—'}<div className="ad-mut">{r.provider === 'gift' ? 'sans paiement' : r.provider}</div></td>
                 <td><span className={`badge ${STATUS[r.status]?.cls ?? 'bg-gy'}`}>{STATUS[r.status]?.label ?? r.status}</span></td>
                 <td>{dateTime(r.activated_at)}</td>
                 <td>{dateTime(r.expires_at)}</td>

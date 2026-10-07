@@ -120,7 +120,30 @@ export async function loadOverview(days: number): Promise<Overview> {
 
 export const fmt = (n: number, digits = 0) =>
   (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { maximumFractionDigits: digits, minimumFractionDigits: 0 })
-export const fmtMru = (n: number) => `${fmt(Math.round(n))} MRU`
+
+/* ——— Devise d'affichage : tout est calculé en MRU, puis converti à l'écran avec les taux des Paramètres ——— */
+
+export type Cur = 'MRU' | 'USD' | 'MAD' | 'XOF'
+export const CURRENCIES: { id: Cur; label: string; name: string }[] = [
+  { id: 'MRU', label: 'MRU', name: 'Ouguiya (MRU)' },
+  { id: 'USD', label: '$', name: 'Dollar ($)' },
+  { id: 'MAD', label: 'MAD', name: 'Dirham (MAD)' },
+  { id: 'XOF', label: 'FCFA', name: 'Franc CFA (FCFA)' },
+]
+let display: { cur: Cur; rate: number } = { cur: 'MRU', rate: 1 } // rate = unités de la devise pour 1 MRU
+export function setDisplayCurrency(cur: Cur, s: Settings) {
+  const rate = cur === 'USD' ? 1 / (s.usdMru || 1) : cur === 'MAD' ? s.madPerMru : cur === 'XOF' ? s.xofPerMru : 1
+  display = { cur, rate: Number.isFinite(rate) && rate > 0 ? rate : 1 }
+}
+/** Montant en MRU → montant dans la devise affichée (pour les graphiques). */
+export const fromMru = (n: number) => n * display.rate
+export const curLabel = () => CURRENCIES.find(c => c.id === display.cur)!.label
+/** Montant en MRU, écrit dans la devise choisie (ex. « 12,5 $ » ou « 4 500 MRU »). */
+export const fmtMru = (n: number) => {
+  const v = n * display.rate
+  const digits = display.cur === 'USD' && Math.abs(v) < 1000 ? 2 : 0
+  return `${fmt(digits ? v : Math.round(v), digits)} ${curLabel()}`
+}
 export const pct = (a: number, b: number) => (b > 0 ? `${fmt((a / b) * 100, 1)} %` : '—')
 export const dayShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 export const dateTime = (iso: string | null) =>

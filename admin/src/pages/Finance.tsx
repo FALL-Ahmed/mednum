@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Bars, HBars, Lines } from '../components/charts'
 import { Grid, Kpi, KpiRow, Loading, Notice, PageHead, Panel } from '../components/ui'
 import {
-  costUsd, dayShort, fmt, fmtMru, KIND_LABEL, loadFinance, MODELS, pct, toMru, type FinanceData, type Settings,
+  costUsd, curLabel, dayShort, fmt, fmtMru, fromMru, KIND_LABEL, loadFinance, MODELS, pct, toMru, type FinanceData, type Settings,
 } from '../lib/admin'
 import { derive, type PageProps } from '../lib/derive'
 
@@ -124,7 +124,7 @@ export default function Finance({ ov, settings, days }: PageProps) {
 
   return (
     <div>
-      <PageHead title="Finances" sub={`Résultat, rentabilité et coût de l'IA · ${days} derniers jours · montants en ouguiyas (MRU)`} />
+      <PageHead title="Finances" sub={`Résultat, rentabilité et coût de l'IA · ${days} derniers jours · montants convertis dans la devise choisie en haut à droite`} />
 
       <KpiRow>
         <Kpi label={`Bénéfice net (${days} j)`} value={fmtMru(calc.net)} tone={calc.net >= 0 ? 'good' : 'bad'} sub={d.revenuePeriod > 0 ? `${pct(calc.net, d.revenuePeriod)} du chiffre d'affaires` : 'aucun encaissement sur la période'} />
@@ -153,18 +153,18 @@ export default function Finance({ ov, settings, days }: PageProps) {
           {calc.fee === 0 && <p className="ad-mut" style={{ marginTop: 10 }}>Frais de paiement à 0 % : renseigne-les dans Paramètres → Frais et charges pour un résultat réaliste.</p>}
         </Panel>
         <Panel title="Revenu mensuel récurrent dans le temps" sub="Abonnements en vigueur chaque jour, ramenés au mois">
-          <Lines labels={labels} series={[{ name: 'Revenu mensuel récurrent', color: '#07A997', values: calc.mrrDaily }]} />
+          <Lines labels={labels} series={[{ name: 'Revenu mensuel récurrent', color: '#07A997', values: calc.mrrDaily.map(fromMru) }]} />
         </Panel>
       </Grid>
 
       <Panel title="Chiffre d'affaires, coût de l'IA et solde par jour" sub="Vert : encaissé · Orange : coût de l'IA · Bleu : solde du jour">
         <Bars
           labels={labels}
-          unit="MRU"
+          unit={curLabel()}
           series={[
-            { name: 'Encaissé', color: '#07A997', values: d.revByDay },
-            { name: "Coût de l'IA", color: '#F59E0B', values: d.costByDay },
-            { name: 'Solde', color: '#0B1E34', values: d.revByDay.map((v, i) => v - d.costByDay[i]) },
+            { name: 'Encaissé', color: '#07A997', values: d.revByDay.map(fromMru) },
+            { name: "Coût de l'IA", color: '#F59E0B', values: d.costByDay.map(fromMru) },
+            { name: 'Solde', color: '#0B1E34', values: d.revByDay.map((v, i) => fromMru(v - d.costByDay[i])) },
           ]}
         />
       </Panel>

@@ -7,6 +7,7 @@ export type Page =
   | 'settings'
 
 export type PageProps = {
+  pending?: number // paiements à valider (compte direct, indépendant des statistiques)
   ov: Overview
   settings: Settings
   days: number

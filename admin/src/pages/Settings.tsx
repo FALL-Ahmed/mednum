@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loading, Notice, PageHead, Panel } from '../components/ui'
-import { MODELS, saveSetting, type Settings as S } from '../lib/admin'
+import { fmtMru, MODELS, saveSetting, type Settings as S } from '../lib/admin'
+import { supabase } from '../lib/supabase'
 import { loadOffers, savePlan, type Limits, type Offers, type PlanPrices } from '../lib/offers'
 
-type Tab = 'offers' | 'ai' | 'costs' | 'account'
+type Tab = 'offers' | 'payments' | 'ai' | 'costs' | 'account'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'offers', label: 'Offres et limites' },
+  { id: 'payments', label: 'Paiements' },
   { id: 'ai', label: "Tarifs de l'IA" },
   { id: 'costs', label: 'Frais et charges' },
   { id: 'account', label: 'Mon accès' },
@@ -178,12 +180,92 @@ function OffersTab() {
   )
 }
 
+/* ——— Onglet « Paiements » : les numéros où les étudiants envoient l'argent ——— */
+
+const METHODS = [
+  { id: 'bankily', label: 'Bankily' },
+  { id: 'masrivi', label: 'Masrivi' },
+  { id: 'sedad', label: 'Sedad' },
+  { id: 'click', label: 'Click' },
+]
+
+function PaymentsTab() {
+  const [vals, setVals] = useState<Record<string, string> | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('payment_accounts').select('method,account_number'),
+      supabase.from('app_config').select('value').eq('key', 'support_whatsapp').maybeSingle(),
+    ]).then(([a, w]) => {
+      if (a.error) { setErr(a.error.message); return }
+      const v: Record<string, string> = { whatsapp: (w.data?.value as string) ?? '' }
+      for (const m of METHODS) v[m.id] = ''
+      for (const r of a.data ?? []) v[r.method as string] = r.account_number as string
+      setVals(v)
+    })
+  }, [])
+
+  async function save() {
+    if (!vals) return
+    setBusy(true)
+    setMsg(null)
+    let error: string | null = null
+    for (const m of METHODS) {
+      const n = vals[m.id].trim()
+      // Un numéro vide retire le moyen de paiement de l'application.
+      const r = n
+        ? await supabase.from('payment_accounts').upsert({ method: m.id, account_number: n })
+        : await supabase.from('payment_accounts').delete().eq('method', m.id)
+      if (r.error) { error = r.error.message; break }
+    }
+    if (!error) {
+      const w = vals.whatsapp.replace(/\D/g, '')
+      const r = w
+        ? await supabase.from('app_config').upsert({ key: 'support_whatsapp', value: w })
+        : { error: null }
+      if (r.error) error = r.error.message
+    }
+    setBusy(false)
+    setMsg(error
+      ? { ok: false, text: /row-level security|permission/i.test(error) ? "Droits manquants : exécute d'abord le fichier 20261012000000_payment_accounts_admin.sql dans Supabase (éditeur SQL)." : error }
+      : { ok: true, text: "Enregistré. L'application affiche déjà ces numéros." })
+  }
+
+  if (err) return <Notice tone="bad">Impossible de lire les numéros : {err}</Notice>
+  if (!vals) return <Loading />
+  return (
+    <Panel title="Numéros de paiement" sub="Ce sont les numéros affichés à l'étudiant : c'est là qu'il envoie l'argent avant de t'envoyer sa capture. Laisse un champ vide pour retirer ce moyen de paiement de l'application.">
+      <div className="ad-fx">
+        {METHODS.map(m => (
+          <label key={m.id} className="ad-fx-row">
+            <span><strong>{m.label}</strong><small>Numéro qui reçoit l&apos;argent</small></span>
+            <span className="of-in">
+              <input className="ad-input" style={{ width: 220 }} inputMode="tel" placeholder="ex : 41 51 32 11" value={vals[m.id]} onChange={e => setVals(v => ({ ...v!, [m.id]: e.target.value }))} />
+            </span>
+          </label>
+        ))}
+        <label className="ad-fx-row">
+          <span><strong>WhatsApp du support</strong><small>Avec l&apos;indicatif, sans + ni espaces (ex : 22241513211).</small></span>
+          <span className="of-in">
+            <input className="ad-input" style={{ width: 220 }} inputMode="tel" placeholder="22241513211" value={vals.whatsapp} onChange={e => setVals(v => ({ ...v!, whatsapp: e.target.value }))} />
+          </span>
+        </label>
+      </div>
+      {msg && <div className={`ad-note ${msg.ok ? '' : 'bad'}`} style={{ margin: '12px 0 0' }}>{msg.text}</div>}
+      <div style={{ marginTop: 16 }}><button className="btn-p" disabled={busy} onClick={save}>{busy ? 'Enregistrement…' : 'Enregistrer les numéros'}</button></div>
+    </Panel>
+  )
+}
+
 /* ——— Onglets de coûts ——— */
 
 function NumberRows({
   rows, onSave, button,
 }: {
-  rows: { key: string; label: string; hint?: string; value: number; unit?: string }[]
+  rows: { key: string; label: string; hint?: string; value: number; unit?: string; approx?: boolean }[]
   onSave: (vals: { key: string; value: number }[]) => Promise<string | null>
   button: string
 }) {
@@ -213,6 +295,7 @@ function NumberRows({
             <span className="of-in">
               <input className="ad-input" inputMode="decimal" value={vals[r.key] ?? String(r.value)} onChange={e => setVals(v => ({ ...v, [r.key]: e.target.value }))} />
               {r.unit && <em>{r.unit}</em>}
+              {r.approx && <em>≈ {fmtMru(num(vals[r.key] ?? String(r.value)) ?? 0)}</em>}
             </span>
           </label>
         ))}
@@ -247,6 +330,8 @@ export default function SettingsPage({ settings, onSaved, email }: { settings: S
       </div>
 
       {tab === 'offers' && <OffersTab />}
+
+      {tab === 'payments' && <PaymentsTab />}
 
       {tab === 'ai' && (
         <>
@@ -284,8 +369,8 @@ export default function SettingsPage({ settings, onSaved, email }: { settings: S
             button="Enregistrer"
             onSave={save}
             rows={[
-              { key: 'cost_fixed_infra_mru', label: 'Hébergement et base de données', hint: 'Supabase, hébergement du site… par mois.', value: settings.fixedInfraMru, unit: 'MRU / mois' },
-              { key: 'cost_fixed_other_mru', label: 'Autres charges fixes', hint: 'Nom de domaine, outils, abonnements… par mois.', value: settings.fixedOtherMru, unit: 'MRU / mois' },
+              { key: 'cost_fixed_infra_mru', label: 'Hébergement et base de données', hint: 'Supabase, hébergement du site… par mois.', value: settings.fixedInfraMru, unit: 'MRU / mois', approx: true },
+              { key: 'cost_fixed_other_mru', label: 'Autres charges fixes', hint: 'Nom de domaine, outils, abonnements… par mois.', value: settings.fixedOtherMru, unit: 'MRU / mois', approx: true },
               { key: 'fee_paydunya_pct', label: 'Frais PayDunya', hint: 'Part retenue sur chaque paiement au Sénégal.', value: settings.feePaydunyaPct, unit: '%' },
               { key: 'fee_kitpay_pct', label: 'Frais KitPay', hint: 'Part retenue sur chaque paiement automatique en Mauritanie.', value: settings.feeKitpayPct, unit: '%' },
               { key: 'fee_manual_pct', label: 'Frais des paiements manuels', hint: "Frais de retrait ou de transfert sur les paiements par reçu.", value: settings.feeManualPct, unit: '%' },
