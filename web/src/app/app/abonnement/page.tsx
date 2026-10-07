@@ -29,10 +29,10 @@ type Step = 1 | 2 | 3;
 // Contenu des offres (aligné sur la page d'accueil du site et sur l'application).
 const FEATURES: Record<string, string[]> = {
   standard: [
-    "30 questions par jour à Dr. Ahmed",
+    "40 questions par jour à Dr. Ahmed",
     "5 documents actifs",
     "5 fiches, flashcards ou cas cliniques par jour",
-    "10 QCM par jour",
+    "50 questions de QCM par jour",
     "Export des fiches en PDF",
     "Historique de 30 jours",
   ],
@@ -41,7 +41,7 @@ const FEATURES: Record<string, string[]> = {
     "100 questions par jour à Dr. Ahmed",
     "Documents illimités",
     "20 fiches, flashcards ou cas cliniques par jour",
-    "30 QCM par jour",
+    "150 questions de QCM par jour",
     "Export des fiches en PDF",
     "Historique illimité",
   ],

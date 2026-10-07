@@ -206,7 +206,7 @@ export default function Accueil() {
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Usage label="Questions" left={qLeft} total={quota?.daily_limit ?? null} fem />
-          <Usage label="QCM" left={qcmLeft} total={lim?.qcm ?? null} />
+          <Usage label="Séries de QCM" left={qcmLeft} total={lim?.qcm ?? null} />
           <Usage
             label="Documents"
             left={docsLeft}
