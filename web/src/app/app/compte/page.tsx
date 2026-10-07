@@ -98,6 +98,41 @@ export default function Compte() {
     router.replace("/");
   }
 
+  // Suppression du compte : confirmation écrite, puis la fonction serveur efface le compte et ses données
+  const [delOpen, setDelOpen] = useState(false);
+  const [delWord, setDelWord] = useState("");
+  const [delBusy, setDelBusy] = useState(false);
+  const [delError, setDelError] = useState<string | null>(null);
+
+  async function deleteAccount() {
+    const sb = getSupabase();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!sb || !url || !anon) return;
+    setDelBusy(true);
+    setDelError(null);
+    try {
+      const { data } = await sb.auth.getSession();
+      if (!data.session) throw new Error("session");
+      const res = await fetch(`${url}/functions/v1/delete-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}`, apikey: anon },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      try {
+        Object.keys(window.localStorage).filter((k) => k.startsWith("axone")).forEach((k) => window.localStorage.removeItem(k));
+      } catch {
+        /* stockage indisponible */
+      }
+      await sb.auth.signOut();
+      router.replace("/");
+    } catch {
+      setDelError(t("La suppression n'a pas pu aboutir. Réessaie dans un instant, ou écris-nous sur WhatsApp."));
+      setDelBusy(false);
+    }
+  }
+
   const email = user.email ?? "";
 
   return (
@@ -211,6 +246,65 @@ export default function Compte() {
         onClick={signOut}
         className="mt-8 rounded-full border border-ink/20 px-7 py-3.5 font-semibold text-ink transition hover:border-ink"
       >{t("Se déconnecter")}</button>
+
+      <section className="mt-16 rounded-2xl border border-[#e0796f]/40 bg-white p-6 sm:p-8">
+        <p className="label text-muted">{t("Zone sensible")}</p>
+        <p className="display mt-2 text-2xl text-ink">{t("Supprimer mon compte")}</p>
+        {!delOpen ? (
+          <>
+            <p className="mt-2 text-muted">
+              {t("Efface ton profil, tes cours, tes discussions, tes QCM et tes flashcards. Cette action est définitive.")}
+            </p>
+            <button
+              onClick={() => setDelOpen(true)}
+              className="mt-5 rounded-full border border-[#e0796f] px-7 py-3.5 font-semibold text-[#a3271c] transition hover:bg-[#fff1f0]"
+            >
+              {t("Supprimer mon compte")}
+            </button>
+          </>
+        ) : (
+          <div className="mt-3 space-y-4">
+            <p className="text-ink/80">
+              {t("Tout sera effacé définitivement : profil, cours, discussions, QCM, flashcards. Si tu as un abonnement en cours, il sera perdu sans remboursement automatique.")}
+            </p>
+            <label htmlFor="del-word" className="block text-sm font-semibold text-ink">
+              {t("Pour confirmer, écris SUPPRIMER ci-dessous")}
+            </label>
+            <input
+              id="del-word"
+              value={delWord}
+              onChange={(e) => setDelWord(e.target.value)}
+              autoComplete="off"
+              className="w-full max-w-xs rounded-2xl border border-line bg-slide px-5 py-3.5 text-lg text-ink focus:border-ink focus:outline-none"
+            />
+            {delError && (
+              <p role="alert" className="rounded-2xl bg-[#fff1f0] px-4 py-3 text-sm text-[#a3271c]">
+                {delError}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={deleteAccount}
+                disabled={delWord.trim().toUpperCase() !== "SUPPRIMER" || delBusy}
+                className="rounded-full bg-[#c53b2f] px-7 py-3.5 font-semibold text-white transition hover:bg-[#a3271c] disabled:opacity-40"
+              >
+                {delBusy ? t("Suppression…") : t("Supprimer définitivement")}
+              </button>
+              <button
+                onClick={() => {
+                  setDelOpen(false);
+                  setDelWord("");
+                  setDelError(null);
+                }}
+                disabled={delBusy}
+                className="rounded-full border border-ink/20 px-7 py-3.5 font-semibold text-ink transition hover:border-ink"
+              >
+                {t("Annuler")}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
