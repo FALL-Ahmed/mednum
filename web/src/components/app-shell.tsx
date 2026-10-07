@@ -30,6 +30,7 @@ import {
   IconUsers,
 } from "./icons";
 import { formatDate, useT } from "@/lib/app-i18n";
+import { ExpiryNotices } from "./expiry-notices";
 
 type NavItem = {
   href: string;
@@ -389,6 +390,7 @@ export function AppFrame({
       value={{ user, profile, quotaKey, quota, docs, standardPrice: standardPrice ?? null, refreshQuota, refreshDocs, refreshProfile }}
     >
       <div className="min-h-screen bg-slide">
+        <ExpiryNotices banner={false} />
         {/* Barre latérale (ordinateur) */}
         <aside className="fixed inset-y-0 start-0 z-30 hidden w-64 bg-ink lg:block">{sidebar()}</aside>
 
@@ -458,10 +460,15 @@ export function AppFrame({
           </header>
 
           {pathname.startsWith("/app/chat") ? (
-            <main>{children}</main>
+            <main>
+              {children}
+            </main>
           ) : (
             <main className="px-5 py-6 sm:px-10 sm:py-8 lg:px-14 xl:px-20">
-              <div className="mx-auto w-full max-w-[1600px]">{children}</div>
+              <div className="mx-auto w-full max-w-[1600px]">
+                <ExpiryNotices modal={false} />
+                {children}
+              </div>
             </main>
           )}
         </div>
