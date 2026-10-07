@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Axone — miniature 9:16</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --navy:#0b1e34; --teal:#07a997; --teal-d:#058a7b; --mint:#e3f6f3; --orange:#ffb74d; }
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { width:1080px; height:1920px; overflow:hidden; background:#000; }
+#c { position:relative; width:1080px; height:1920px; overflow:hidden; font-family:'Instrument Sans', system-ui, sans-serif;
+     background:radial-gradient(110% 70% at 50% 38%, #1a4170 0%, #0b1e34 62%); }
+.abs { position:absolute; }
+.display { font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:800; letter-spacing:-0.035em; line-height:.98; }
+.card { position:absolute; background:#fff; border-radius:44px; box-shadow:0 40px 100px rgba(0,0,0,.45); }
+</style>
+</head>
+<body>
+<div id="c">
+  <!-- halo derrière Dr. Ahmed -->
+  <div class="abs" style="left:90px; top:760px; width:900px; height:900px; border-radius:50%; background:radial-gradient(circle, rgba(7,169,151,.45), rgba(7,169,151,0) 68%);"></div>
+
+  <!-- logo -->
+  <div class="abs" style="left:0; right:0; top:120px; display:flex; justify-content:center;">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <svg width="64" height="64" viewBox="0 0 30 30" fill="none"><circle cx="9" cy="15" r="6" fill="#07a997"/><path d="M15 15h12" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M22 9v12" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+      <span class="display" style="font-size:68px; color:#fff;">axone</span>
+    </div>
+  </div>
+
+  <!-- Dr. Ahmed -->
+  <img class="abs" src="../web/public/dr-ahmed-v2.webp" style="left:105px; top:700px; width:870px; height:auto; -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 16%); mask-image:linear-gradient(180deg, transparent 0, #000 16%);">
+
+  <!-- accroche -->
+  <div class="abs" style="left:0; right:0; top:260px; display:flex; justify-content:center;">
+    <div class="display" style="background:#ff5a4d; color:#fff; font-size:64px; padding:10px 40px 18px; border-radius:999px; transform:rotate(-2deg);">EXAMEN VENDREDI ?</div>
+  </div>
+  <div class="abs display" style="left:30px; right:30px; top:420px; text-align:center; font-size:228px; color:#fff;">312 pages</div>
+  <div class="abs display" style="left:30px; right:30px; top:640px; text-align:center; font-size:128px; color:var(--teal);">en 2 minutes.</div>
+
+  <!-- cartes flottantes -->
+  <div class="card" style="left:36px; top:1130px; width:420px; padding:30px 34px; transform:rotate(-6deg);">
+    <div style="font-size:22px; font-weight:700; letter-spacing:.12em; color:var(--teal-d);">QCM</div>
+    <div class="display" style="font-size:54px; margin-top:6px; color:var(--navy);">10 / 10 ✓</div>
+    <div style="font-size:26px; color:#5b6b7c; margin-top:8px; font-weight:600;">corrigé et expliqué</div>
+  </div>
+  <div class="card" style="right:36px; top:1330px; width:440px; padding:30px 34px; transform:rotate(5deg);">
+    <div style="font-size:22px; font-weight:700; letter-spacing:.12em; color:var(--teal-d);">FLASHCARD</div>
+    <div style="font-size:28px; font-weight:700; color:var(--navy); margin-top:8px; line-height:1.2;">Antidote du paracétamol ?</div>
+    <div class="display" style="font-size:44px; color:var(--teal-d); margin-top:10px;">N-acétylcystéine</div>
+  </div>
+</div>
+<script>window.ready = document.fonts.ready.then(() => true);</script>
+</body>
+</html>

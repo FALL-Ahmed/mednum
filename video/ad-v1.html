@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Axone — pub verticale 9:16</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root { --navy:#0b1e34; --navy2:#14355a; --teal:#07a997; --teal-d:#058a7b; --mint:#e3f6f3; --orange:#ffb74d; --paper:#f3f6f9; --ink:#0b1e34; --muted:#5b6b7c; --line:#e3e9ef; }
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { width:1080px; height:1920px; overflow:hidden; background:#000; }
+#stage { position:relative; width:1080px; height:1920px; overflow:hidden; font-family:'Instrument Sans', system-ui, sans-serif; color:var(--ink); }
+.scene { position:absolute; inset:0; opacity:0; }
+.abs { position:absolute; }
+.display { font-family:'Bricolage Grotesque', system-ui, sans-serif; font-weight:800; letter-spacing:-0.03em; line-height:1.02; }
+.label { font-family:'Instrument Sans', sans-serif; font-weight:700; font-size:26px; letter-spacing:.12em; text-transform:uppercase; }
+.card { position:absolute; background:#fff; border-radius:44px; box-shadow:0 36px 100px rgba(11,30,52,.16); border:2px solid var(--line); }
+.pg { position:absolute; left:0; top:0; width:560px; height:740px; border-radius:22px; background:#fff; box-shadow:0 18px 50px rgba(0,0,0,.35);
+      background-image:repeating-linear-gradient(180deg, transparent 0 46px, #dfe6ee 46px 50px); background-origin:content-box; padding:60px 50px; background-clip:content-box; }
+.pgwrap { position:absolute; left:0; top:0; width:560px; height:740px; }
+.bar { height:26px; border-radius:13px; background:#e6edf4; }
+.opt { display:flex; align-items:center; gap:26px; height:74px; border-radius:26px; border:3px solid var(--line); background:#fff; padding:0 30px; font-size:36px; font-weight:600; }
+.opt b { width:46px; height:46px; border-radius:23px; background:#eef2f6; display:grid; place-items:center; font-size:26px; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ═══ 1. Le problème : 300 pages ═══ -->
+  <div class="scene" id="s1" style="background:radial-gradient(120% 80% at 50% 18%, #14355a 0%, #0b1e34 62%);">
+    <div class="abs display" id="s1-count" style="left:0; right:0; top:150px; text-align:center; font-size:340px; color:#fff;">0</div>
+    <div class="abs display" id="s1-pages" style="left:0; right:0; top:510px; text-align:center; font-size:110px; color:var(--teal);">pages</div>
+    <div class="abs" id="s1-stack" style="left:260px; top:900px; width:560px; height:740px; transform-origin:50% 0;"></div>
+    <div class="abs display" id="s1-tail" style="left:50px; right:50px; top:1600px; text-align:center; font-size:88px; color:#fff;">à réviser pour vendredi&nbsp;?</div>
+  </div>
+
+  <!-- ═══ 2. Dépose ton cours ═══ -->
+  <div class="scene" id="s2" style="background:var(--paper);">
+    <div class="abs" id="s2-logo" style="left:0; right:0; top:140px; display:flex; justify-content:center;"></div>
+    <div class="abs display" id="s2-title" style="left:40px; right:40px; top:330px; text-align:center; font-size:170px;">Dépose<br>ton cours.</div>
+    <div class="card" id="s2-card" style="left:100px; top:860px; width:880px; height:720px;">
+      <div class="abs" style="left:56px; top:56px; right:56px; height:330px; border:5px dashed #c5d2de; border-radius:36px; display:flex; align-items:center; justify-content:center;">
+        <div style="text-align:center; color:var(--muted); font-size:38px; font-weight:600; line-height:1.3;">Glisse ton PDF<br>ou tes photos de cours</div>
+      </div>
+      <div class="abs" id="s2-chip" style="left:56px; top:230px; width:768px; height:170px; border-radius:34px; background:var(--navy); color:#fff; display:flex; align-items:center; gap:30px; padding:0 40px; box-shadow:0 24px 60px rgba(11,30,52,.35);">
+        <div style="width:84px; height:104px; border-radius:14px; background:#fff; color:var(--navy); display:grid; place-items:center; font-weight:800; font-size:26px;">PDF</div>
+        <div><div style="font-size:42px; font-weight:700;">Pharmacologie.pdf</div><div style="font-size:30px; color:#9fb4c8; margin-top:6px;">312 pages</div></div>
+      </div>
+      <div class="abs" style="left:56px; right:56px; top:450px; height:30px; border-radius:15px; background:#e6edf4; overflow:hidden;"><div id="s2-fill" style="height:100%; width:0; background:linear-gradient(90deg, var(--teal), #3dd6c3); border-radius:15px;"></div></div>
+      <div class="abs display" id="s2-status" style="left:56px; right:56px; top:520px; font-size:50px; color:var(--ink);">Axone lit ton cours…</div>
+    </div>
+  </div>
+
+  <!-- ═══ 3. Fiche + flashcard + QCM ═══ -->
+  <div class="scene" id="s3" style="background:var(--paper);">
+    <div class="abs display" id="s3-title" style="left:40px; right:40px; top:90px; text-align:center; font-size:112px;">Fiche, flashcards<br>et QCM.</div>
+    <div class="abs" id="s3-pill" style="left:0; right:0; top:350px; display:flex; justify-content:center;"><div style="background:var(--teal); color:#fff; font-weight:700; font-size:42px; padding:16px 44px; border-radius:999px;">en 2 minutes ⚡</div></div>
+
+    <div class="card" id="s3-a" style="left:70px; top:450px; width:940px; height:455px; padding:46px 54px;">
+      <div class="label" style="color:var(--teal-d);">Fiche · Pharmacologie · Chap. 5</div>
+      <div class="display" style="font-size:66px; margin-top:14px;">Les bêta-bloquants</div>
+      <div id="s3-a-lines" style="margin-top:22px; font-size:34px; line-height:1.4; color:var(--muted);">
+        <div class="l">Bloquent les récepteurs β1 du cœur.</div>
+        <div class="l">Ralentissent la fréquence cardiaque.</div>
+      </div>
+      <div id="s3-a-box" style="margin-top:20px; background:var(--mint); border-radius:22px; padding:18px 26px; font-size:34px; font-weight:600;"><span class="label" style="color:var(--teal-d); font-size:22px; display:block; margin-bottom:4px;">Ce qui tombe en compo</span>★ Contre-indiqués dans l'asthme</div>
+    </div>
+
+    <div class="card" id="s3-b" style="left:70px; top:930px; width:940px; height:290px; padding:44px 54px;">
+      <div class="label" style="color:var(--teal-d);">Flashcard</div>
+      <div id="s3-b-face" class="display" style="margin-top:22px; font-size:56px; line-height:1.1;"></div>
+    </div>
+
+    <div class="card" id="s3-c" style="left:70px; top:1245px; width:940px; height:635px; padding:40px 44px;">
+      <div class="label" style="color:var(--teal-d);">QCM · Question 3</div>
+      <div class="display" style="font-size:46px; margin-top:10px; margin-bottom:18px;">Quels effets sont exacts&nbsp;?</div>
+      <div id="s3-opts" style="display:grid; gap:12px;"></div>
+      <div class="abs display" id="s3-score" style="right:44px; top:34px; background:var(--teal); color:#fff; font-size:50px; padding:10px 30px; border-radius:999px;">10 / 10</div>
+    </div>
+  </div>
+
+  <!-- ═══ 4. Dr. Ahmed ═══ -->
+  <div class="scene" id="s4" style="background:var(--navy);">
+    <div class="abs" id="s4-img" style="left:0; top:0; width:1080px; height:960px; overflow:hidden;">
+      <img id="s4-photo" src="../web/public/dr-ahmed-v2.webp" style="width:1080px; height:auto; margin-top:-30px; transform-origin:50% 18%;">
+      <div class="abs" style="left:0; right:0; bottom:0; height:380px; background:linear-gradient(180deg, rgba(11,30,52,0), #0b1e34);"></div>
+    </div>
+    <div class="abs display" id="s4-title" style="left:50px; right:50px; top:870px; text-align:center; font-size:84px; color:#fff;">Il répond à partir<br><span style="color:var(--teal)">de ton cours.</span></div>
+    <div class="abs" id="s4-chat" style="left:50px; right:50px; top:1180px; height:620px; background:#fff; border-radius:48px; padding:44px; box-shadow:0 30px 90px rgba(0,0,0,.4);">
+      <div id="s4-q" style="background:var(--navy); color:#fff; font-size:38px; line-height:1.3; padding:26px 34px; border-radius:36px 36px 8px 36px; margin-left:90px; min-height:150px;"></div>
+      <div id="s4-a" style="margin-top:24px; background:#eef3f7; font-size:36px; line-height:1.35; padding:26px 34px; border-radius:36px 36px 36px 8px; margin-right:40px; min-height:200px;"></div>
+      <div id="s4-src" class="label" style="margin-top:26px; color:var(--teal-d); font-size:28px;">Source : Cardiologie · p. 42</div>
+    </div>
+  </div>
+
+  <!-- ═══ 5. Appel à l'action ═══ -->
+  <div class="scene" id="s5" style="background:radial-gradient(110% 70% at 50% 25%, #14355a 0%, #0b1e34 65%);">
+    <div class="abs" id="s5-logo" style="left:0; right:0; top:250px; display:flex; justify-content:center;"></div>
+    <div class="abs display" id="s5-t1" style="left:40px; right:40px; top:560px; text-align:center; font-size:158px; color:#fff;">Dépose<br>ton cours.</div>
+    <div class="abs display" id="s5-t2" style="left:40px; right:40px; top:930px; text-align:center; font-size:158px; color:var(--teal);">Retiens-le.</div>
+    <div class="abs" id="s5-cta" style="left:90px; right:90px; top:1290px; height:170px; border-radius:999px; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:58px; font-weight:800; font-family:'Bricolage Grotesque'; box-shadow:0 30px 80px rgba(7,169,151,.45);">Je commence gratuitement</div>
+    <div class="abs" id="s5-url" style="left:0; right:0; top:1520px; text-align:center; font-size:56px; font-weight:700; color:#fff; letter-spacing:.02em;">axonerevision.com</div>
+    <div class="abs" id="s5-sub" style="left:60px; right:60px; top:1640px; text-align:center; font-size:34px; color:#8fa3b8; line-height:1.4;">Médecine et pharmacie<br>Mauritanie · Sénégal · Maroc</div>
+  </div>
+</div>
+
+<script>
+const FPS = 30, DUR = 26;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const E = {
+  out: t => 1 - Math.pow(1 - t, 3),
+  inOut: t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  back: t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+  lin: t => t,
+};
+// progression 0→1 d'un segment [a, b]
+const P = (t, a, b, e = E.out) => e(clamp((t - a) / (b - a)));
+const $ = id => document.getElementById(id);
+const vis = (t, a, b, f = .35) => clamp((t - a) / f) * clamp((b - t) / f);
+const typed = (s, t, a, cps) => s.slice(0, Math.max(0, Math.min(s.length, Math.floor((t - a) * cps))));
+
+const logo = (size, color) => `<div style="display:flex; align-items:center; gap:${size * .28}px;">
+  <svg width="${size}" height="${size}" viewBox="0 0 30 30" fill="none"><circle cx="9" cy="15" r="6" fill="#07a997"/><path d="M15 15h12" stroke="${color}" stroke-width="3" stroke-linecap="round"/><path d="M22 9v12" stroke="${color}" stroke-width="3" stroke-linecap="round"/></svg>
+  <span class="display" style="font-size:${size * 1.05}px; color:${color};">axone</span></div>`;
+$('s2-logo').innerHTML = logo(110, '#0b1e34');
+$('s5-logo').innerHTML = logo(150, '#ffffff');
+
+// pile de pages (scène 1)
+const stack = $('s1-stack');
+const PAGES = 26;
+for (let k = 0; k < PAGES; k++) {
+  const w = document.createElement('div'); w.className = 'pgwrap';
+  w.innerHTML = '<div class="pg"></div>';
+  stack.appendChild(w);
+}
+// options QCM (scène 3)
+const OPTS = [['A', 'Bradycardie', 1], ['B', 'Tachycardie réflexe', 0], ['C', 'Baisse du débit cardiaque', 1], ['D', 'Bronchodilatation', 0], ['E', 'Hypertension', 0]];
+OPTS.forEach(([k, txt]) => { const d = document.createElement('div'); d.className = 'opt'; d.innerHTML = `<b>${k}</b><span>${txt}</span><span class="ck" style="margin-left:auto; font-size:44px;"></span>`; $('s3-opts').appendChild(d); });
+
+const Q = "Pourquoi l'insuffisance cardiaque gauche donne un œdème pulmonaire ?";
+const A = "Le sang s'accumule en amont du ventricule gauche : la pression monte dans les veines pulmonaires et le plasma passe dans les alvéoles.";
+
+function seek(t) {
+  // ── Scène 1 : 0 – 3.8 ──
+  $('s1').style.opacity = vis(t, 0, 3.8, .3) * (t < .3 ? 1 : 1);
+  if (t < 0.3) $('s1').style.opacity = 1;
+  const n = Math.round(300 * P(t, 0.15, 2.7, E.inOut));
+  $('s1-count').textContent = n;
+  const pages = [...stack.children];
+  pages.forEach((w, k) => {
+    const a = 0.1 + k * 0.085;
+    const p = P(t, a, a + .45, E.back);
+    w.style.opacity = clamp((t - a) / .12);
+    w.style.transform = `translate(${k * 5 - 60 + (1 - p) * 120}px, ${-k * 9 + (1 - p) * -140}px) rotate(${(k % 5 - 2) * .9}deg) scale(${.9 + .1 * p})`;
+  });
+  const out1 = P(t, 3.2, 3.8, E.inOut);
+  stack.style.transform = `scale(${.78 * (1 - out1 * .15)}) translateY(${out1 * 80}px)`;
+  $('s1-pages').style.opacity = P(t, .5, 1.0);
+  $('s1-tail').style.opacity = P(t, 1.7, 2.3);
+  $('s1-tail').style.transform = `translateY(${(1 - P(t, 1.7, 2.3)) * 50}px)`;
+
+  // ── Scène 2 : 3.4 – 8.6 ──
+  $('s2').style.opacity = vis(t, 3.4, 8.6);
+  $('s2-logo').style.opacity = P(t, 3.6, 4.1);
+  $('s2-logo').style.transform = `scale(${.7 + .3 * P(t, 3.6, 4.2, E.back)})`;
+  $('s2-title').style.opacity = P(t, 3.9, 4.5);
+  $('s2-title').style.transform = `translateY(${(1 - P(t, 3.9, 4.6)) * 70}px)`;
+  const c2 = P(t, 4.3, 5.0, E.back);
+  $('s2-card').style.opacity = P(t, 4.3, 4.8);
+  $('s2-card').style.transform = `translateY(${(1 - c2) * 160}px)`;
+  const chipP = P(t, 5.0, 5.7, E.back);
+  $('s2-chip').style.opacity = clamp((t - 5.0) / .2);
+  $('s2-chip').style.transform = `translateY(${(1 - chipP) * -380}px)`;
+  $('s2-fill').style.width = (P(t, 5.8, 7.6, E.inOut) * 100) + '%';
+  $('s2-status').textContent = t < 7.65 ? 'Axone lit ton cours…' : 'Prêt ✓  fiche, QCM, flashcards';
+  $('s2-status').style.color = t < 7.65 ? '#0b1e34' : '#058a7b';
+
+  // ── Scène 3 : 8.2 – 15.6 ──
+  $('s3').style.opacity = vis(t, 8.2, 15.6);
+  $('s3-title').style.opacity = P(t, 8.4, 9.0);
+  $('s3-title').style.transform = `translateY(${(1 - P(t, 8.4, 9.1)) * 50}px)`;
+  $('s3-pill').style.opacity = P(t, 9.0, 9.5);
+  $('s3-pill').style.transform = `scale(${.6 + .4 * P(t, 9.0, 9.6, E.back)})`;
+  const pop = (id, a) => { const p = P(t, a, a + .6, E.back); $(id).style.opacity = clamp((t - a) / .2); $(id).style.transform = `translateY(${(1 - p) * 150}px) scale(${.92 + .08 * p})`; };
+  pop('s3-a', 9.4); pop('s3-b', 10.6); pop('s3-c', 11.8);
+  [...$('s3-a-lines').children].forEach((l, i) => { l.style.opacity = P(t, 9.9 + i * .35, 10.3 + i * .35); });
+  $('s3-a-box').style.opacity = P(t, 10.7, 11.1);
+  // flashcard : face question puis retournement
+  const flip = t > 12.9;
+  const sy = t < 12.7 ? 1 : t < 12.9 ? 1 - P(t, 12.7, 12.9, E.lin) : P(t, 12.9, 13.1, E.out);
+  $('s3-b-face').style.transform = `scaleY(${Math.max(.02, sy)})`;
+  $('s3-b-face').innerHTML = flip ? "<span style='color:#058a7b'>L'asthme.</span>" : 'Contre-indication des β-bloquants non sélectifs&nbsp;?';
+  // QCM : correction
+  const rows = [...$('s3-opts').children];
+  const reveal = P(t, 13.6, 14.1);
+  rows.forEach((r, i) => {
+    const good = OPTS[i][2];
+    r.style.opacity = clamp((t - (12.3 + i * .12)) / .2);
+    if (reveal > 0) {
+      r.style.borderColor = good ? `rgba(7,169,151,${reveal})` : '#e3e9ef';
+      r.style.background = good ? `rgba(227,246,243,${reveal})` : '#fff';
+      r.style.opacity = good ? 1 : 1 - .5 * reveal;
+      r.querySelector('.ck').textContent = good ? '✓' : '';
+      r.querySelector('.ck').style.color = '#058a7b';
+    }
+  });
+  const sc = P(t, 14.1, 14.6, E.back);
+  $('s3-score').style.opacity = clamp((t - 14.1) / .15);
+  $('s3-score').style.transform = `scale(${.4 + .6 * sc}) rotate(${(1 - sc) * -8}deg)`;
+
+  // ── Scène 4 : 15.2 – 20.8 ──
+  $('s4').style.opacity = vis(t, 15.2, 21.4);
+  $('s4-photo').style.transform = `scale(${1.04 + .05 * P(t, 15.2, 21.4, E.lin)})`;
+  $('s4-title').style.opacity = P(t, 15.6, 16.2);
+  $('s4-title').style.transform = `translateY(${(1 - P(t, 15.6, 16.3)) * 50}px)`;
+  const chat = P(t, 15.8, 16.5, E.back);
+  $('s4-chat').style.opacity = clamp((t - 15.8) / .2);
+  $('s4-chat').style.transform = `translateY(${(1 - chat) * 220}px)`;
+  $('s4-q').textContent = typed(Q, t, 16.4, 55);
+  $('s4-a').textContent = typed(A, t, 17.7, 75);
+  $('s4-src').style.opacity = P(t, 19.8, 20.2);
+
+  // ── Scène 5 : 20.4 – 25 ──
+  $('s5').style.opacity = clamp((t - 21.0) / .4) * (t > 25.7 ? clamp((26 - t) / .3) : 1);
+  $('s5-logo').style.opacity = P(t, 21.3, 21.8);
+  $('s5-logo').style.transform = `scale(${.7 + .3 * P(t, 21.3, 21.9, E.back)})`;
+  $('s5-t1').style.opacity = P(t, 21.6, 22.2);
+  $('s5-t1').style.transform = `translateY(${(1 - P(t, 21.6, 22.3)) * 60}px)`;
+  $('s5-t2').style.opacity = P(t, 22.3, 22.9);
+  $('s5-t2').style.transform = `translateY(${(1 - P(t, 22.3, 23.0)) * 60}px)`;
+  const ctaIn = P(t, 23.1, 23.7, E.back);
+  const pulse = t > 23.9 ? 1 + .025 * Math.sin((t - 23.9) * 7) : 1;
+  $('s5-cta').style.opacity = clamp((t - 23.1) / .2);
+  $('s5-cta').style.transform = `scale(${(.7 + .3 * ctaIn) * pulse})`;
+  $('s5-url').style.opacity = P(t, 23.6, 24.1);
+  $('s5-sub').style.opacity = P(t, 24.0, 24.5);
+}
+window.FPS = FPS; window.DUR = DUR; window.seek = seek;
+window.ready = document.fonts.ready.then(() => { seek(0); return true; });
+// aperçu dans le navigateur : ?t=12.5 fige l'image à cet instant
+const q = new URLSearchParams(location.search).get('t');
+if (q !== null) window.ready.then(() => seek(parseFloat(q)));
+</script>
+</body>
+</html>
