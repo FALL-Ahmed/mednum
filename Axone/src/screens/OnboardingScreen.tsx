@@ -20,13 +20,13 @@ const STEPS = [
   {
     emoji: '📚',
     title: 'Bienvenue sur Axone !',
-    subtitle: 'Ton assistant pédagogique intelligent. Je réponds à tes questions uniquement depuis ton cours.',
+    subtitle: 'Ton assistant pédagogique intelligent. Je pars de ton cours, et je vais plus loin quand ta question le demande.',
     bg: NAVY,
   },
   {
     emoji: '🔒',
     title: 'Des réponses fiables',
-    subtitle: 'Chaque réponse vient directement de ton PDF de cours. Je ne m\'invente rien — tu vois toujours la page source.',
+    subtitle: 'Je t\'indique toujours ce qui vient de ton cours (avec la page source) et ce qui va plus loin. Je ne m\'invente aucun chiffre.',
     bg: TEAL,
   },
   {

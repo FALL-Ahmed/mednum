@@ -464,7 +464,7 @@ export function ChatApp() {
               <h2 className="display mt-5 text-3xl text-ink">Bonjour {profile.name}, que veux-tu réviser ?</h2>
               <p className="mt-2 max-w-md text-muted">
                 Écris ta question, dépose une image (page de cours, schéma, ECG) ou dicte-la avec le micro.
-                {docCtx ? ` Dr. Ahmed répond d'après « ${docCtx.name} ».` : ""}
+                {docCtx ? ` Dr. Ahmed part de « ${docCtx.name} » puis va plus loin si besoin.` : ""}
               </p>
             </div>
           ) : (

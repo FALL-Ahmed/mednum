@@ -17,7 +17,7 @@ const FR = {
     label: "Révision · Médecine et pharmacie",
     line1: "Dépose ton cours.",
     line2: "Retiens-le.",
-    text: "Axone transforme tes cours en fiches, QCM, flashcards et cas cliniques, et Dr. Ahmed répond à tes questions d'après ton cours.",
+    text: "Axone transforme tes cours en fiches, QCM, flashcards et cas cliniques. Dr. Ahmed répond à tes questions : il part de ton cours, puis va plus loin quand il le faut.",
     cta: "Essayer gratuitement",
     countries: "Pour les étudiants de Mauritanie, du Sénégal et du Maroc",
     alt: "Dr. Ahmed, ton prof virtuel",
@@ -32,7 +32,7 @@ const FR = {
     ariaTabs: "Fonctions d'Axone",
   },
   tabs: [
-    { id: "questions", label: "Questions", title: "Une notion bloque ? Demande à Dr. Ahmed.", text: "Écris, parle ou envoie une photo. La réponse est courte, elle vient de ton cours, et finit par ce qu'il faut retenir." },
+    { id: "questions", label: "Questions", title: "Une notion bloque ? Demande à Dr. Ahmed.", text: "Écris, parle ou envoie une photo. La réponse part de ton cours, va plus loin si besoin, et finit par ce qu'il faut retenir." },
     { id: "fiches", label: "Fiches", title: "Ton cours, en une page.", text: "Chaque chapitre devient une fiche avec ce qui tombe en compo. Tu l'exportes en PDF ou tu la partages avec ta promo." },
     { id: "qcm", label: "QCM", title: "Des QCM comme en faculté.", text: "Plusieurs propositions exactes, notation complète, partielle ou fausse. Tu vois ce que tu as oublié, avec la correction." },
     { id: "flashcards", label: "Flashcards", title: "Ce qui résiste revient plus vite.", text: "Tu te notes carte par carte. La répétition espacée te représente chaque notion au bon moment." },
@@ -54,7 +54,7 @@ const FR = {
     title: "Des questions ?",
     items: [
       { q: "Axone remplace-t-il mes cours ?", a: "Non. Il part de tes cours pour t'aider à les apprendre. Pour les points importants, vérifie toujours avec tes enseignants." },
-      { q: "D'où viennent les réponses ?", a: "De tes documents. Si ta question sort du programme, Axone te le dit au lieu d'inventer." },
+      { q: "D'où viennent les réponses ?", a: "D'abord de tes documents, avec la page source. Si ta question va plus loin que ton cours, Dr. Ahmed développe avec des connaissances médicales établies, dans une partie séparée « Pour aller plus loin ». Pour tout ce qui doit être exact au chiffre près (doses, seuils), vérifie avec tes enseignants." },
       {
         q: "Comment je paie ?",
         a: "En Mauritanie, avec Bankily, Masrivi, Sedad ou Click : tu envoies la capture de ton paiement et ton plan est activé après vérification. Au Sénégal, par mobile money (Wave, Orange Money…) ou carte bancaire, et au Maroc par carte bancaire : ces moyens arrivent bientôt, et en attendant tu peux nous écrire sur WhatsApp.",
@@ -135,7 +135,7 @@ const FR = {
     notConfigured: "La connexion n'est pas encore configurée.",
     failed: "Connexion impossible pour le moment. Réessaie dans un instant.",
     bullets: [
-      "Dr. Ahmed répond d'après tes propres cours.",
+      "Dr. Ahmed part de tes cours, puis va plus loin quand ta question le demande.",
       "Fiches, QCM, flashcards et cas cliniques générés pour toi.",
       "Chaque étudiant ne voit que ses propres documents.",
     ],
@@ -158,7 +158,7 @@ const AR: SiteDict = {
     label: "مراجعة · الطب والصيدلة",
     line1: "ارفع درسك.",
     line2: "واحفظه.",
-    text: "يحوّل أكسون دروسك إلى ملخّصات وأسئلة QCM وبطاقات مراجعة وحالات سريرية، ويجيب الدكتور أحمد عن أسئلتك انطلاقًا من درسك.",
+    text: "يحوّل أكسون دروسك إلى ملخّصات وأسئلة QCM وبطاقات مراجعة وحالات سريرية. ويجيب الدكتور أحمد عن أسئلتك: ينطلق من درسك، ثم يتوسّع عند الحاجة.",
     cta: "جرّب مجانًا",
     countries: "لطلبة موريتانيا والسنغال والمغرب",
     alt: "الدكتور أحمد، أستاذك الافتراضي",
@@ -173,7 +173,7 @@ const AR: SiteDict = {
     ariaTabs: "ميزات أكسون",
   },
   tabs: [
-    { id: "questions", label: "الأسئلة", title: "فكرة مستعصية؟ اسأل الدكتور أحمد.", text: "اكتب أو تكلّم أو أرسل صورة. الجواب قصير، مأخوذ من درسك، وينتهي بما يجب حفظه." },
+    { id: "questions", label: "الأسئلة", title: "فكرة مستعصية؟ اسأل الدكتور أحمد.", text: "اكتب أو تكلّم أو أرسل صورة. الجواب ينطلق من درسك ويتوسّع عند الحاجة، وينتهي بما يجب حفظه." },
     { id: "fiches", label: "الملخّصات", title: "درسك في صفحة واحدة.", text: "يتحوّل كل فصل إلى ملخّص يركّز على ما يأتي في الامتحان. صدّره بصيغة PDF أو شاركه مع دفعتك." },
     { id: "qcm", label: "أسئلة QCM", title: "أسئلة QCM كما في الكلية.", text: "عدة اقتراحات صحيحة، وتنقيط كامل أو جزئي أو خاطئ. ترى ما نسيته مع التصحيح." },
     { id: "flashcards", label: "بطاقات المراجعة", title: "ما يصعب عليك يعود أسرع.", text: "تقيّم نفسك بطاقة بطاقة. والتكرار المتباعد يعرض عليك كل فكرة في الوقت المناسب." },
@@ -195,7 +195,7 @@ const AR: SiteDict = {
     title: "أسئلة؟",
     items: [
       { q: "هل يعوّض أكسون دروسي؟", a: "لا. ينطلق من دروسك ليساعدك على تعلّمها. وفي النقاط المهمة، تحقّق دائمًا مع أساتذتك." },
-      { q: "من أين تأتي الإجابات؟", a: "من مستنداتك. وإذا كان سؤالك خارج البرنامج، يخبرك أكسون بذلك بدل أن يختلق جوابًا." },
+      { q: "من أين تأتي الإجابات؟", a: "أولًا من مستنداتك، مع ذكر الصفحة. وإذا تجاوز سؤالك درسك، يتوسّع الدكتور أحمد بمعارف طبية راسخة في قسم منفصل بعنوان «للتوسّع». وفي كل ما يجب أن يكون دقيقًا بالرقم (الجرعات، العتبات)، تحقّق مع أساتذتك." },
       {
         q: "كيف أدفع؟",
         a: "في موريتانيا عبر بنكيلي أو مصريفي أو سداد أو كليك: ترسل لقطة شاشة للدفع فيُفعَّل اشتراكك بعد التحقق. وفي السنغال عبر الدفع بالهاتف (واف، أورنج موني…) أو البطاقة البنكية، وفي المغرب بالبطاقة البنكية: هذه الوسائل قريبة، وفي انتظارها يمكنك مراسلتنا على واتساب.",
@@ -276,7 +276,7 @@ const AR: SiteDict = {
     notConfigured: "تسجيل الدخول غير مُعدّ بعد.",
     failed: "تعذّر تسجيل الدخول حاليًا. حاول بعد قليل.",
     bullets: [
-      "يجيب الدكتور أحمد انطلاقًا من دروسك أنت.",
+      "ينطلق الدكتور أحمد من دروسك أنت، ثم يتوسّع عندما يحتاج سؤالك إلى ذلك.",
       "ملخّصات وأسئلة QCM وبطاقات مراجعة وحالات سريرية تُنشأ من أجلك.",
       "كل طالب لا يرى إلا مستنداته.",
     ],

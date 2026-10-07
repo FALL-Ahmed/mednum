@@ -115,7 +115,7 @@ export function ChatPanel({ doc, starters }: { doc: DocumentRow | null; starters
                 </p>
                 <p className="mt-1 text-muted">
                   {doc
-                    ? "Dr. Ahmed répond d'après ton document."
+                    ? "Dr. Ahmed part de ton document, puis va plus loin si besoin."
                     : "Pose une question libre, ou choisis un de tes cours pour une réponse tirée de ton document."}
                 </p>
               </div>

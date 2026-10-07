@@ -186,7 +186,7 @@ function buildSystemPrompt(courseName: string, niveau: NiveauType, mode: ModeTyp
 RÈGLES D'OR :
 1. Des extraits du cours sont fournis dans le message. Lis-les TOUS avant de répondre.
 2. Si l'information est dans les extraits, utilise-la. Ne dis JAMAIS "ce n'est pas dans les extraits" si c'est bien présent.
-3. Si le message commence par [HORS_COURS] → signale-le clairement puis réponds sur ta connaissance générale.
+3. Si le message commence par [HORS_COURS] → dis en une phrase que ce n'est pas dans son cours, puis réponds complètement avec tes connaissances médicales solides, sous la mention « Hors de ton cours : … ». Reste prudent : n'avance que des connaissances bien établies, n'invente aucun chiffre, posologie ou seuil, et invite à vérifier avec ses enseignants ou son manuel de référence.
 4. Utilise les définitions exactes du cours — ne paraphrase pas les valeurs seuils ou posologies.
 5. Si le message contient un [Document joint] (cas clinique, ECG, résultats biologiques) : c'est le travail de l'étudiant. Utilise les extraits du cours pour l'aider à répondre. Ne demande pas d'autres extraits.
 6. Parle naturellement — pas de "L'extrait 1 dit..."
@@ -312,7 +312,7 @@ function buildMessages(
     // Vector search ran but found nothing above threshold → hors cours
     userContent =
       `[HORS_COURS] Le sujet "${question}" ne figure PAS dans les extraits du cours "${courseName}". ` +
-      `Dis clairement à l'élève que ce sujet n'est pas dans son manuel. NE PAS inventer de réponse.`;
+      `Dis en une phrase que ce sujet n'est pas dans son cours, puis réponds quand même avec tes connaissances médicales solides (sous « Hors de ton cours : »). Prudence : connaissances établies uniquement, aucun chiffre inventé, invite à vérifier avec ses enseignants ou son manuel.`;
     sources = [];
   } else if (estQuestionStructure(question) && courseChunks && courseChunks.length > 0) {
     // Question sur la structure → donner le plan structuré
