@@ -1,9 +1,11 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { trackOnce } from "./track";
 
 /** Petits repères enregistrés dans le navigateur (par ex. « a déjà posé une question ») pour la liste de premiers pas. */
 export function setFlag(key: string) {
+  trackOnce(`activation_${key}`); // première question, premier QCM… dans Google Analytics
   try {
     window.localStorage.setItem(`axone:${key}`, "1");
     window.dispatchEvent(new Event("axone-flags"));

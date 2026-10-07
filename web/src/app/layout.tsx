@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Instrument_Sans, DM_Mono } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { Telemetry } from "@/components/telemetry";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -24,6 +25,7 @@ const mono = DM_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.axonerevision.com"),
   title: "Axone — Dépose ton cours, retiens-le",
   description:
     "Axone transforme tes cours en fiches, QCM, flashcards et cas cliniques. Pour les étudiants en médecine et pharmacie de Mauritanie, du Sénégal et du Maroc.",
@@ -33,7 +35,9 @@ export const metadata: Metadata = {
       "Fiches, QCM, flashcards et cas cliniques générés depuis tes cours. Mauritanie, Sénégal, Maroc.",
     type: "website",
     locale: "fr_FR",
+    siteName: "Axone",
   },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({
@@ -41,7 +45,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Telemetry />
+      </body>
       {/* Google Analytics (GA4) : identifiant public, actif seulement en production. NEXT_PUBLIC_GA_ID peut le remplacer. */}
       {process.env.NODE_ENV === "production" && (
         <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || "G-H5KLZZ24KS"} />

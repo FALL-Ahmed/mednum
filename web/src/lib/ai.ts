@@ -1,4 +1,6 @@
 import { getSupabase } from "./supabase";
+import { reportError } from "./report-error";
+import { track, trackOnce } from "./track";
 
 export type ContentBlock =
   | { type: "text"; text: string }
@@ -15,7 +17,7 @@ export class QuotaError extends Error {}
  *
  * Si `signal` est interrompu (bouton « Arrêter »), la fonction renvoie le texte reçu jusque-là.
  */
-export async function askAI(opts: {
+async function askAIRaw(opts: {
   system?: string;
   messages: ChatMsg[];
   maxTokens?: number;
@@ -88,6 +90,25 @@ export async function askAI(opts: {
     return text;
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return text;
+    throw e;
+  }
+}
+
+/** Appelle l'IA, compte la génération dans Google Analytics et signale les échecs dans l'admin (hors limite du jour). */
+export async function askAI(opts: Parameters<typeof askAIRaw>[0]): Promise<string> {
+  const kind = opts.kind ?? "chat";
+  try {
+    const text = await askAIRaw(opts);
+    if (text.trim()) {
+      track("ai_generate", { kind });
+      trackOnce(`first_ai_${kind}`);
+    }
+    return text;
+  } catch (e) {
+    if (!(e instanceof QuotaError) && !(e instanceof DOMException && e.name === "AbortError")) {
+      reportError("ai", e instanceof Error ? e.message : String(e), { context: { kind } });
+    }
+    if (e instanceof QuotaError) track("quota_reached", { kind });
     throw e;
   }
 }
