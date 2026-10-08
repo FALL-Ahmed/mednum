@@ -17,6 +17,9 @@ export function reportError(kind: string, message: string, extra?: { stack?: str
   if (!msg) return;
   // Bruits sans intérêt : extensions du navigateur, annulations volontaires, perte de réseau
   if (/ResizeObserver loop|AbortError|Failed to fetch|NetworkError|Load failed|chrome-extension|moz-extension/i.test(msg)) return;
+  // « Script error. » sans détail : le navigateur masque l'erreur d'un script d'un autre site (Google, statistiques, extension…).
+  // Ce n'est pas du code d'Axone et on ne peut rien y corriger : inutile de l'enregistrer.
+  if (/^Script error\.?$/i.test(msg) && !extra?.stack) return;
   const key = `${kind}:${msg}`;
   if (seen.has(key) || sent >= MAX_PER_SESSION) return;
   seen.add(key);

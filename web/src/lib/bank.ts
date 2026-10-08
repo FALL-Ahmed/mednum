@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { reportError } from "./report-error";
 
 /*
   Banque de cours : le fichier d'origine de chaque cours déposé est conservé dans un espace privé (course-files),
@@ -48,7 +49,8 @@ export async function saveToBank(sb: SupabaseClient, userId: string, docId: stri
         const blob = (await shrink(files[i])) ?? files[i];
         if (blob.size > MAX_FILE) continue;
         const p = `${folder}/${String(i + 1).padStart(3, "0")}${blob.type === "image/jpeg" ? ".jpg" : "-" + safe(files[i].name)}`;
-        const { error } = await sb.storage.from(BUCKET).upload(p, blob, { contentType: blob.type || "image/jpeg", upsert: true });
+        const { error } = await sb.storage.from(BUCKET).upload(p, blob, { contentType: blob.type || "image/jpeg" });
+        if (error) reportError("bank", `Envoi photo : ${error.message}`, { context: { docId } });
         if (!error) {
           stored++;
           bytes += blob.size;
@@ -58,9 +60,11 @@ export async function saveToBank(sb: SupabaseClient, userId: string, docId: stri
       path = stored > 0 ? folder : null;
     } else {
       const f = files[0];
+      if (f.size > MAX_FILE) reportError("bank", "Fichier trop lourd pour la banque (plus de 40 Mo)", { context: { docId, size: f.size } });
       if (f.size <= MAX_FILE) {
         const p = `${folder}/${safe(f.name)}`;
-        const { error } = await sb.storage.from(BUCKET).upload(p, f, { contentType: f.type || undefined, upsert: true });
+        const { error } = await sb.storage.from(BUCKET).upload(p, f, { contentType: f.type || undefined });
+        if (error) reportError("bank", `Envoi fichier : ${error.message}`, { context: { docId, type: f.type, size: f.size } });
         if (!error) {
           stored = 1;
           bytes = f.size;
@@ -71,10 +75,12 @@ export async function saveToBank(sb: SupabaseClient, userId: string, docId: stri
     }
 
     if (path && stored > 0) {
-      await sb.from("documents").update({ file_path: path, file_count: stored, file_size: bytes, file_mime: mime }).eq("id", docId);
+      const { error } = await sb.from("documents").update({ file_path: path, file_count: stored, file_size: bytes, file_mime: mime }).eq("id", docId);
+      if (error) reportError("bank", `Enregistrement du fichier : ${error.message}`, { context: { docId } });
     }
-  } catch {
-    /* la banque est un plus : le cours reste ajouté quoi qu'il arrive */
+  } catch (e) {
+    /* la banque est un plus : le cours reste ajouté quoi qu'il arrive (mais on note pourquoi, pour l'admin) */
+    reportError("bank", `Banque : ${e instanceof Error ? e.message : String(e)}`, { context: { docId } });
   }
 }
 

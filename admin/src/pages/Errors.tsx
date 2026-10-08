@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 
 type Row = { id: string; created_at: string; user_id: string | null; kind: string; message: string; stack: string | null; url: string | null; user_agent: string | null; context: Record<string, unknown> | null }
 
-const KIND: Record<string, string> = { window: 'Page', promise: 'Action échouée', render: 'Affichage', ai: "Génération (IA)" }
+const KIND: Record<string, string> = { window: 'Page', promise: 'Action échouée', render: 'Affichage', ai: "Génération (IA)", bank: 'Banque de cours' }
 const device = (ua: string | null) => (!ua ? '—' : /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Windows|Macintosh|Linux/.test(ua) ? 'Ordinateur' : 'Autre')
 
 export default function Errors() {
